@@ -5,7 +5,7 @@ const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.
 const THAI_MONTHS_FULL = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const TRASH_RETENTION_DAYS = 30;
 const VIDEO_MAX_SECONDS = 30;
-const APP_VERSION = "1.7.0";
+const APP_VERSION = "1.7.1";
 const APP_BUILD_DATE = "2026-09-02";
 
 const state = {
@@ -1222,21 +1222,14 @@ $("shareEntryBtn").addEventListener("click", async () => {
   if (!rec || !state.viewDecrypted) return;
   const data = state.viewDecrypted;
   const text = [data.title, data.content].filter(Boolean).join("\n\n");
+  // Text-only, on purpose: most share targets (LINE, Messenger, etc.) drop
+  // the caption text entirely when a file is attached alongside it, so
+  // sharing text+image together is unreliable. To share a photo, long-press
+  // it in the entry view instead — the browser's own save/share menu
+  // handles that reliably without going through this button at all.
   const shareData = { title: data.title || "บันทึกจากสมุดบันทึก", text };
 
   try {
-    if (!rec.private) {
-      const firstImgRef = (rec.attachmentRefs || []).find((r) => r.type === "image" || r.type === "sketch");
-      if (firstImgRef && navigator.canShare) {
-        const att = await DiaryDB.getAttachment(firstImgRef.id);
-        if (att && att.blob) {
-          const file = new File([att.blob], "diary-image.jpg", { type: att.blob.type || "image/jpeg" });
-          if (navigator.canShare({ files: [file] })) {
-            shareData.files = [file];
-          }
-        }
-      }
-    }
     if (navigator.share) {
       await navigator.share(shareData);
     } else {
