@@ -1,6 +1,15 @@
-/* drive-sync.js — manual "sync now" against a single JSON file in the
-   user's own Google Drive, using the drive.file scope (the app can only
-   ever see files it created — nothing else in the user's Drive). */
+/* drive-sync.js — manual "sync now" against Google Drive, using the
+   drive.file scope (the app can only ever see files it created).
+
+   Layout on Drive:
+   - "diary-data.json"     — one JSON file: all entries + an index that
+                             maps each non-private attachment id to the
+                             Drive file that holds its actual bytes.
+   - "diary-attach-<id>"   — one file per non-private attachment (photo,
+                             voice note, video clip, sketch).
+   Private-entry media never gets a separate Drive file — it travels
+   as base64 inside that entry's already-encrypted blob, inside
+   diary-data.json, same as before. */
 
 const DriveSync = (() => {
   const SCOPE = "https://www.googleapis.com/auth/drive.file";
@@ -18,7 +27,7 @@ const DriveSync = (() => {
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: DRIVE_CLIENT_ID,
       scope: SCOPE,
-      callback: () => {}, // set per-call below
+      callback: () => {},
     });
     return tokenClient;
   }
@@ -102,21 +111,35 @@ const DriveSync = (() => {
       if (!res.ok) throw new Error("อัปโหลดไป Drive ไม่สำเร็จ");
       return id;
     }
+    const created = await uploadNewFile(FILE_NAME, new Blob([body], { type: "application/json" }));
+    fileId = created;
+    localStorage.setItem("diary_drive_file_id", fileId);
+    return fileId;
+  }
+
+  // generic: create a brand-new Drive file (used for both diary-data.json's
+  // first creation and every attachment file) via multipart upload.
+  async function uploadNewFile(name, blob) {
     const boundary = "diaryAppBoundary";
-    const metadata = { name: FILE_NAME, mimeType: "application/json" };
-    const multipartBody =
-      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
-      `--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
+    const metadata = { name, mimeType: blob.type || "application/octet-stream" };
+    const blobBuf = await blob.arrayBuffer();
+    const metaPart = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: ${metadata.mimeType}\r\n\r\n`;
+    const endPart = `\r\n--${boundary}--`;
+    const body = new Blob([metaPart, blobBuf, endPart]);
     const res = await authedFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", {
       method: "POST",
       headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
-      body: multipartBody,
+      body,
     });
-    if (!res.ok) throw new Error("สร้างไฟล์บน Drive ไม่สำเร็จ");
+    if (!res.ok) throw new Error(`อัปโหลดไฟล์ "${name}" ไป Drive ไม่สำเร็จ`);
     const data = await res.json();
-    fileId = data.id;
-    localStorage.setItem("diary_drive_file_id", fileId);
-    return fileId;
+    return data.id;
+  }
+
+  async function downloadAttachmentBlob(driveFileId) {
+    const res = await authedFetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`);
+    if (!res.ok) throw new Error("ดาวน์โหลดไฟล์แนบจาก Drive ไม่สำเร็จ");
+    return res.blob();
   }
 
   // last-write-wins merge by updatedAt, keyed by entry id
@@ -130,6 +153,46 @@ const DriveSync = (() => {
     return [...map.values()];
   }
 
+  async function syncAttachments(mergedEntries) {
+    // 1) upload any local blob that doesn't have a Drive file yet
+    for (const entry of mergedEntries) {
+      if (entry.private || entry.deletedAt || !entry.attachmentRefs) continue;
+      for (const ref of entry.attachmentRefs) {
+        const att = await DiaryDB.getAttachment(ref.id);
+        if (att && att.blob && !att.driveFileId) {
+          try {
+            const driveFileId = await uploadNewFile(`diary-attach-${att.id}`, att.blob);
+            att.driveFileId = driveFileId;
+            await DiaryDB.putAttachment(att);
+          } catch (err) {
+            // don't fail the whole sync over one attachment; it'll retry next sync
+            console.error("Attachment upload failed:", err);
+          }
+        }
+      }
+    }
+    // 2) build the index of everything we can point another device to
+    const allLocal = await DiaryDB.getAllAttachments();
+    return allLocal
+      .filter((a) => a.driveFileId)
+      .map((a) => ({ id: a.id, entryId: a.entryId, type: a.type, mimeType: a.mimeType, driveFileId: a.driveFileId }));
+  }
+
+  async function adoptRemoteAttachmentIndex(remoteIndex) {
+    for (const meta of remoteIndex || []) {
+      const existing = await DiaryDB.getAttachment(meta.id);
+      if (!existing) {
+        await DiaryDB.putAttachment({
+          id: meta.id, entryId: meta.entryId, type: meta.type, mimeType: meta.mimeType,
+          blob: null, size: 0, createdAt: new Date().toISOString(), driveFileId: meta.driveFileId,
+        });
+      } else if (!existing.driveFileId && meta.driveFileId) {
+        existing.driveFileId = meta.driveFileId;
+        await DiaryDB.putAttachment(existing);
+      }
+    }
+  }
+
   async function sync() {
     await requestAccessToken();
     const local = await DiaryDB.getAll();
@@ -138,7 +201,11 @@ const DriveSync = (() => {
     const remoteEntries = (remoteObj && remoteObj.entries) || [];
     const merged = mergeEntries(local, remoteEntries);
     await DiaryDB.bulkPut(merged);
-    await uploadRemote({ version: 1, syncedAt: new Date().toISOString(), entries: merged });
+
+    await adoptRemoteAttachmentIndex(remoteObj && remoteObj.attachmentIndex);
+    const attachmentIndex = await syncAttachments(merged);
+
+    await uploadRemote({ version: 2, syncedAt: new Date().toISOString(), entries: merged, attachmentIndex });
     localStorage.setItem("diary_last_synced", new Date().toISOString());
     return merged.length;
   }
@@ -148,5 +215,5 @@ const DriveSync = (() => {
     return t ? new Date(t).toLocaleString("th-TH") : "ยังไม่เคยซิงค์";
   }
 
-  return { sync, lastSyncedText };
+  return { sync, lastSyncedText, downloadAttachmentBlob };
 })();

@@ -7,6 +7,16 @@
 <title>สมุดบันทึก</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<script>
+  // Apply the saved theme/font-size before CSS paints, to avoid a flash
+  // of the wrong theme on load.
+  (function () {
+    try {
+      document.documentElement.setAttribute("data-theme", localStorage.getItem("diary_theme") || "lamp");
+      document.documentElement.setAttribute("data-fontsize", localStorage.getItem("diary_font_size") || "medium");
+    } catch (e) {}
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
@@ -32,6 +42,11 @@
     <!-- HOME -->
     <section class="view" id="view-home" data-view="home">
       <div class="view-inner">
+        <div class="on-this-day" id="onThisDay" hidden>
+          <h3>📅 วันนี้ในอดีต</h3>
+          <div id="onThisDayList"></div>
+        </div>
+
         <div class="toolbar">
           <div class="search-wrap">
             <input type="search" id="searchInput" placeholder="ค้นหาไดอารี่..." aria-label="ค้นหา">
@@ -100,6 +115,12 @@
 
           <div class="field">
             <label for="entryContent">เนื้อหา</label>
+            <div class="md-toolbar">
+              <button type="button" class="md-tool-btn" id="mdBoldBtn" title="ตัวหนา"><strong>B</strong></button>
+              <button type="button" class="md-tool-btn" id="mdItalicBtn" title="ตัวเอียง"><em>I</em></button>
+              <button type="button" class="md-tool-btn" id="mdBulletBtn" title="รายการ">• รายการ</button>
+              <button type="button" class="md-tool-btn" id="mdCheckBtn" title="เช็คลิสต์">☑ เช็คลิสต์</button>
+            </div>
             <textarea id="entryContent" rows="8" placeholder="เขียนอะไรก็ได้ที่อยากบันทึกไว้..."></textarea>
           </div>
 
@@ -121,9 +142,31 @@
           </div>
 
           <div class="field">
-            <label for="entryImages">รูปภาพ</label>
-            <input type="file" id="entryImages" accept="image/*" multiple>
-            <div class="image-strip" id="imageStrip"></div>
+            <label>แนบไฟล์</label>
+            <div class="capture-row">
+              <label class="capture-btn" for="entryImages">📷 รูปภาพ</label>
+              <input type="file" id="entryImages" accept="image/*" multiple hidden>
+              <button type="button" class="capture-btn" id="voiceRecordBtn">🎙️ บันทึกเสียง</button>
+              <button type="button" class="capture-btn" id="videoRecordBtn">🎥 วิดีโอสั้น</button>
+              <button type="button" class="capture-btn" id="sketchOpenBtn">✏️ วาดภาพ</button>
+            </div>
+            <video id="videoLivePreview" muted autoplay playsinline hidden style="width:100%;max-width:280px;border-radius:8px;margin-bottom:8px;"></video>
+            <div class="attach-strip" id="attachStrip"></div>
+          </div>
+
+          <div class="field">
+            <div class="location-row">
+              <label class="switch-row" for="entryLocationToggle" style="flex:1">
+                <span>
+                  <span class="switch-label">📍 บันทึกตำแหน่ง</span>
+                  <span class="switch-sub" id="locationSubText">ไม่บังคับ — ใช้ตำแหน่งคร่าวๆ จาก GPS</span>
+                </span>
+                <span class="switch">
+                  <input type="checkbox" id="entryLocationToggle">
+                  <span class="switch-track"></span>
+                </span>
+              </label>
+            </div>
           </div>
 
           <div class="field private-toggle-field">
@@ -141,6 +184,36 @@
         </form>
       </div>
     </section>
+
+    <!-- Sketch pad -->
+    <div class="modal" id="sketchModal" hidden>
+      <div class="modal-card sketch-card">
+        <h2>วาดภาพ</h2>
+        <div class="sketch-canvas-wrap">
+          <canvas id="sketchCanvas" width="320" height="320"></canvas>
+        </div>
+        <div class="sketch-tools">
+          <div class="sketch-colors" id="sketchColors">
+            <button type="button" class="sketch-color selected" data-color="#14181D" style="background:#14181D"></button>
+            <button type="button" class="sketch-color" data-color="#C1685C" style="background:#C1685C"></button>
+            <button type="button" class="sketch-color" data-color="#E8A33D" style="background:#E8A33D"></button>
+            <button type="button" class="sketch-color" data-color="#7DA084" style="background:#7DA084"></button>
+            <button type="button" class="sketch-color" data-color="#3A4450" style="background:#3A4450"></button>
+          </div>
+          <button type="button" class="text-btn" id="sketchClearBtn">ล้าง</button>
+        </div>
+        <div class="modal-actions">
+          <button class="text-btn" id="sketchCancelBtn">ยกเลิก</button>
+          <button class="text-btn primary" id="sketchSaveBtn">ใช้ภาพนี้</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" hidden>
+      <button type="button" class="lightbox-close" id="lightboxCloseBtn">×</button>
+      <img id="lightboxImg" src="" alt="">
+    </div>
 
     <!-- VIEW ENTRY -->
     <section class="view" id="view-entry" data-view="entry">
@@ -166,6 +239,21 @@
         </div>
 
         <div class="settings-group">
+          <h2>ธีม</h2>
+          <div class="theme-swatch-row" id="themeSwatchRow">
+            <button type="button" class="theme-swatch" data-theme="lamp" aria-label="ธีมโคมไฟ"></button>
+            <button type="button" class="theme-swatch" data-theme="forest" aria-label="ธีมป่าไม้"></button>
+            <button type="button" class="theme-swatch" data-theme="orchid" aria-label="ธีมกล้วยไม้"></button>
+            <button type="button" class="theme-swatch" data-theme="paper" aria-label="ธีมกระดาษสว่าง"></button>
+          </div>
+          <div class="fontsize-row" id="fontsizeRow">
+            <button type="button" class="fontsize-btn small" data-size="small">เล็ก</button>
+            <button type="button" class="fontsize-btn medium" data-size="medium">กลาง</button>
+            <button type="button" class="fontsize-btn large" data-size="large">ใหญ่</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
           <h2>ความเป็นส่วนตัว</h2>
           <div class="settings-row" id="pwStatusRow">
             <span id="pwStatusText">ยังไม่ได้ตั้งรหัสผ่าน</span>
@@ -174,6 +262,10 @@
           <div class="settings-row" id="changePwRow" hidden>
             <span>เปลี่ยนรหัสผ่าน</span>
             <button class="text-btn" id="changePasswordBtn">เปลี่ยน</button>
+          </div>
+          <div class="settings-row" id="forgotPwRow" hidden>
+            <span>ลืมรหัสผ่านเดิม?</span>
+            <button class="text-btn danger" id="resetPasswordBtn">รีเซ็ตรหัสผ่าน</button>
           </div>
           <div class="settings-row">
             <span>ล็อกเซสชันตอนนี้</span>
@@ -196,6 +288,10 @@
             <span>จำนวนบันทึกทั้งหมด</span>
             <span id="entryCountText">0</span>
           </div>
+          <div class="settings-row">
+            <span>ถังขยะ</span>
+            <button class="text-btn" id="openTrashBtn">เปิด (<span id="trashCountText">0</span>)</button>
+          </div>
         </div>
 
         <div class="settings-group">
@@ -208,6 +304,21 @@
             <span>ซิงค์กับ Google Drive</span>
             <button class="text-btn primary" id="driveSyncBtn">ซิงค์ตอนนี้</button>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRASH -->
+    <section class="view" id="view-trash" data-view="trash">
+      <div class="view-inner">
+        <div class="page-head">
+          <button class="text-btn" id="backFromTrashBtn">ย้อนกลับ</button>
+          <h1>ถังขยะ</h1>
+        </div>
+        <p class="settings-note" style="margin-bottom:14px;">บันทึกที่ลบจะอยู่ที่นี่ 30 วัน ก่อนลบถาวรอัตโนมัติ</p>
+        <div id="trashList"></div>
+        <div class="empty-state" id="trashEmptyState" hidden>
+          <p class="empty-title">ถังขยะว่าง</p>
         </div>
       </div>
     </section>
@@ -284,6 +395,8 @@
 
 <script src="js/crypto.js"></script>
 <script src="js/db.js"></script>
+<script src="js/markdown.js"></script>
+<script src="js/theme.js"></script>
 <script src="js/drive-config.js"></script>
 <script src="js/drive-sync.js"></script>
 <script src="js/app.js"></script>
