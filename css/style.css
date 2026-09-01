@@ -233,6 +233,10 @@ button, input, textarea, select {
   padding-bottom: 4px;
   margin-bottom: 14px;
 }
+.tag-chip-row.has-overflow {
+  mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent 100%);
+}
 .tag-chip-row:empty { display: none; margin: 0; }
 .tag-chip {
   flex-shrink: 0;
@@ -503,6 +507,7 @@ button, input, textarea, select {
 .settings-row:last-of-type { border-radius: 0 0 var(--radius-m) var(--radius-m); }
 .settings-row:only-of-type { border-radius: var(--radius-m); }
 .settings-note { font-size: 13.5px; color: var(--paper-dim); line-height: 1.6; padding: 0 2px; }
+.app-version { text-align: center; font-size: 12px; color: var(--paper-dim); margin-top: 8px; }
 .file-btn { cursor: pointer; }
 
 /* ============================================================
@@ -688,6 +693,7 @@ button, input, textarea, select {
 }
 .detail-media { margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
 .detail-media audio, .detail-media video { width: 100%; max-width: 360px; border-radius: var(--radius-s); }
+.attach-size-label { font-size: 11.5px; color: var(--paper-dim); margin-top: 3px; }
 
 /* ============================================================
    Sketch pad

@@ -5,6 +5,8 @@ const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.
 const THAI_MONTHS_FULL = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const TRASH_RETENTION_DAYS = 30;
 const VIDEO_MAX_SECONDS = 30;
+const APP_VERSION = "1.4.0";
+const APP_BUILD_DATE = "2026-09-01";
 
 const state = {
   entries: [],
@@ -45,6 +47,12 @@ function nowHM() {
   return new Date().toTimeString().slice(0, 5);
 }
 function pad2(n) { return String(n).padStart(2, "0"); }
+function formatBytes(bytes) {
+  if (!bytes && bytes !== 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function formatDateHeading(dateStr) {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -92,6 +100,32 @@ function dataURLToBlob(dataURL) {
   return new Blob([arr], { type: mime });
 }
 
+let popstateHandling = false;
+
+function pushNavState(label) {
+  history.pushState({ navLabel: label }, "");
+}
+function popNavState() {
+  if (!popstateHandling) history.back();
+}
+
+function closeCurrentLayer() {
+  if (!$("lightbox").hidden) { closeLightbox(); return; }
+  if (!$("sketchModal").hidden) { closeSketchModal(); return; }
+  if (!$("calendarModal").hidden) { closeCalendar(); return; }
+  if (!$("setPwModal").hidden) { closeSetPwModal(); return; }
+  if (!$("unlockModal").hidden) { closeUnlockModal(false); return; }
+  if (state.view === "trash") { showView("settings"); return; }
+  if (state.view === "write") { clearRecordingUI(); showView(state.editId ? "entry" : "home"); return; }
+  if (state.view === "entry") { showView("home"); return; }
+}
+
+window.addEventListener("popstate", () => {
+  popstateHandling = true;
+  closeCurrentLayer();
+  popstateHandling = false;
+});
+
 /* ---------------- view routing ---------------- */
 
 function showView(name) {
@@ -106,9 +140,15 @@ function showView(name) {
 function openLightbox(src) {
   $("lightboxImg").src = src;
   $("lightbox").hidden = false;
+  pushNavState("lightbox");
 }
-$("lightboxCloseBtn").addEventListener("click", () => { $("lightbox").hidden = true; $("lightboxImg").src = ""; });
-$("lightbox").addEventListener("click", (e) => { if (e.target.id === "lightbox") { $("lightbox").hidden = true; $("lightboxImg").src = ""; } });
+function closeLightbox() {
+  $("lightbox").hidden = true;
+  $("lightboxImg").src = "";
+  popNavState();
+}
+$("lightboxCloseBtn").addEventListener("click", closeLightbox);
+$("lightbox").addEventListener("click", (e) => { if (e.target.id === "lightbox") closeLightbox(); });
 document.addEventListener("click", (e) => {
   const img = e.target.closest(".detail-images img, .attach-strip img");
   if (img) openLightbox(img.src);
@@ -170,7 +210,9 @@ function renderAttachStrip() {
       chip.innerHTML = `<span>${attachIcon(a.type)}</span>`;
     }
     const label = document.createElement("span");
-    label.textContent = a.type === "image" ? "รูป" : a.type === "audio" ? "เสียง" : a.type === "video" ? "วิดีโอ" : "ภาพวาด";
+    const typeLabel = a.type === "image" ? "รูป" : a.type === "audio" ? "เสียง" : a.type === "video" ? "วิดีโอ" : "ภาพวาด";
+    const sizeLabel = a.blob ? formatBytes(a.blob.size) : "";
+    label.textContent = sizeLabel ? `${typeLabel} · ${sizeLabel}` : typeLabel;
     chip.appendChild(label);
     const rm = document.createElement("button");
     rm.type = "button"; rm.className = "remove-img"; rm.textContent = "×";
@@ -297,9 +339,11 @@ function sketchPos(e, canvas) {
 
 $("sketchOpenBtn").addEventListener("click", () => {
   $("sketchModal").hidden = false;
+  pushNavState("sketch");
   initSketchCanvas();
 });
-$("sketchCancelBtn").addEventListener("click", () => { $("sketchModal").hidden = true; });
+function closeSketchModal() { $("sketchModal").hidden = true; popNavState(); }
+$("sketchCancelBtn").addEventListener("click", closeSketchModal);
 $("sketchClearBtn").addEventListener("click", () => {
   const canvas = $("sketchCanvas");
   sketchCtx.fillStyle = "#ffffff";
@@ -314,7 +358,7 @@ $("sketchColors").addEventListener("click", (e) => {
 $("sketchSaveBtn").addEventListener("click", () => {
   $("sketchCanvas").toBlob((blob) => {
     if (blob) addPendingAttachment("sketch", blob);
-    $("sketchModal").hidden = true;
+    closeSketchModal();
   }, "image/png");
 });
 
@@ -331,6 +375,21 @@ $("sketchSaveBtn").addEventListener("click", () => {
 
 /* ---------------- location ---------------- */
 
+async function reverseGeocode(lat, lng) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const a = data.address || {};
+    const place = a.suburb || a.neighbourhood || a.village || a.town || a.city_district || a.city || a.county || null;
+    const region = a.city || a.state || a.province || null;
+    const parts = [place, region && region !== place ? region : null].filter(Boolean);
+    return parts.length ? parts.join(", ") : (data.display_name || null);
+  } catch (e) {
+    return null; // best-effort only — coordinates still work fine without a name
+  }
+}
+
 $("entryLocationToggle").addEventListener("change", (e) => {
   if (!e.target.checked) { state.entryLocation = null; $("locationSubText").textContent = "ไม่บังคับ — ใช้ตำแหน่งคร่าวๆ จาก GPS"; return; }
   if (!navigator.geolocation) {
@@ -340,9 +399,17 @@ $("entryLocationToggle").addEventListener("change", (e) => {
   }
   $("locationSubText").textContent = "กำลังขอตำแหน่ง...";
   navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      state.entryLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      $("locationSubText").textContent = `ตำแหน่ง: ${state.entryLocation.lat.toFixed(4)}, ${state.entryLocation.lng.toFixed(4)}`;
+    async (pos) => {
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      state.entryLocation = { lat, lng, placeName: null };
+      $("locationSubText").textContent = "กำลังค้นหาชื่อสถานที่...";
+      const placeName = await reverseGeocode(lat, lng);
+      if (state.entryLocation) { // still toggled on
+        state.entryLocation.placeName = placeName;
+        $("locationSubText").textContent = placeName
+          ? `📍 ${placeName}`
+          : `ตำแหน่ง: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      }
     },
     (err) => {
       e.target.checked = false;
@@ -370,11 +437,13 @@ function openUnlockModal(sub) {
     $("unlockPassInput").value = "";
     $("unlockError").hidden = true;
     $("unlockModal").hidden = false;
+    pushNavState("unlock");
     setTimeout(() => $("unlockPassInput").focus(), 50);
   });
 }
 function closeUnlockModal(result) {
   $("unlockModal").hidden = true;
+  popNavState();
   if (state.unlockResolve) { state.unlockResolve(result); state.unlockResolve = null; }
 }
 $("unlockCancelBtn").addEventListener("click", () => closeUnlockModal(false));
@@ -403,8 +472,9 @@ function openSetPwModal(mode) {
   $("setPwConfirmInput").value = "";
   $("setPwError").hidden = true;
   $("setPwModal").hidden = false;
+  pushNavState("setpw");
 }
-function closeSetPwModal() { $("setPwModal").hidden = true; }
+function closeSetPwModal() { $("setPwModal").hidden = true; popNavState(); }
 
 $("setPasswordBtn").addEventListener("click", () => openSetPwModal("create"));
 $("changePasswordBtn").addEventListener("click", () => openSetPwModal("change"));
@@ -576,10 +646,11 @@ function populateMonthFilter() {
 
 function renderTagChips(tags) {
   const row = $("tagChipRow");
-  if (tags.length === 0) { row.innerHTML = ""; return; }
+  if (tags.length === 0) { row.innerHTML = ""; row.classList.remove("has-overflow"); return; }
   const selected = $("filterTag").value;
   const allChip = `<button type="button" class="tag-chip${selected ? "" : " selected"}" data-tag="">ทั้งหมด</button>`;
   row.innerHTML = allChip + tags.map((t) => `<button type="button" class="tag-chip${t === selected ? " selected" : ""}" data-tag="${escapeHTML(t)}">${escapeHTML(t)}</button>`).join("");
+  row.classList.toggle("has-overflow", row.scrollWidth > row.clientWidth + 4);
 }
 $("tagChipRow").addEventListener("click", (e) => {
   const chip = e.target.closest(".tag-chip");
@@ -728,6 +799,7 @@ function openWriteForNew() {
   $("writeHeading").textContent = "เขียนบันทึก";
   state.editId = null;
   showView("write");
+  pushNavState("write");
 }
 
 async function loadAttachmentsForEntry(rec) {
@@ -776,7 +848,7 @@ async function openWriteForEdit(id) {
   if (loc) {
     state.entryLocation = loc;
     $("entryLocationToggle").checked = true;
-    $("locationSubText").textContent = `ตำแหน่ง: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`;
+    $("locationSubText").textContent = loc.placeName ? `📍 ${loc.placeName}` : `ตำแหน่ง: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`;
   }
 
   if (rec.private) {
@@ -793,6 +865,7 @@ async function openWriteForEdit(id) {
   $("writeHeading").textContent = "แก้ไขบันทึก";
   state.editId = rec.id;
   showView("write");
+  pushNavState("write");
 }
 
 $("moodPicker").addEventListener("click", (e) => {
@@ -812,7 +885,7 @@ $("entryPrivate").addEventListener("change", async (e) => {
 });
 
 $("newEntryBtn").addEventListener("click", openWriteForNew);
-$("cancelWriteBtn").addEventListener("click", () => { clearRecordingUI(); showView(state.editId ? "entry" : "home"); });
+$("cancelWriteBtn").addEventListener("click", () => { clearRecordingUI(); showView(state.editId ? "entry" : "home"); popNavState(); });
 
 $("entryForm").addEventListener("submit", (e) => e.preventDefault());
 
@@ -822,6 +895,7 @@ $("saveEntryBtn").addEventListener("click", async () => {
     const time = $("entryTime").value;
     if (!date || !time) { showToast("กรุณาใส่วันที่และเวลา"); return; }
 
+    const wasEditingFromEntry = !!state.editId;
     const tags = $("entryTags").value.split(",").map((t) => t.trim()).filter(Boolean);
     const isPrivate = $("entryPrivate").checked;
 
@@ -886,6 +960,8 @@ $("saveEntryBtn").addEventListener("click", async () => {
     renderHome();
     showToast("บันทึกแล้ว");
     showView("home");
+    popNavState();
+    if (wasEditingFromEntry) popNavState();
   } catch (err) {
     console.error("Save failed:", err);
     showToast("บันทึกไม่สำเร็จ: " + (err && err.message ? err.message : "ไม่ทราบสาเหตุ"));
@@ -945,13 +1021,14 @@ async function openEntry(id) {
     <div class="detail-content">${MarkdownLite.render(data.content || "")}</div>
     ${images.length ? `<div class="detail-images">${images.map((m) => `<img src="${m.url}">`).join("")}</div>` : ""}
     ${(audios.length || videos.length) ? `<div class="detail-media">
-        ${audios.map((m) => `<audio controls src="${m.url}"></audio>`).join("")}
-        ${videos.map((m) => `<video controls src="${m.url}"></video>`).join("")}
+        ${audios.map((m) => `<div><audio controls src="${m.url}"></audio>${m.blob ? `<div class="attach-size-label">${formatBytes(m.blob.size)}</div>` : ""}</div>`).join("")}
+        ${videos.map((m) => `<div><video controls src="${m.url}"></video>${m.blob ? `<div class="attach-size-label">${formatBytes(m.blob.size)}</div>` : ""}</div>`).join("")}
       </div>` : ""}
-    ${loc ? `<div class="detail-location"><a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener">📍 ดูตำแหน่งใน Google Maps</a></div>` : ""}
+    ${loc ? `<div class="detail-location"><a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener">📍 ${loc.placeName ? escapeHTML(loc.placeName) : "ดูตำแหน่งใน Google Maps"}</a></div>` : ""}
     ${(data.tags && data.tags.length) ? `<div class="detail-tags">${data.tags.map((t) => `<span class="entry-tag">${escapeHTML(t)}</span>`).join("")}</div>` : ""}
   `;
   showView("entry");
+  pushNavState("entry");
 }
 
 $("entryDetail").addEventListener("change", async (e) => {
@@ -977,7 +1054,7 @@ $("entryDetail").addEventListener("change", async (e) => {
   cb.closest(".md-check").classList.toggle("checked", cb.checked);
 });
 
-$("backFromEntryBtn").addEventListener("click", () => showView("home"));
+$("backFromEntryBtn").addEventListener("click", () => { showView("home"); popNavState(); });
 $("editEntryBtn").addEventListener("click", () => openWriteForEdit(state.viewId));
 
 $("deleteEntryBtn").addEventListener("click", async () => {
@@ -990,6 +1067,7 @@ $("deleteEntryBtn").addEventListener("click", async () => {
   renderHome();
   showToast("ย้ายไปถังขยะแล้ว");
   showView("home");
+  popNavState();
 });
 
 $("exportEntryBtn").addEventListener("click", () => {
@@ -1045,8 +1123,8 @@ $("trashList").addEventListener("click", async (e) => {
   }
 });
 
-$("openTrashBtn").addEventListener("click", () => { renderTrash(); showView("trash"); });
-$("backFromTrashBtn").addEventListener("click", () => showView("settings"));
+$("openTrashBtn").addEventListener("click", () => { renderTrash(); showView("trash"); pushNavState("trash"); });
+$("backFromTrashBtn").addEventListener("click", () => { showView("settings"); popNavState(); });
 
 async function purgeOldTrash() {
   const cutoff = Date.now() - TRASH_RETENTION_DAYS * 86400000;
@@ -1169,8 +1247,8 @@ function renderCalendar() {
   }
 }
 
-function openCalendar() { $("calendarModal").hidden = false; renderCalendar(); }
-function closeCalendar() { $("calendarModal").hidden = true; }
+function openCalendar() { $("calendarModal").hidden = false; pushNavState("calendar"); renderCalendar(); }
+function closeCalendar() { $("calendarModal").hidden = true; popNavState(); }
 
 $("todayPill").addEventListener("click", () => { state.calMode = "browse"; openCalendar(); });
 $("calCloseBtn").addEventListener("click", closeCalendar);
@@ -1236,6 +1314,7 @@ async function init() {
 
     const today = new Date();
     $("todayPill").textContent = `${today.getDate()} ${THAI_MONTHS[today.getMonth()]} ${today.getFullYear() + 543}`;
+    $("appVersionText").textContent = `เวอร์ชัน ${APP_VERSION} · อัปเดตล่าสุด ${formatFullThaiDate(APP_BUILD_DATE)}`;
     state.cal.year = today.getFullYear();
     state.cal.month = today.getMonth();
 
