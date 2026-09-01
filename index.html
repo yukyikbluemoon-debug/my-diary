@@ -42,6 +42,14 @@
     <!-- HOME -->
     <section class="view" id="view-home" data-view="home">
       <div class="view-inner">
+        <div class="reminder-banner" id="reminderBanner" hidden>
+          <span>✍️ ยังไม่ได้เขียนบันทึกวันนี้เลย</span>
+          <div class="reminder-actions">
+            <button type="button" class="text-btn primary" id="reminderWriteBtn">เขียนเลย</button>
+            <button type="button" class="text-btn" id="reminderDismissBtn">ปิด</button>
+          </div>
+        </div>
+
         <div class="on-this-day" id="onThisDay" hidden>
           <h3>📅 วันนี้ในอดีต</h3>
           <div id="onThisDayList"></div>
@@ -125,6 +133,8 @@
               <button type="button" class="md-tool-btn" id="mdItalicBtn" title="ตัวเอียง"><em>I</em></button>
               <button type="button" class="md-tool-btn" id="mdBulletBtn" title="รายการ">• รายการ</button>
               <button type="button" class="md-tool-btn" id="mdCheckBtn" title="เช็คลิสต์">☑ เช็คลิสต์</button>
+              <button type="button" class="md-tool-btn" id="mdQuoteBtn" title="คำพูดอ้างอิง">❝ คำพูด</button>
+              <button type="button" class="md-tool-btn" id="mdCodeBtn" title="โค้ด">&lt;/&gt; โค้ด</button>
               <button type="button" class="md-tool-btn" id="mdEmojiBtn" title="แทรกอีโมจิ">😀</button>
             </div>
             <div class="emoji-panel" id="emojiPanel" hidden></div>
@@ -228,6 +238,8 @@
             <button type="button" class="sketch-color" data-color="#7DA084" style="background:#7DA084"></button>
             <button type="button" class="sketch-color" data-color="#3A4450" style="background:#3A4450"></button>
           </div>
+          <button type="button" class="text-btn" id="sketchEraserBtn">🧹 ยางลบ</button>
+          <button type="button" class="text-btn" id="sketchUndoBtn">↩️ ย้อนกลับ</button>
           <button type="button" class="text-btn" id="sketchClearBtn">ล้าง</button>
         </div>
         <div class="modal-actions">
@@ -313,6 +325,10 @@
             <button class="text-btn" id="backupBtn">ดาวน์โหลด</button>
           </div>
           <div class="settings-row">
+            <span>ส่งออกแบบอ่านง่าย (.md)</span>
+            <button class="text-btn" id="exportReadableBtn">ดาวน์โหลด</button>
+          </div>
+          <div class="settings-row">
             <span>กู้คืนจากไฟล์ JSON</span>
             <label class="text-btn file-btn" for="restoreFile">เลือกไฟล์</label>
             <input type="file" id="restoreFile" accept="application/json" hidden>
@@ -320,6 +336,10 @@
           <div class="settings-row">
             <span>จำนวนบันทึกทั้งหมด</span>
             <span id="entryCountText">0</span>
+          </div>
+          <div class="settings-row">
+            <span>สถิติ/ภาพรวม</span>
+            <button class="text-btn" id="openStatsBtn">ดู</button>
           </div>
           <div class="settings-row">
             <span>ถังขยะ</span>
@@ -355,6 +375,48 @@
         <div class="empty-state" id="trashEmptyState" hidden>
           <p class="empty-title">ถังขยะว่าง</p>
         </div>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="view" id="view-stats" data-view="stats">
+      <div class="view-inner">
+        <div class="page-head">
+          <button class="text-btn" id="backFromStatsBtn">ย้อนกลับ</button>
+          <h1>สถิติ/ภาพรวม</h1>
+        </div>
+
+        <div class="stats-cards">
+          <div class="stats-card">
+            <div class="stats-num" id="statTotalEntries">0</div>
+            <div class="stats-label">บันทึกทั้งหมด</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-num" id="statCurrentStreak">0</div>
+            <div class="stats-label">วันติดต่อกัน</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-num" id="statLongestStreak">0</div>
+            <div class="stats-label">สตรีกสูงสุด</div>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h2>อารมณ์ที่พบบ่อย</h2>
+          <div id="statMoodChart"></div>
+        </div>
+
+        <div class="settings-group">
+          <h2>แท็กที่ใช้บ่อย</h2>
+          <div id="statTagChart"></div>
+        </div>
+
+        <div class="settings-group">
+          <h2>บันทึกต่อเดือน (6 เดือนล่าสุด)</h2>
+          <div id="statMonthChart"></div>
+        </div>
+
+        <p class="settings-note">สถิตินับจากบันทึกทั้งหมด (รวมบันทึกส่วนตัว เฉพาะจำนวน/วันที่) ส่วนอารมณ์และแท็กนับเฉพาะบันทึกทั่วไป เพราะบันทึกส่วนตัวเข้ารหัสไว้</p>
       </div>
     </section>
 

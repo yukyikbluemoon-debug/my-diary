@@ -5,7 +5,7 @@ const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.
 const THAI_MONTHS_FULL = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const TRASH_RETENTION_DAYS = 30;
 const VIDEO_MAX_SECONDS = 30;
-const APP_VERSION = "1.7.1";
+const APP_VERSION = "1.8.0";
 const APP_BUILD_DATE = "2026-09-02";
 
 const state = {
@@ -329,15 +329,23 @@ $("videoRecordBtn").addEventListener("click", () => {
 let sketchCtx = null;
 let sketchDrawing = false;
 let sketchColor = "#14181D";
+let sketchEraserMode = false;
+let sketchUndoStack = [];
+const SKETCH_UNDO_MAX = 20;
+const SKETCH_PEN_WIDTH = 4;
+const SKETCH_ERASER_WIDTH = 18;
 
 function initSketchCanvas() {
   const canvas = $("sketchCanvas");
   sketchCtx = canvas.getContext("2d");
   sketchCtx.fillStyle = "#ffffff";
   sketchCtx.fillRect(0, 0, canvas.width, canvas.height);
-  sketchCtx.lineWidth = 4;
+  sketchCtx.lineWidth = SKETCH_PEN_WIDTH;
   sketchCtx.lineCap = "round";
   sketchCtx.lineJoin = "round";
+  sketchEraserMode = false;
+  sketchUndoStack = [];
+  $("sketchEraserBtn").classList.remove("active-tool");
 }
 
 function sketchPos(e, canvas) {
@@ -345,6 +353,12 @@ function sketchPos(e, canvas) {
   const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
   const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
   return { x: cx * (canvas.width / rect.width), y: cy * (canvas.height / rect.height) };
+}
+
+function pushSketchUndo() {
+  const canvas = $("sketchCanvas");
+  sketchUndoStack.push(canvas.toDataURL());
+  if (sketchUndoStack.length > SKETCH_UNDO_MAX) sketchUndoStack.shift();
 }
 
 $("sketchOpenBtn").addEventListener("click", () => {
@@ -356,14 +370,32 @@ function closeSketchModalVisual() { $("sketchModal").hidden = true; }
 function closeSketchModal() { closeSketchModalVisual(); popNavState(); }
 $("sketchCancelBtn").addEventListener("click", closeSketchModal);
 $("sketchClearBtn").addEventListener("click", () => {
+  pushSketchUndo();
   const canvas = $("sketchCanvas");
   sketchCtx.fillStyle = "#ffffff";
   sketchCtx.fillRect(0, 0, canvas.width, canvas.height);
+});
+$("sketchUndoBtn").addEventListener("click", () => {
+  if (sketchUndoStack.length === 0) { showToast("ย้อนกลับไม่ได้แล้ว"); return; }
+  const canvas = $("sketchCanvas");
+  const dataUrl = sketchUndoStack.pop();
+  const img = new Image();
+  img.onload = () => {
+    sketchCtx.clearRect(0, 0, canvas.width, canvas.height);
+    sketchCtx.drawImage(img, 0, 0);
+  };
+  img.src = dataUrl;
+});
+$("sketchEraserBtn").addEventListener("click", () => {
+  sketchEraserMode = !sketchEraserMode;
+  $("sketchEraserBtn").classList.toggle("active-tool", sketchEraserMode);
 });
 $("sketchColors").addEventListener("click", (e) => {
   const btn = e.target.closest(".sketch-color");
   if (!btn) return;
   sketchColor = btn.dataset.color;
+  sketchEraserMode = false;
+  $("sketchEraserBtn").classList.remove("active-tool");
   document.querySelectorAll(".sketch-color").forEach((b) => b.classList.toggle("selected", b === btn));
 });
 $("sketchSaveBtn").addEventListener("click", () => {
@@ -375,7 +407,16 @@ $("sketchSaveBtn").addEventListener("click", () => {
 
 (function wireSketchCanvasEvents() {
   const canvas = $("sketchCanvas");
-  const start = (e) => { sketchDrawing = true; const p = sketchPos(e, canvas); sketchCtx.strokeStyle = sketchColor; sketchCtx.beginPath(); sketchCtx.moveTo(p.x, p.y); e.preventDefault(); };
+  const start = (e) => {
+    sketchDrawing = true;
+    pushSketchUndo();
+    const p = sketchPos(e, canvas);
+    sketchCtx.strokeStyle = sketchEraserMode ? "#ffffff" : sketchColor;
+    sketchCtx.lineWidth = sketchEraserMode ? SKETCH_ERASER_WIDTH : SKETCH_PEN_WIDTH;
+    sketchCtx.beginPath();
+    sketchCtx.moveTo(p.x, p.y);
+    e.preventDefault();
+  };
   const move = (e) => { if (!sketchDrawing) return; const p = sketchPos(e, canvas); sketchCtx.lineTo(p.x, p.y); sketchCtx.stroke(); e.preventDefault(); };
   const end = () => { sketchDrawing = false; };
   canvas.addEventListener("pointerdown", start);
@@ -391,6 +432,7 @@ $("colorPicker").addEventListener("click", (e) => {
   if (!btn) return;
   state.entryColor = btn.dataset.color;
   document.querySelectorAll(".color-swatch").forEach((b) => b.classList.toggle("selected", b === btn));
+  saveDraftNow();
 });
 
 /* ---------------- location ---------------- */
@@ -447,6 +489,8 @@ $("mdBoldBtn").addEventListener("click", () => MarkdownLite.insertAround($("entr
 $("mdItalicBtn").addEventListener("click", () => MarkdownLite.insertAround($("entryContent"), "*", "*", "ตัวเอียง"));
 $("mdBulletBtn").addEventListener("click", () => MarkdownLite.insertLinePrefix($("entryContent"), "- "));
 $("mdCheckBtn").addEventListener("click", () => MarkdownLite.insertLinePrefix($("entryContent"), "- [ ] "));
+$("mdQuoteBtn").addEventListener("click", () => MarkdownLite.insertLinePrefix($("entryContent"), "> "));
+$("mdCodeBtn").addEventListener("click", () => MarkdownLite.insertCodeFence($("entryContent")));
 
 /* ---------------- emoji picker ---------------- */
 
@@ -735,6 +779,18 @@ $("clearDayFilterBtn").addEventListener("click", () => {
   renderHome();
 });
 
+function updateReminderBanner() {
+  const today = todayISO();
+  const hasToday = activeEntries().some((e) => e.date === today);
+  const dismissedFor = localStorage.getItem("diary_reminder_dismissed");
+  $("reminderBanner").hidden = hasToday || dismissedFor === today;
+}
+$("reminderWriteBtn").addEventListener("click", openWriteForNew);
+$("reminderDismissBtn").addEventListener("click", () => {
+  localStorage.setItem("diary_reminder_dismissed", todayISO());
+  $("reminderBanner").hidden = true;
+});
+
 function renderOnThisDay() {
   const today = new Date();
   const mmdd = `${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
@@ -841,6 +897,7 @@ function renderHome() {
   renderTagChips(tags);
   updateDayFilterChip();
   renderOnThisDay();
+  updateReminderBanner();
   refreshSettingsView();
 }
 
@@ -879,6 +936,68 @@ function clearRecordingUI() {
   $("videoLivePreview").hidden = true;
 }
 
+/* ---------------- draft auto-save ---------------- */
+
+const DRAFT_KEY = "diary_draft_v1";
+let draftSaveTimer = null;
+
+function saveDraftNow() {
+  if ($("entryPrivate").checked) {
+    // Never park private plaintext in localStorage — skip drafting entirely
+    // while private mode is on, and drop any earlier draft for this session.
+    localStorage.removeItem(DRAFT_KEY);
+    return;
+  }
+  const title = $("entryTitle").value;
+  const content = $("entryContent").value;
+  const tags = $("entryTags").value;
+  if (!title.trim() && !content.trim()) { localStorage.removeItem(DRAFT_KEY); return; }
+  const draft = {
+    entryId: $("entryId").value, // "" means "new entry"
+    date: $("entryDate").value,
+    time: $("entryTime").value,
+    title, content, tags,
+    mood: state.moodSelected,
+    color: state.entryColor,
+    savedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+}
+
+function scheduleDraftSave() {
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(saveDraftNow, 800);
+}
+
+["entryTitle", "entryContent", "entryTags"].forEach((id) => {
+  $(id).addEventListener("input", scheduleDraftSave);
+});
+
+function clearDraft() {
+  clearTimeout(draftSaveTimer);
+  localStorage.removeItem(DRAFT_KEY);
+}
+
+function offerDraftRestore(targetEntryId) {
+  let draft;
+  try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) { draft = null; }
+  if (!draft || draft.entryId !== targetEntryId) return;
+  if (!confirm("พบร่างที่ยังไม่ได้บันทึกไว้ (จากตอนที่แอปปิดกลางคัน) ต้องการกู้คืนหรือไม่?")) {
+    localStorage.removeItem(DRAFT_KEY);
+    return;
+  }
+  setEntryDate(draft.date || todayISO());
+  $("entryTime").value = draft.time || nowHM();
+  $("entryTitle").value = draft.title || "";
+  $("entryContent").value = draft.content || "";
+  $("entryTags").value = draft.tags || "";
+  state.moodSelected = draft.mood || "";
+  state.entryColor = draft.color || "none";
+  document.querySelectorAll(".mood-btn").forEach((b) => b.classList.toggle("selected", b.dataset.mood === state.moodSelected));
+  document.querySelectorAll(".color-swatch").forEach((b) => b.classList.toggle("selected", b.dataset.color === state.entryColor));
+  showToast("กู้คืนร่างแล้ว");
+}
+
 function resetWriteForm() {
   $("entryId").value = "";
   setEntryDate(todayISO());
@@ -907,6 +1026,7 @@ function openWriteForNew() {
   state.editId = null;
   showView("write");
   pushNavState("write");
+  offerDraftRestore("");
 }
 
 async function loadAttachmentsForEntry(rec) {
@@ -975,6 +1095,7 @@ async function openWriteForEdit(id) {
   state.editId = rec.id;
   showView("write");
   pushNavState("write");
+  offerDraftRestore(rec.id);
 }
 
 $("moodPicker").addEventListener("click", (e) => {
@@ -983,6 +1104,7 @@ $("moodPicker").addEventListener("click", (e) => {
   const m = btn.dataset.mood;
   state.moodSelected = state.moodSelected === m ? "" : m;
   document.querySelectorAll(".mood-btn").forEach((b) => b.classList.toggle("selected", b.dataset.mood === state.moodSelected));
+  saveDraftNow();
 });
 
 $("entryPrivate").addEventListener("change", async (e) => {
@@ -990,7 +1112,9 @@ $("entryPrivate").addEventListener("change", async (e) => {
     e.target.checked = false;
     showToast("ตั้งรหัสผ่านก่อนใช้โหมดส่วนตัว");
     openSetPwModal("create");
+    return;
   }
+  if (e.target.checked) clearDraft();
 });
 
 $("newEntryBtn").addEventListener("click", openWriteForNew);
@@ -1067,6 +1191,7 @@ $("saveEntryBtn").addEventListener("click", async () => {
     const idx = state.entries.findIndex((e) => e.id === id);
     if (idx >= 0) state.entries[idx] = rec; else state.entries.push(rec);
 
+    clearDraft();
     clearRecordingUI();
     renderHome();
     showToast("บันทึกแล้ว");
@@ -1143,6 +1268,18 @@ async function openEntry(id) {
   showView("entry");
   pushNavState("entry");
 }
+
+$("entryDetail").addEventListener("click", async (e) => {
+  const copyBtn = e.target.closest(".code-copy-btn");
+  if (!copyBtn) return;
+  const text = MarkdownLite.getCodeBlock(copyBtn.dataset.codeId);
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("คัดลอกโค้ดแล้ว");
+  } catch (err) {
+    showToast("คัดลอกไม่สำเร็จ");
+  }
+});
 
 $("entryDetail").addEventListener("change", async (e) => {
   const cb = e.target.closest('input[type="checkbox"][data-line]');
@@ -1323,6 +1460,84 @@ async function purgeOldTrash() {
   for (const e of toPurge) await purgeToTombstone(e);
 }
 
+/* ---------------- stats ---------------- */
+
+function computeCurrentStreak(dateSet) {
+  let streak = 0;
+  let cursor = new Date();
+  let dateStr = todayISO();
+  if (!dateSet.has(dateStr)) {
+    cursor.setDate(cursor.getDate() - 1);
+    dateStr = `${cursor.getFullYear()}-${pad2(cursor.getMonth() + 1)}-${pad2(cursor.getDate())}`;
+    if (!dateSet.has(dateStr)) return 0;
+  }
+  while (dateSet.has(dateStr)) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+    dateStr = `${cursor.getFullYear()}-${pad2(cursor.getMonth() + 1)}-${pad2(cursor.getDate())}`;
+  }
+  return streak;
+}
+
+function computeLongestStreak(sortedDates) {
+  let longest = 0, current = 0, prevTime = null;
+  for (const d of sortedDates) {
+    const t = new Date(d).getTime();
+    if (prevTime !== null && Math.round((t - prevTime) / 86400000) === 1) current++;
+    else current = 1;
+    longest = Math.max(longest, current);
+    prevTime = t;
+  }
+  return longest;
+}
+
+function renderBarChart(container, rows) {
+  if (rows.length === 0) { container.innerHTML = '<p class="settings-note">ยังไม่มีข้อมูล</p>'; return; }
+  const max = Math.max(...rows.map((r) => r.count), 1);
+  container.innerHTML = rows.map((r) => `
+    <div class="stat-bar-row">
+      <span class="stat-bar-label">${escapeHTML(r.label)}</span>
+      <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${Math.round((r.count / max) * 100)}%"></span></span>
+      <span class="stat-bar-count">${r.count}</span>
+    </div>`).join("");
+}
+
+function renderStats() {
+  const entries = activeEntries();
+  const dateSet = new Set(entries.map((e) => e.date));
+  const sortedDates = [...dateSet].sort();
+
+  $("statTotalEntries").textContent = entries.length;
+  $("statCurrentStreak").textContent = computeCurrentStreak(dateSet);
+  $("statLongestStreak").textContent = computeLongestStreak(sortedDates);
+
+  const moodCounts = {};
+  const tagCounts = {};
+  entries.forEach((e) => {
+    if (e.private) return;
+    if (e.mood) moodCounts[e.mood] = (moodCounts[e.mood] || 0) + 1;
+    (e.tags || []).forEach((t) => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
+  });
+  const moodRows = Object.entries(moodCounts).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, count]) => ({ label, count }));
+  const tagRows = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([label, count]) => ({ label: "#" + label, count }));
+  renderBarChart($("statMoodChart"), moodRows);
+  renderBarChart($("statTagChart"), tagRows);
+
+  const monthCounts = {};
+  entries.forEach((e) => { const m = e.date.slice(0, 7); monthCounts[m] = (monthCounts[m] || 0) + 1; });
+  const now = new Date();
+  const monthRows = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+    monthRows.push({ label: `${THAI_MONTHS[d.getMonth()]} ${(d.getFullYear() + 543).toString().slice(2)}`, count: monthCounts[key] || 0 });
+  }
+  renderBarChart($("statMonthChart"), monthRows);
+}
+
+$("openStatsBtn").addEventListener("click", () => { renderStats(); showView("stats"); pushNavState("stats"); });
+$("backFromStatsBtn").addEventListener("click", () => { showView("settings"); popNavState(); });
+
 /* ---------------- backup / restore ---------------- */
 
 function downloadJSON(obj, filename) {
@@ -1333,6 +1548,53 @@ function downloadJSON(obj, filename) {
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 }
+
+function downloadTextFile(text, filename, mime) {
+  const blob = new Blob([text], { type: mime || "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+$("exportReadableBtn").addEventListener("click", async () => {
+  const entries = activeEntries().slice().sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const privateCount = entries.filter((e) => e.private).length;
+  let includePrivate = false;
+  if (privateCount > 0) {
+    includePrivate = confirm(`พบบันทึกส่วนตัว ${privateCount} รายการ ต้องการรวมไว้ในไฟล์ที่ส่งออกด้วยไหม (ต้องปลดล็อกก่อน)?`);
+    if (includePrivate) {
+      const ok = await ensureUnlocked("เพื่อรวมบันทึกส่วนตัวในไฟล์ส่งออก");
+      if (!ok) includePrivate = false;
+    }
+  }
+
+  let md = `# สมุดบันทึก\n\nส่งออกเมื่อ ${formatFullThaiDate(todayISO())}\n\n---\n\n`;
+  for (const rec of entries) {
+    if (rec.private) {
+      if (!includePrivate) { md += `## ${formatFullThaiDate(rec.date)} · ${rec.time} น.\n\n🔒 *(บันทึกส่วนตัว — ไม่รวมไว้ในไฟล์นี้)*\n\n---\n\n`; continue; }
+      let data;
+      try { data = await DiaryCrypto.decryptJSON({ iv: rec.encIv, data: rec.encData }); }
+      catch (e) { md += `## ${formatFullThaiDate(rec.date)} · ${rec.time} น.\n\n🔒 *(ถอดรหัสไม่สำเร็จ)*\n\n---\n\n`; continue; }
+      md += `## ${formatFullThaiDate(rec.date)} · ${rec.time} น. 🔒\n\n`;
+      if (data.title) md += `**${data.title}**\n\n`;
+      if (data.mood) md += `${data.mood}\n\n`;
+      md += `${data.content || ""}\n\n`;
+      if (data.tags && data.tags.length) md += `แท็ก: ${data.tags.map((t) => "#" + t).join(" ")}\n\n`;
+      md += `---\n\n`;
+    } else {
+      md += `## ${formatFullThaiDate(rec.date)} · ${rec.time} น.\n\n`;
+      if (rec.title) md += `**${rec.title}**\n\n`;
+      if (rec.mood) md += `${rec.mood}\n\n`;
+      md += `${rec.content || ""}\n\n`;
+      if (rec.tags && rec.tags.length) md += `แท็ก: ${rec.tags.map((t) => "#" + t).join(" ")}\n\n`;
+      md += `---\n\n`;
+    }
+  }
+  downloadTextFile(md, `diary-readable-${todayISO()}.md`, "text/markdown");
+  showToast("ดาวน์โหลดไฟล์แล้ว");
+});
 
 $("backupBtn").addEventListener("click", async () => {
   showToast("กำลังเตรียมไฟล์สำรอง...");
