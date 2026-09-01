@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B2027">
+<title>สมุดบันทึก</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- Spine: signature structural element, runs the full height on desktop -->
+  <div class="spine" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="brand">สมุดบันทึก</span>
+      <button type="button" class="today-pill" id="todayPill" aria-label="เปิดปฏิทิน"></button>
+    </div>
+  </header>
+
+  <main class="views">
+
+    <!-- HOME -->
+    <section class="view" id="view-home" data-view="home">
+      <div class="view-inner">
+        <div class="toolbar">
+          <div class="search-wrap">
+            <input type="search" id="searchInput" placeholder="ค้นหาไดอารี่..." aria-label="ค้นหา">
+          </div>
+          <button class="icon-btn" id="filterToggleBtn" aria-label="กรอง" aria-expanded="false">ตัวกรอง</button>
+        </div>
+
+        <div class="filter-panel" id="filterPanel" hidden>
+          <div class="filter-row">
+            <label for="filterMonth">เดือน/ปี</label>
+            <select id="filterMonth"><option value="">ทั้งหมด</option></select>
+          </div>
+          <div class="filter-row">
+            <label for="filterTag">แท็ก</label>
+            <select id="filterTag"><option value="">ทั้งหมด</option></select>
+          </div>
+          <button class="text-btn" id="clearFilterBtn">ล้างตัวกรอง</button>
+        </div>
+
+        <div class="day-filter-chip" id="dayFilterChip" hidden>
+          <span id="dayFilterLabel"></span>
+          <button type="button" id="clearDayFilterBtn" aria-label="ล้างตัวกรองวันที่">×</button>
+        </div>
+
+        <div class="tag-chip-row" id="tagChipRow"></div>
+
+        <div class="entry-list" id="entryList">
+          <!-- entries injected here, grouped by date -->
+        </div>
+
+        <div class="empty-state" id="emptyState" hidden>
+          <p class="empty-title">ยังไม่มีบันทึก</p>
+          <p class="empty-sub">แตะปุ่ม + ด้านล่างเพื่อเริ่มเขียนวันนี้</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- WRITE / EDIT -->
+    <section class="view" id="view-write" data-view="write">
+      <div class="view-inner">
+        <div class="page-head">
+          <button class="text-btn" id="cancelWriteBtn">ยกเลิก</button>
+          <h1 id="writeHeading">เขียนบันทึก</h1>
+          <button class="text-btn primary" id="saveEntryBtn">บันทึก</button>
+        </div>
+
+        <form id="entryForm">
+          <input type="hidden" id="entryId">
+
+          <div class="field-row two-col">
+            <div class="field">
+              <label for="entryDatePicker">วันที่</label>
+              <button type="button" class="date-picker-btn" id="entryDatePicker"></button>
+              <input type="hidden" id="entryDate" required>
+            </div>
+            <div class="field">
+              <label for="entryTime">เวลา</label>
+              <input type="time" id="entryTime" required>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="entryTitle">ชื่อเรื่อง</label>
+            <input type="text" id="entryTitle" placeholder="วันนี้เป็นยังไงบ้าง" maxlength="120">
+          </div>
+
+          <div class="field">
+            <label for="entryContent">เนื้อหา</label>
+            <textarea id="entryContent" rows="8" placeholder="เขียนอะไรก็ได้ที่อยากบันทึกไว้..."></textarea>
+          </div>
+
+          <div class="field">
+            <label>อารมณ์ประจำวัน</label>
+            <div class="mood-picker" id="moodPicker">
+              <button type="button" class="mood-btn" data-mood="😊">😊</button>
+              <button type="button" class="mood-btn" data-mood="😐">😐</button>
+              <button type="button" class="mood-btn" data-mood="😔">😔</button>
+              <button type="button" class="mood-btn" data-mood="😤">😤</button>
+              <button type="button" class="mood-btn" data-mood="😴">😴</button>
+              <button type="button" class="mood-btn" data-mood="🤩">🤩</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="entryTags">แท็ก (คั่นด้วยจุลภาค)</label>
+            <input type="text" id="entryTags" placeholder="งาน, ครอบครัว, สุขภาพ">
+          </div>
+
+          <div class="field">
+            <label for="entryImages">รูปภาพ</label>
+            <input type="file" id="entryImages" accept="image/*" multiple>
+            <div class="image-strip" id="imageStrip"></div>
+          </div>
+
+          <div class="field private-toggle-field">
+            <label class="switch-row" for="entryPrivate">
+              <span>
+                <span class="switch-label">🔒 บันทึกส่วนตัว</span>
+                <span class="switch-sub">ต้องใส่รหัสผ่านถึงจะอ่านได้</span>
+              </span>
+              <span class="switch">
+                <input type="checkbox" id="entryPrivate">
+                <span class="switch-track"></span>
+              </span>
+            </label>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- VIEW ENTRY -->
+    <section class="view" id="view-entry" data-view="entry">
+      <div class="view-inner">
+        <div class="page-head">
+          <button class="text-btn" id="backFromEntryBtn">ย้อนกลับ</button>
+          <span class="entry-badge" id="entryPrivateBadge" hidden>🔒 ส่วนตัว</span>
+          <div class="head-actions">
+            <button class="icon-btn" id="editEntryBtn">แก้ไข</button>
+            <button class="icon-btn danger" id="deleteEntryBtn">ลบ</button>
+          </div>
+        </div>
+        <div class="entry-detail" id="entryDetail"></div>
+        <button class="text-btn" id="exportEntryBtn">ส่งออกบันทึกนี้ (.json)</button>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings" data-view="settings">
+      <div class="view-inner">
+        <div class="page-head">
+          <h1>ตั้งค่า</h1>
+        </div>
+
+        <div class="settings-group">
+          <h2>ความเป็นส่วนตัว</h2>
+          <div class="settings-row" id="pwStatusRow">
+            <span id="pwStatusText">ยังไม่ได้ตั้งรหัสผ่าน</span>
+            <button class="text-btn" id="setPasswordBtn">ตั้งรหัสผ่าน</button>
+          </div>
+          <div class="settings-row" id="changePwRow" hidden>
+            <span>เปลี่ยนรหัสผ่าน</span>
+            <button class="text-btn" id="changePasswordBtn">เปลี่ยน</button>
+          </div>
+          <div class="settings-row">
+            <span>ล็อกเซสชันตอนนี้</span>
+            <button class="text-btn" id="lockNowBtn">ล็อก</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h2>ข้อมูล</h2>
+          <div class="settings-row">
+            <span>สำรองข้อมูลทั้งหมด (JSON)</span>
+            <button class="text-btn" id="backupBtn">ดาวน์โหลด</button>
+          </div>
+          <div class="settings-row">
+            <span>กู้คืนจากไฟล์ JSON</span>
+            <label class="text-btn file-btn" for="restoreFile">เลือกไฟล์</label>
+            <input type="file" id="restoreFile" accept="application/json" hidden>
+          </div>
+          <div class="settings-row">
+            <span>จำนวนบันทึกทั้งหมด</span>
+            <span id="entryCountText">0</span>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h2>Google Drive</h2>
+          <p class="settings-note">ยังไม่ได้เชื่อมต่อ — ระบบ Sync กับ Google Drive จะเพิ่มในขั้นถัดไป ตอนนี้ใช้สำรอง/กู้คืนไฟล์ JSON ไปก่อนได้</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-nav="home">
+      <span class="nav-ico">🏠</span><span>หน้าแรก</span>
+    </button>
+    <button class="nav-btn fab" id="newEntryBtn">
+      <span class="nav-ico">+</span>
+    </button>
+    <button class="nav-btn" data-nav="settings">
+      <span class="nav-ico">⚙️</span><span>ตั้งค่า</span>
+    </button>
+  </nav>
+
+  <!-- Calendar picker -->
+  <div class="modal" id="calendarModal" hidden>
+    <div class="modal-card calendar-card">
+      <div class="cal-nav">
+        <button type="button" class="icon-btn" id="calPrevBtn" aria-label="เดือนก่อนหน้า">‹</button>
+        <span class="cal-title" id="calTitle"></span>
+        <button type="button" class="icon-btn" id="calNextBtn" aria-label="เดือนถัดไป">›</button>
+      </div>
+      <div class="cal-legend">
+        <span><i class="cal-dot has-entry"></i> มีบันทึก</span>
+        <span><i class="cal-dot has-image"></i> มีรูป/ไฟล์แนบ</span>
+      </div>
+      <div class="cal-weekdays">
+        <span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="modal-actions">
+        <button class="text-btn" id="calCloseBtn">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unlock modal for private entries -->
+  <div class="modal" id="unlockModal" hidden>
+    <div class="modal-card">
+      <h2 id="unlockTitle">ใส่รหัสผ่าน</h2>
+      <p class="modal-sub" id="unlockSub">เพื่อดูบันทึกส่วนตัว</p>
+      <input type="password" id="unlockPassInput" placeholder="รหัสผ่าน" autocomplete="off">
+      <p class="modal-error" id="unlockError" hidden>รหัสผ่านไม่ถูกต้อง</p>
+      <div class="modal-actions">
+        <button class="text-btn" id="unlockCancelBtn">ยกเลิก</button>
+        <button class="text-btn primary" id="unlockConfirmBtn">ยืนยัน</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Set/Change password modal -->
+  <div class="modal" id="setPwModal" hidden>
+    <div class="modal-card">
+      <h2 id="setPwTitle">ตั้งรหัสผ่าน</h2>
+      <p class="modal-sub">ใช้สำหรับปลดล็อกบันทึกส่วนตัวเท่านั้น ถ้าลืมรหัส จะเปิดบันทึกส่วนตัวเก่าไม่ได้อีก</p>
+      <input type="password" id="setPwOldInput" placeholder="รหัสผ่านเดิม" autocomplete="off" hidden>
+      <input type="password" id="setPwInput" placeholder="รหัสผ่านใหม่" autocomplete="off">
+      <input type="password" id="setPwConfirmInput" placeholder="ยืนยันรหัสผ่านใหม่" autocomplete="off">
+      <p class="modal-error" id="setPwError" hidden></p>
+      <div class="modal-actions">
+        <button class="text-btn" id="setPwCancelBtn">ยกเลิก</button>
+        <button class="text-btn primary" id="setPwConfirmBtn">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+</div>
+
+<script src="js/crypto.js"></script>
+<script src="js/db.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
