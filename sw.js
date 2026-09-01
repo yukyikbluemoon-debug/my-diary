@@ -1,4 +1,4 @@
-const CACHE_NAME = "diary-shell-v2";
+const CACHE_NAME = "diary-shell-v3";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -28,19 +28,23 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// App shell: cache-first. All diary data lives in IndexedDB, untouched here.
+// App shell: stale-while-revalidate. Serve from cache immediately for
+// speed/offline, but always also fetch fresh in the background and update
+// the cache — so edited files (like drive-config.js) show up after at
+// most one reload, instead of staying stuck on whatever was cached first.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (!event.request.url.startsWith(self.location.origin)) return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((res) => {
-        if (res.ok && event.request.url.startsWith(self.location.origin)) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return res;
-      }).catch(() => cached);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(event.request);
+      const networkFetch = fetch(event.request)
+        .then((res) => {
+          if (res.ok) cache.put(event.request, res.clone());
+          return res;
+        })
+        .catch(() => cached);
+      return cached || networkFetch;
     })
   );
 });

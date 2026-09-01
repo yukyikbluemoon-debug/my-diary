@@ -34,7 +34,16 @@ const DriveSync = (() => {
         return;
       }
       const client = getTokenClient();
+      let settled = false;
+      const timeoutId = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error("หมดเวลารอการเข้าสู่ระบบ Google — เช็คว่าป๊อปอัพถูกบล็อกไหม หรือบัญชีนี้ยังไม่ได้เพิ่มเป็น Test user"));
+      }, 45000);
       client.callback = (resp) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
         if (resp.error) { reject(new Error(resp.error)); return; }
         accessToken = resp.access_token;
         resolve(accessToken);
