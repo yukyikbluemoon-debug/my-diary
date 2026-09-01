@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -199,7 +200,14 @@
 
         <div class="settings-group">
           <h2>Google Drive</h2>
-          <p class="settings-note">ยังไม่ได้เชื่อมต่อ — ระบบ Sync กับ Google Drive จะเพิ่มในขั้นถัดไป ตอนนี้ใช้สำรอง/กู้คืนไฟล์ JSON ไปก่อนได้</p>
+          <div class="settings-row">
+            <span>สถานะ</span>
+            <span id="driveSyncStatus">ยังไม่เคยซิงค์</span>
+          </div>
+          <div class="settings-row">
+            <span>ซิงค์กับ Google Drive</span>
+            <button class="text-btn primary" id="driveSyncBtn">ซิงค์ตอนนี้</button>
+          </div>
         </div>
       </div>
     </section>
@@ -276,6 +284,8 @@
 
 <script src="js/crypto.js"></script>
 <script src="js/db.js"></script>
+<script src="js/drive-config.js"></script>
+<script src="js/drive-sync.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

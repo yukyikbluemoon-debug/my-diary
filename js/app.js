@@ -240,12 +240,34 @@ $("lockNowBtn").addEventListener("click", () => {
   showToast("ล็อกเซสชันแล้ว");
 });
 
+$("driveSyncBtn").addEventListener("click", async () => {
+  if (typeof DriveSync === "undefined") { showToast("โหลดฟีเจอร์ซิงค์ไม่สำเร็จ"); return; }
+  $("driveSyncBtn").disabled = true;
+  $("driveSyncStatus").textContent = "กำลังซิงค์...";
+  try {
+    const count = await DriveSync.sync();
+    state.entries = await DiaryDB.getAll();
+    renderHome();
+    $("driveSyncStatus").textContent = `ซิงค์แล้ว (${count} รายการ) — ${DriveSync.lastSyncedText()}`;
+    showToast("ซิงค์กับ Google Drive สำเร็จ");
+  } catch (err) {
+    console.error("Drive sync failed:", err);
+    $("driveSyncStatus").textContent = "ซิงค์ไม่สำเร็จ";
+    showToast("ซิงค์ไม่สำเร็จ: " + (err && err.message ? err.message : "ไม่ทราบสาเหตุ"));
+  } finally {
+    $("driveSyncBtn").disabled = false;
+  }
+});
+
 function refreshSettingsView() {
   const has = DiaryCrypto.hasPassword();
   $("pwStatusText").textContent = has ? "ตั้งรหัสผ่านแล้ว" : "ยังไม่ได้ตั้งรหัสผ่าน";
   $("setPasswordBtn").hidden = has;
   $("changePwRow").hidden = !has;
   $("entryCountText").textContent = state.entries.length;
+  if (typeof DriveSync !== "undefined") {
+    $("driveSyncStatus").textContent = DriveSync.lastSyncedText();
+  }
 }
 
 /* ---------------- home / list rendering ---------------- */
