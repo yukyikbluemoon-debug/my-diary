@@ -5,7 +5,7 @@ const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.
 const THAI_MONTHS_FULL = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const TRASH_RETENTION_DAYS = 30;
 const VIDEO_MAX_SECONDS = 30;
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.5.1";
 const APP_BUILD_DATE = "2026-09-02";
 
 const state = {

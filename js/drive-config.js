@@ -4,4 +4,4 @@
    origins เป็น URL ของเว็บนี้ (เช่น https://yukyikbluemoon-debug.github.io)
    ดูขั้นตอนเต็มใน README.md */
 
-const DRIVE_CLIENT_ID = "82768081306-63fmeug3rgiisiuvq9roecb3198re5au.apps.googleusercontent.com";
+const DRIVE_CLIENT_ID = "PASTE_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com";

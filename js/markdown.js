@@ -11,7 +11,21 @@ const MarkdownLite = (() => {
     let t = escapeHTML(text);
     t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     t = t.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+    t = autolink(t);
     return t;
+  }
+
+  function autolink(text) {
+    return text.replace(/(https?:\/\/[^\s<]+)/g, (match) => {
+      let url = match;
+      let trailing = "";
+      const trailChars = ".,!?)]}\"'";
+      while (url.length > 0 && trailChars.includes(url[url.length - 1])) {
+        trailing = url[url.length - 1] + trailing;
+        url = url.slice(0, -1);
+      }
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>${trailing}`;
+    });
   }
 
   const CHECK_RE = /^\s*-\s*\[( |x|X)\]\s?(.*)$/;

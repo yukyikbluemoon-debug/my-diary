@@ -518,6 +518,8 @@ button, input, textarea, select {
 .detail-content { font-family: var(--serif); font-size: calc(16px * var(--content-scale, 1)); line-height: 1.8; margin-bottom: 16px; }
 .detail-content p { margin: 0 0 0.9em; }
 .detail-content p:last-child { margin-bottom: 0; }
+.detail-content a { color: var(--sage); text-decoration: underline; word-break: break-word; }
+.detail-content a:hover { color: var(--amber); }
 .detail-images { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .detail-images img { width: 120px; height: 120px; object-fit: cover; border-radius: var(--radius-s); }
 .detail-tags { display: flex; gap: 6px; flex-wrap: wrap; }
