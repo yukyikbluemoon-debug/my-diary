@@ -41,7 +41,8 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 function nowHM() {
   return new Date().toTimeString().slice(0, 5);
@@ -100,30 +101,38 @@ function dataURLToBlob(dataURL) {
   return new Blob([arr], { type: mime });
 }
 
-let popstateHandling = false;
+let suppressPopstateCount = 0;
 
 function pushNavState(label) {
   history.pushState({ navLabel: label }, "");
 }
 function popNavState() {
-  if (!popstateHandling) history.back();
+  // Called after a button/action already performed the visual "close"
+  // itself. We still owe the browser one history.back() to consume the
+  // matching pushState — but that will fire another popstate event, and
+  // we must NOT let that re-trigger closeCurrentLayer() (it would close
+  // a second, unrelated layer on top of the one we just closed). Suppress
+  // exactly that one resulting popstate. A counter (not a flag) because
+  // some actions call this twice in a row (e.g. saving an entry that was
+  // opened for editing consumes both the "write" and "entry" states).
+  suppressPopstateCount++;
+  history.back();
 }
 
 function closeCurrentLayer() {
-  if (!$("lightbox").hidden) { closeLightbox(); return; }
-  if (!$("sketchModal").hidden) { closeSketchModal(); return; }
-  if (!$("calendarModal").hidden) { closeCalendar(); return; }
-  if (!$("setPwModal").hidden) { closeSetPwModal(); return; }
-  if (!$("unlockModal").hidden) { closeUnlockModal(false); return; }
+  if (!$("lightbox").hidden) { closeLightboxVisual(); return; }
+  if (!$("sketchModal").hidden) { closeSketchModalVisual(); return; }
+  if (!$("calendarModal").hidden) { closeCalendarVisual(); return; }
+  if (!$("setPwModal").hidden) { closeSetPwModalVisual(); return; }
+  if (!$("unlockModal").hidden) { closeUnlockModalVisual(false); return; }
   if (state.view === "trash") { showView("settings"); return; }
   if (state.view === "write") { clearRecordingUI(); showView(state.editId ? "entry" : "home"); return; }
   if (state.view === "entry") { showView("home"); return; }
 }
 
 window.addEventListener("popstate", () => {
-  popstateHandling = true;
+  if (suppressPopstateCount > 0) { suppressPopstateCount--; return; }
   closeCurrentLayer();
-  popstateHandling = false;
 });
 
 /* ---------------- view routing ---------------- */
@@ -142,11 +151,11 @@ function openLightbox(src) {
   $("lightbox").hidden = false;
   pushNavState("lightbox");
 }
-function closeLightbox() {
+function closeLightboxVisual() {
   $("lightbox").hidden = true;
   $("lightboxImg").src = "";
-  popNavState();
 }
+function closeLightbox() { closeLightboxVisual(); popNavState(); }
 $("lightboxCloseBtn").addEventListener("click", closeLightbox);
 $("lightbox").addEventListener("click", (e) => { if (e.target.id === "lightbox") closeLightbox(); });
 document.addEventListener("click", (e) => {
@@ -342,7 +351,8 @@ $("sketchOpenBtn").addEventListener("click", () => {
   pushNavState("sketch");
   initSketchCanvas();
 });
-function closeSketchModal() { $("sketchModal").hidden = true; popNavState(); }
+function closeSketchModalVisual() { $("sketchModal").hidden = true; }
+function closeSketchModal() { closeSketchModalVisual(); popNavState(); }
 $("sketchCancelBtn").addEventListener("click", closeSketchModal);
 $("sketchClearBtn").addEventListener("click", () => {
   const canvas = $("sketchCanvas");
@@ -441,11 +451,11 @@ function openUnlockModal(sub) {
     setTimeout(() => $("unlockPassInput").focus(), 50);
   });
 }
-function closeUnlockModal(result) {
+function closeUnlockModalVisual(result) {
   $("unlockModal").hidden = true;
-  popNavState();
   if (state.unlockResolve) { state.unlockResolve(result); state.unlockResolve = null; }
 }
+function closeUnlockModal(result) { closeUnlockModalVisual(result); popNavState(); }
 $("unlockCancelBtn").addEventListener("click", () => closeUnlockModal(false));
 $("unlockConfirmBtn").addEventListener("click", async () => {
   const ok = await DiaryCrypto.tryUnlock($("unlockPassInput").value);
@@ -474,7 +484,8 @@ function openSetPwModal(mode) {
   $("setPwModal").hidden = false;
   pushNavState("setpw");
 }
-function closeSetPwModal() { $("setPwModal").hidden = true; popNavState(); }
+function closeSetPwModalVisual() { $("setPwModal").hidden = true; }
+function closeSetPwModal() { closeSetPwModalVisual(); popNavState(); }
 
 $("setPasswordBtn").addEventListener("click", () => openSetPwModal("create"));
 $("changePasswordBtn").addEventListener("click", () => openSetPwModal("change"));
@@ -1248,7 +1259,8 @@ function renderCalendar() {
 }
 
 function openCalendar() { $("calendarModal").hidden = false; pushNavState("calendar"); renderCalendar(); }
-function closeCalendar() { $("calendarModal").hidden = true; popNavState(); }
+function closeCalendarVisual() { $("calendarModal").hidden = true; }
+function closeCalendar() { closeCalendarVisual(); popNavState(); }
 
 $("todayPill").addEventListener("click", () => { state.calMode = "browse"; openCalendar(); });
 $("calCloseBtn").addEventListener("click", closeCalendar);
