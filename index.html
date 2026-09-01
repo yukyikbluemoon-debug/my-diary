@@ -73,6 +73,11 @@
 
         <div class="tag-chip-row" id="tagChipRow"></div>
 
+        <div class="pinned-section" id="pinnedSection" hidden>
+          <div class="date-heading">📌 ปักหมุด</div>
+          <div id="pinnedList"></div>
+        </div>
+
         <div class="entry-list" id="entryList">
           <!-- entries injected here, grouped by date -->
         </div>
@@ -139,6 +144,21 @@
           <div class="field">
             <label for="entryTags">แท็ก (คั่นด้วยจุลภาค)</label>
             <input type="text" id="entryTags" placeholder="งาน, ครอบครัว, สุขภาพ">
+          </div>
+
+          <div class="field">
+            <label>สีป้าย (ไม่บังคับ)</label>
+            <div class="color-picker" id="colorPicker">
+              <button type="button" class="color-swatch selected" data-color="none" aria-label="ไม่มีสี"><span class="swatch-x">×</span></button>
+              <button type="button" class="color-swatch" data-color="red" aria-label="แดง"></button>
+              <button type="button" class="color-swatch" data-color="orange" aria-label="ส้ม"></button>
+              <button type="button" class="color-swatch" data-color="yellow" aria-label="เหลือง"></button>
+              <button type="button" class="color-swatch" data-color="green" aria-label="เขียว"></button>
+              <button type="button" class="color-swatch" data-color="teal" aria-label="เขียวอมฟ้า"></button>
+              <button type="button" class="color-swatch" data-color="blue" aria-label="ฟ้า"></button>
+              <button type="button" class="color-swatch" data-color="purple" aria-label="ม่วง"></button>
+              <button type="button" class="color-swatch" data-color="pink" aria-label="ชมพู"></button>
+            </div>
           </div>
 
           <div class="field">
@@ -222,6 +242,7 @@
           <button class="text-btn" id="backFromEntryBtn">ย้อนกลับ</button>
           <span class="entry-badge" id="entryPrivateBadge" hidden>🔒 ส่วนตัว</span>
           <div class="head-actions">
+            <button class="icon-btn" id="pinEntryBtn">📌 ปักหมุด</button>
             <button class="icon-btn" id="editEntryBtn">แก้ไข</button>
             <button class="icon-btn danger" id="deleteEntryBtn">ลบ</button>
           </div>
@@ -367,6 +388,7 @@
       <h2 id="unlockTitle">ใส่รหัสผ่าน</h2>
       <p class="modal-sub" id="unlockSub">เพื่อดูบันทึกส่วนตัว</p>
       <input type="password" id="unlockPassInput" placeholder="รหัสผ่าน" autocomplete="off">
+      <p class="pw-hint-text" id="unlockHintText" hidden></p>
       <p class="modal-error" id="unlockError" hidden>รหัสผ่านไม่ถูกต้อง</p>
       <div class="modal-actions">
         <button class="text-btn" id="unlockCancelBtn">ยกเลิก</button>
@@ -383,6 +405,7 @@
       <input type="password" id="setPwOldInput" placeholder="รหัสผ่านเดิม" autocomplete="off" hidden>
       <input type="password" id="setPwInput" placeholder="รหัสผ่านใหม่" autocomplete="off">
       <input type="password" id="setPwConfirmInput" placeholder="ยืนยันรหัสผ่านใหม่" autocomplete="off">
+      <input type="text" id="setPwHintInput" placeholder="คำใบ้ช่วยจำ (ไม่บังคับ)" autocomplete="off" maxlength="60">
       <p class="modal-error" id="setPwError" hidden></p>
       <div class="modal-actions">
         <button class="text-btn" id="setPwCancelBtn">ยกเลิก</button>

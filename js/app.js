@@ -5,8 +5,8 @@ const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.
 const THAI_MONTHS_FULL = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const TRASH_RETENTION_DAYS = 30;
 const VIDEO_MAX_SECONDS = 30;
-const APP_VERSION = "1.4.0";
-const APP_BUILD_DATE = "2026-09-01";
+const APP_VERSION = "1.5.0";
+const APP_BUILD_DATE = "2026-09-02";
 
 const state = {
   entries: [],
@@ -18,6 +18,7 @@ const state = {
   pendingAttachments: [],  // [{id, type, blob, url, existing:bool}]
   removedAttachmentIds: [],
   entryLocation: null,     // {lat, lng} | null
+  entryColor: "none",
   unlockResolve: null,
   dayFilter: null,
   cal: { year: 0, month: 0 },
@@ -383,6 +384,15 @@ $("sketchSaveBtn").addEventListener("click", () => {
   canvas.addEventListener("pointerleave", end);
 })();
 
+/* ---------------- color picker ---------------- */
+
+$("colorPicker").addEventListener("click", (e) => {
+  const btn = e.target.closest(".color-swatch");
+  if (!btn) return;
+  state.entryColor = btn.dataset.color;
+  document.querySelectorAll(".color-swatch").forEach((b) => b.classList.toggle("selected", b === btn));
+});
+
 /* ---------------- location ---------------- */
 
 async function reverseGeocode(lat, lng) {
@@ -446,6 +456,9 @@ function openUnlockModal(sub) {
     $("unlockSub").textContent = sub || "เพื่อดูบันทึกส่วนตัว";
     $("unlockPassInput").value = "";
     $("unlockError").hidden = true;
+    const hint = localStorage.getItem("diary_pw_hint");
+    if (hint) { $("unlockHintText").textContent = `💡 คำใบ้: ${hint}`; $("unlockHintText").hidden = false; }
+    else { $("unlockHintText").hidden = true; }
     $("unlockModal").hidden = false;
     pushNavState("unlock");
     setTimeout(() => $("unlockPassInput").focus(), 50);
@@ -480,6 +493,7 @@ function openSetPwModal(mode) {
   $("setPwOldInput").value = "";
   $("setPwInput").value = "";
   $("setPwConfirmInput").value = "";
+  $("setPwHintInput").value = localStorage.getItem("diary_pw_hint") || "";
   $("setPwError").hidden = true;
   $("setPwModal").hidden = false;
   pushNavState("setpw");
@@ -503,8 +517,15 @@ $("setPwConfirmBtn").addEventListener("click", async () => {
   if (newPass.length < 4) { errEl.textContent = "รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร"; errEl.hidden = false; return; }
   if (newPass !== confirmPass) { errEl.textContent = "รหัสผ่านไม่ตรงกัน"; errEl.hidden = false; return; }
 
+  function saveHint() {
+    const hint = $("setPwHintInput").value.trim();
+    if (hint) localStorage.setItem("diary_pw_hint", hint);
+    else localStorage.removeItem("diary_pw_hint");
+  }
+
   if (setPwMode === "create") {
     await DiaryCrypto.setupPassword(newPass);
+    saveHint();
     closeSetPwModal();
     refreshSettingsView();
     showToast("ตั้งรหัสผ่านแล้ว");
@@ -513,6 +534,7 @@ $("setPwConfirmBtn").addEventListener("click", async () => {
 
   if (setPwMode === "reset") {
     await DiaryCrypto.setupPassword(newPass);
+    saveHint();
     closeSetPwModal();
     refreshSettingsView();
     showToast("รีเซ็ตรหัสผ่านแล้ว (บันทึกส่วนตัวเก่าเปิดไม่ได้อีก)");
@@ -549,6 +571,7 @@ $("setPwConfirmBtn").addEventListener("click", async () => {
   }
 
   closeSetPwModal();
+  saveHint();
   refreshSettingsView();
   showToast("เปลี่ยนรหัสผ่านแล้ว");
 });
@@ -708,15 +731,57 @@ $("onThisDayList").addEventListener("click", (e) => {
   if (item) openEntry(item.dataset.id);
 });
 
+function buildEntryCard(e) {
+  const card = document.createElement("div");
+  card.className = "entry-card" + (e.color ? ` color-${e.color}` : "");
+  card.dataset.id = e.id;
+  const pinIcon = e.pinned ? '<span class="entry-pin-icon">📌</span>' : "";
+
+  if (e.private) {
+    card.innerHTML = `
+      <div class="entry-time">${e.time}</div>
+      <div class="entry-body">
+        <div class="entry-title-row">${pinIcon}<span class="entry-lock-icon">🔒</span><p class="entry-title">บันทึกส่วนตัว</p></div>
+      </div>`;
+  } else {
+    const preview = (e.content || "").replace(/[#*_\[\]]/g, "").replace(/\s+/g, " ").trim();
+    card.innerHTML = `
+      <div class="entry-time">${e.time}</div>
+      <div class="entry-body">
+        <div class="entry-title-row">
+          ${pinIcon}<p class="entry-title">${escapeHTML(e.title || "(ไม่มีชื่อเรื่อง)")}</p>
+          <span class="entry-mood">${e.mood || ""}</span>
+        </div>
+        <p class="entry-preview">${escapeHTML(preview)}</p>
+        ${(e.tags && e.tags.length) ? `<div class="entry-tags">${e.tags.map((t) => `<span class="entry-tag">${escapeHTML(t)}</span>`).join("")}</div>` : ""}
+      </div>`;
+  }
+  return card;
+}
+
 function renderHome() {
   const list = getFilteredEntries().slice().sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
   const container = $("entryList");
   container.innerHTML = "";
   $("emptyState").hidden = list.length > 0 || activeEntries().length > 0;
 
+  const pinned = list.filter((e) => e.pinned);
+  const rest = list.filter((e) => !e.pinned);
+
+  const pinnedBox = $("pinnedSection");
+  if (pinned.length === 0 || state.dayFilter) {
+    // hide the pinned shelf while looking at a single day — it would just duplicate the day's own list
+    pinnedBox.hidden = true;
+  } else {
+    pinnedBox.hidden = false;
+    const pinnedList = $("pinnedList");
+    pinnedList.innerHTML = "";
+    pinned.forEach((e) => pinnedList.appendChild(buildEntryCard(e)));
+  }
+
   let currentDate = null;
   let groupDiv = null;
-  list.forEach((e) => {
+  rest.forEach((e) => {
     if (e.date !== currentDate) {
       currentDate = e.date;
       groupDiv = document.createElement("div");
@@ -724,30 +789,7 @@ function renderHome() {
       groupDiv.innerHTML = `<div class="date-heading">${formatDateHeading(e.date)}</div>`;
       container.appendChild(groupDiv);
     }
-    const card = document.createElement("div");
-    card.className = "entry-card";
-    card.dataset.id = e.id;
-
-    if (e.private) {
-      card.innerHTML = `
-        <div class="entry-time">${e.time}</div>
-        <div class="entry-body">
-          <div class="entry-title-row"><span class="entry-lock-icon">🔒</span><p class="entry-title">บันทึกส่วนตัว</p></div>
-        </div>`;
-    } else {
-      const preview = (e.content || "").replace(/[#*_\[\]]/g, "").replace(/\s+/g, " ").trim();
-      card.innerHTML = `
-        <div class="entry-time">${e.time}</div>
-        <div class="entry-body">
-          <div class="entry-title-row">
-            <p class="entry-title">${escapeHTML(e.title || "(ไม่มีชื่อเรื่อง)")}</p>
-            <span class="entry-mood">${e.mood || ""}</span>
-          </div>
-          <p class="entry-preview">${escapeHTML(preview)}</p>
-          ${(e.tags && e.tags.length) ? `<div class="entry-tags">${e.tags.map((t) => `<span class="entry-tag">${escapeHTML(t)}</span>`).join("")}</div>` : ""}
-        </div>`;
-    }
-    groupDiv.appendChild(card);
+    groupDiv.appendChild(buildEntryCard(e));
   });
 
   if (activeEntries().length === 0) $("emptyState").hidden = false;
@@ -760,6 +802,10 @@ function renderHome() {
 }
 
 $("entryList").addEventListener("click", (e) => {
+  const card = e.target.closest(".entry-card");
+  if (card) openEntry(card.dataset.id);
+});
+$("pinnedList").addEventListener("click", (e) => {
   const card = e.target.closest(".entry-card");
   if (card) openEntry(card.dataset.id);
 });
@@ -798,6 +844,8 @@ function resetWriteForm() {
   state.entryLocation = null;
   $("locationSubText").textContent = "ไม่บังคับ — ใช้ตำแหน่งคร่าวๆ จาก GPS";
   state.moodSelected = "";
+  state.entryColor = "none";
+  document.querySelectorAll(".color-swatch").forEach((b) => b.classList.toggle("selected", b.dataset.color === "none"));
   state.pendingAttachments = [];
   state.removedAttachmentIds = [];
   clearRecordingUI();
@@ -854,6 +902,8 @@ async function openWriteForEdit(id) {
   $("entryTags").value = (data.tags || []).join(", ");
   $("entryPrivate").checked = !!rec.private;
   state.moodSelected = data.mood || "";
+  state.entryColor = rec.color || "none";
+  document.querySelectorAll(".color-swatch").forEach((b) => b.classList.toggle("selected", b.dataset.color === state.entryColor));
 
   const loc = rec.private ? data.location : rec.location;
   if (loc) {
@@ -921,6 +971,8 @@ $("saveEntryBtn").addEventListener("click", async () => {
     const rec = {
       id, date, time, private: isPrivate,
       hasMedia: state.pendingAttachments.length > 0,
+      color: state.entryColor === "none" ? null : state.entryColor,
+      pinned: existing ? !!existing.pinned : false,
       deletedAt: null,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1010,6 +1062,7 @@ async function openEntry(id) {
   }
   state.viewDecrypted = data;
   $("entryPrivateBadge").hidden = !rec.private;
+  $("pinEntryBtn").textContent = rec.pinned ? "📌 เลิกปักหมุด" : "📌 ปักหมุด";
 
   let mediaItems = [];
   if (rec.private) {
@@ -1067,6 +1120,17 @@ $("entryDetail").addEventListener("change", async (e) => {
 
 $("backFromEntryBtn").addEventListener("click", () => { showView("home"); popNavState(); });
 $("editEntryBtn").addEventListener("click", () => openWriteForEdit(state.viewId));
+
+$("pinEntryBtn").addEventListener("click", async () => {
+  const rec = state.entries.find((e) => e.id === state.viewId);
+  if (!rec) return;
+  rec.pinned = !rec.pinned;
+  rec.updatedAt = new Date().toISOString();
+  await DiaryDB.put(rec);
+  $("pinEntryBtn").textContent = rec.pinned ? "📌 เลิกปักหมุด" : "📌 ปักหมุด";
+  renderHome();
+  showToast(rec.pinned ? "ปักหมุดแล้ว" : "เลิกปักหมุดแล้ว");
+});
 
 $("deleteEntryBtn").addEventListener("click", async () => {
   if (!state.viewId) return;
