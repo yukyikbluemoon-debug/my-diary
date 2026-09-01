@@ -5,7 +5,7 @@ const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.
 const THAI_MONTHS_FULL = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const TRASH_RETENTION_DAYS = 30;
 const VIDEO_MAX_SECONDS = 30;
-const APP_VERSION = "1.5.1";
+const APP_VERSION = "1.7.0";
 const APP_BUILD_DATE = "2026-09-02";
 
 const state = {
@@ -448,6 +448,32 @@ $("mdItalicBtn").addEventListener("click", () => MarkdownLite.insertAround($("en
 $("mdBulletBtn").addEventListener("click", () => MarkdownLite.insertLinePrefix($("entryContent"), "- "));
 $("mdCheckBtn").addEventListener("click", () => MarkdownLite.insertLinePrefix($("entryContent"), "- [ ] "));
 
+/* ---------------- emoji picker ---------------- */
+
+const EMOJI_LIST = [
+  "😀","😄","😁","😆","😊","🙂","😉","😍","🥰","😘","😋","😎","🤩","🥳","😇",
+  "🙃","😅","😂","🤣","😐","😑","😶","🙄","😏","😴","🥱","😪","😢","😭","😤",
+  "😠","😡","🤯","😱","😨","😰","😥","😓","🤔","🤨","😬","🥺","😷","🤒","🤕",
+  "🥵","🥶","😵","🤗","🤝","👍","👎","👏","🙏","💪","✌️","🤞","👋","🫶","❤️",
+  "🧡","💛","💚","💙","💜","🖤","🤍","💔","✨","🔥","🎉","🎊","🎁","🌟","⭐",
+  "☀️","🌤️","☁️","🌧️","⛈️","❄️","🌈","🌙","🌸","🌺","🍀","🌳","☕","🍵","🍕",
+  "🍔","🍜","🍰","🍺","🍷","⚽","🏃","🎵","📚","✍️","💻","📱","🚗","✈️","🏠",
+  "💰","😴","🛌","💊","🏥","🎂","🎈","💯","✅","❌","⚠️","💡","📌","🕐","📍",
+];
+
+function toggleEmojiPanel() {
+  const panel = $("emojiPanel");
+  if (!panel.hidden) { panel.hidden = true; return; }
+  panel.innerHTML = EMOJI_LIST.map((em) => `<button type="button">${em}</button>`).join("");
+  panel.hidden = false;
+}
+$("mdEmojiBtn").addEventListener("click", toggleEmojiPanel);
+$("emojiPanel").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  MarkdownLite.insertAround($("entryContent"), btn.textContent, "", "");
+});
+
 /* ---------------- unlock modal ---------------- */
 
 function openUnlockModal(sub) {
@@ -607,7 +633,7 @@ function refreshSettingsView() {
   $("changePwRow").hidden = !has;
   $("forgotPwRow").hidden = !has;
   $("entryCountText").textContent = state.entries.filter((e) => !e.deletedAt).length;
-  $("trashCountText").textContent = state.entries.filter((e) => e.deletedAt).length;
+  $("trashCountText").textContent = state.entries.filter((e) => e.deletedAt && !e.purged).length;
   if (typeof DriveSync !== "undefined") {
     $("driveSyncStatus").textContent = DriveSync.lastSyncedText();
   }
@@ -736,13 +762,15 @@ function buildEntryCard(e) {
   card.className = "entry-card" + (e.color ? ` color-${e.color}` : "");
   card.dataset.id = e.id;
   const pinIcon = e.pinned ? '<span class="entry-pin-icon">📌</span>' : "";
+  const quickDelete = `<button type="button" class="card-quick-delete" data-id="${e.id}" aria-label="ลบ">🗑️</button>`;
 
   if (e.private) {
     card.innerHTML = `
       <div class="entry-time">${e.time}</div>
       <div class="entry-body">
         <div class="entry-title-row">${pinIcon}<span class="entry-lock-icon">🔒</span><p class="entry-title">บันทึกส่วนตัว</p></div>
-      </div>`;
+      </div>
+      ${quickDelete}`;
   } else {
     const preview = (e.content || "").replace(/[#*_\[\]]/g, "").replace(/\s+/g, " ").trim();
     card.innerHTML = `
@@ -754,7 +782,22 @@ function buildEntryCard(e) {
         </div>
         <p class="entry-preview">${escapeHTML(preview)}</p>
         ${(e.tags && e.tags.length) ? `<div class="entry-tags">${e.tags.map((t) => `<span class="entry-tag">${escapeHTML(t)}</span>`).join("")}</div>` : ""}
-      </div>`;
+      </div>
+      <div class="entry-thumb-slot"></div>
+      ${quickDelete}`;
+
+    if (e.attachmentRefs && e.attachmentRefs.length) {
+      const imgRef = e.attachmentRefs.find((r) => r.type === "image" || r.type === "sketch");
+      if (imgRef) {
+        // local-only lookup — never triggers a Drive download just to render the list
+        DiaryDB.getAttachment(imgRef.id).then((att) => {
+          if (att && att.blob) {
+            const slot = card.querySelector(".entry-thumb-slot");
+            if (slot) slot.innerHTML = `<img src="${URL.createObjectURL(att.blob)}" class="entry-thumb">`;
+          }
+        });
+      }
+    }
   }
   return card;
 }
@@ -802,10 +845,14 @@ function renderHome() {
 }
 
 $("entryList").addEventListener("click", (e) => {
+  const del = e.target.closest(".card-quick-delete");
+  if (del) { quickTrashEntry(del.dataset.id); return; }
   const card = e.target.closest(".entry-card");
   if (card) openEntry(card.dataset.id);
 });
 $("pinnedList").addEventListener("click", (e) => {
+  const del = e.target.closest(".card-quick-delete");
+  if (del) { quickTrashEntry(del.dataset.id); return; }
   const card = e.target.closest(".entry-card");
   if (card) openEntry(card.dataset.id);
 });
@@ -850,6 +897,7 @@ function resetWriteForm() {
   state.removedAttachmentIds = [];
   clearRecordingUI();
   renderAttachStrip();
+  $("emojiPanel").hidden = true;
   document.querySelectorAll(".mood-btn").forEach((b) => b.classList.remove("selected"));
 }
 
@@ -1062,6 +1110,7 @@ async function openEntry(id) {
   }
   state.viewDecrypted = data;
   $("entryPrivateBadge").hidden = !rec.private;
+  $("shareEntryBtn").hidden = rec.private;
   $("pinEntryBtn").textContent = rec.pinned ? "📌 เลิกปักหมุด" : "📌 ปักหมุด";
 
   let mediaItems = [];
@@ -1138,6 +1187,7 @@ $("deleteEntryBtn").addEventListener("click", async () => {
   const rec = state.entries.find((e) => e.id === state.viewId);
   if (!rec) return;
   rec.deletedAt = new Date().toISOString();
+  rec.updatedAt = new Date().toISOString();
   await DiaryDB.put(rec);
   renderHome();
   showToast("ย้ายไปถังขยะแล้ว");
@@ -1145,16 +1195,69 @@ $("deleteEntryBtn").addEventListener("click", async () => {
   popNavState();
 });
 
+// Quick trash from the list card itself, without opening the entry first —
+// the only way to remove a private entry whose password has been forgotten
+// (opening it to reach the normal delete button requires unlocking it).
+async function quickTrashEntry(id) {
+  const rec = state.entries.find((e) => e.id === id);
+  if (!rec) return;
+  if (!confirm("ย้ายบันทึกนี้ไปถังขยะหรือไม่? (ลบถาวรอัตโนมัติใน 30 วัน)")) return;
+  rec.deletedAt = new Date().toISOString();
+  rec.updatedAt = new Date().toISOString();
+  await DiaryDB.put(rec);
+  renderHome();
+  showToast("ย้ายไปถังขยะแล้ว");
+}
+
 $("exportEntryBtn").addEventListener("click", () => {
   const rec = state.entries.find((e) => e.id === state.viewId);
   if (!rec) return;
   downloadJSON(rec, `diary-entry-${rec.date}-${rec.id}.json`);
 });
 
+/* ---------------- share out ---------------- */
+
+$("shareEntryBtn").addEventListener("click", async () => {
+  const rec = state.entries.find((e) => e.id === state.viewId);
+  if (!rec || !state.viewDecrypted) return;
+  const data = state.viewDecrypted;
+  const text = [data.title, data.content].filter(Boolean).join("\n\n");
+  const shareData = { title: data.title || "บันทึกจากสมุดบันทึก", text };
+
+  try {
+    if (!rec.private) {
+      const firstImgRef = (rec.attachmentRefs || []).find((r) => r.type === "image" || r.type === "sketch");
+      if (firstImgRef && navigator.canShare) {
+        const att = await DiaryDB.getAttachment(firstImgRef.id);
+        if (att && att.blob) {
+          const file = new File([att.blob], "diary-image.jpg", { type: att.blob.type || "image/jpeg" });
+          if (navigator.canShare({ files: [file] })) {
+            shareData.files = [file];
+          }
+        }
+      }
+    }
+    if (navigator.share) {
+      await navigator.share(shareData);
+    } else {
+      await navigator.clipboard.writeText(text);
+      showToast("อุปกรณ์นี้ไม่รองรับเมนูแชร์ — คัดลอกข้อความแล้วแทน");
+    }
+  } catch (err) {
+    if (err && err.name === "AbortError") return; // user cancelled the share sheet
+    console.error("Share failed:", err);
+    showToast("แชร์ไม่สำเร็จ: " + (err && err.message ? err.message : ""));
+  }
+});
+
 /* ---------------- trash ---------------- */
 
+function activeTrashed() {
+  return state.entries.filter((e) => e.deletedAt && !e.purged);
+}
+
 function renderTrash() {
-  const trashed = state.entries.filter((e) => e.deletedAt).sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
+  const trashed = activeTrashed().sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
   const list = $("trashList");
   list.innerHTML = "";
   $("trashEmptyState").hidden = trashed.length > 0;
@@ -1176,22 +1279,42 @@ function renderTrash() {
   });
 }
 
+// Permanently purging locally must not let a later sync pull the entry back
+// from Drive (the remote copy doesn't know it was deleted). We keep a tiny
+// "tombstone" record instead of removing it outright — its very recent
+// updatedAt + purged flag always wins the merge, and it travels to Drive on
+// the next sync so other devices purge their copy too.
+async function purgeToTombstone(rec) {
+  for (const ref of rec.attachmentRefs || []) {
+    await DiaryDB.removeAttachment(ref.id);
+  }
+  const tombstone = {
+    id: rec.id, date: rec.date, time: rec.time, private: false,
+    deletedAt: rec.deletedAt || new Date().toISOString(),
+    purged: true,
+    updatedAt: new Date().toISOString(),
+  };
+  await DiaryDB.put(tombstone);
+  const idx = state.entries.findIndex((e) => e.id === rec.id);
+  if (idx >= 0) state.entries[idx] = tombstone;
+}
+
 $("trashList").addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-action]");
   if (!btn) return;
   const id = btn.dataset.id;
+  const rec = state.entries.find((x) => x.id === id);
+  if (!rec) return;
   if (btn.dataset.action === "restore") {
-    const rec = state.entries.find((x) => x.id === id);
-    if (!rec) return;
     rec.deletedAt = null;
+    rec.updatedAt = new Date().toISOString();
     await DiaryDB.put(rec);
     renderTrash();
     renderHome();
     showToast("กู้คืนแล้ว");
   } else if (btn.dataset.action === "purge") {
     if (!confirm("ลบถาวรจริงหรือไม่? กู้คืนไม่ได้อีก")) return;
-    await DiaryDB.remove(id);
-    state.entries = state.entries.filter((x) => x.id !== id);
+    await purgeToTombstone(rec);
     renderTrash();
     renderHome();
     showToast("ลบถาวรแล้ว");
@@ -1203,9 +1326,8 @@ $("backFromTrashBtn").addEventListener("click", () => { showView("settings"); po
 
 async function purgeOldTrash() {
   const cutoff = Date.now() - TRASH_RETENTION_DAYS * 86400000;
-  const toPurge = state.entries.filter((e) => e.deletedAt && new Date(e.deletedAt).getTime() < cutoff);
-  for (const e of toPurge) await DiaryDB.remove(e.id);
-  if (toPurge.length) state.entries = state.entries.filter((e) => !toPurge.includes(e));
+  const toPurge = state.entries.filter((e) => e.deletedAt && !e.purged && new Date(e.deletedAt).getTime() < cutoff);
+  for (const e of toPurge) await purgeToTombstone(e);
 }
 
 /* ---------------- backup / restore ---------------- */

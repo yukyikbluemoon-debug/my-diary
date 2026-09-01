@@ -155,15 +155,18 @@ const DriveSync = (() => {
 
   async function syncAttachments(mergedEntries) {
     // 1) upload any local blob that doesn't have a Drive file yet
+    let uploadedCount = 0;
     for (const entry of mergedEntries) {
       if (entry.private || entry.deletedAt || !entry.attachmentRefs) continue;
       for (const ref of entry.attachmentRefs) {
         const att = await DiaryDB.getAttachment(ref.id);
         if (att && att.blob && !att.driveFileId) {
           try {
+            if (typeof showToast === "function") showToast(`กำลังอัปโหลดไฟล์แนบ (${uploadedCount + 1})...`);
             const driveFileId = await uploadNewFile(`diary-attach-${att.id}`, att.blob);
             att.driveFileId = driveFileId;
             await DiaryDB.putAttachment(att);
+            uploadedCount++;
           } catch (err) {
             // don't fail the whole sync over one attachment; it'll retry next sync
             console.error("Attachment upload failed:", err);
@@ -173,9 +176,10 @@ const DriveSync = (() => {
     }
     // 2) build the index of everything we can point another device to
     const allLocal = await DiaryDB.getAllAttachments();
-    return allLocal
+    const index = allLocal
       .filter((a) => a.driveFileId)
       .map((a) => ({ id: a.id, entryId: a.entryId, type: a.type, mimeType: a.mimeType, driveFileId: a.driveFileId }));
+    return { index, uploadedCount };
   }
 
   async function adoptRemoteAttachmentIndex(remoteIndex) {
@@ -193,9 +197,15 @@ const DriveSync = (() => {
     }
   }
 
+  function toast(msg) {
+    if (typeof showToast === "function") showToast(msg);
+  }
+
   async function sync() {
+    toast("กำลังเชื่อมต่อ Google...");
     await requestAccessToken();
     const local = await DiaryDB.getAll();
+    toast("กำลังดาวน์โหลดข้อมูลจาก Drive...");
     let remoteObj = null;
     try { remoteObj = await downloadRemote(); } catch (e) { remoteObj = null; }
     const remoteEntries = (remoteObj && remoteObj.entries) || [];
@@ -203,8 +213,10 @@ const DriveSync = (() => {
     await DiaryDB.bulkPut(merged);
 
     await adoptRemoteAttachmentIndex(remoteObj && remoteObj.attachmentIndex);
-    const attachmentIndex = await syncAttachments(merged);
+    const { index: attachmentIndex, uploadedCount } = await syncAttachments(merged);
+    if (uploadedCount > 0) toast(`อัปโหลดไฟล์แนบเสร็จ ${uploadedCount} ไฟล์`);
 
+    toast("กำลังบันทึกข้อมูลขึ้น Drive...");
     await uploadRemote({ version: 2, syncedAt: new Date().toISOString(), entries: merged, attachmentIndex });
     localStorage.setItem("diary_last_synced", new Date().toISOString());
     return merged.length;

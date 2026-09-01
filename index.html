@@ -125,7 +125,9 @@
               <button type="button" class="md-tool-btn" id="mdItalicBtn" title="ตัวเอียง"><em>I</em></button>
               <button type="button" class="md-tool-btn" id="mdBulletBtn" title="รายการ">• รายการ</button>
               <button type="button" class="md-tool-btn" id="mdCheckBtn" title="เช็คลิสต์">☑ เช็คลิสต์</button>
+              <button type="button" class="md-tool-btn" id="mdEmojiBtn" title="แทรกอีโมจิ">😀</button>
             </div>
+            <div class="emoji-panel" id="emojiPanel" hidden></div>
             <textarea id="entryContent" rows="8" placeholder="เขียนอะไรก็ได้ที่อยากบันทึกไว้..."></textarea>
           </div>
 
@@ -135,9 +137,15 @@
               <button type="button" class="mood-btn" data-mood="😊">😊</button>
               <button type="button" class="mood-btn" data-mood="😐">😐</button>
               <button type="button" class="mood-btn" data-mood="😔">😔</button>
+              <button type="button" class="mood-btn" data-mood="😢">😢</button>
+              <button type="button" class="mood-btn" data-mood="😡">😡</button>
               <button type="button" class="mood-btn" data-mood="😤">😤</button>
+              <button type="button" class="mood-btn" data-mood="😰">😰</button>
               <button type="button" class="mood-btn" data-mood="😴">😴</button>
               <button type="button" class="mood-btn" data-mood="🤩">🤩</button>
+              <button type="button" class="mood-btn" data-mood="🥳">🥳</button>
+              <button type="button" class="mood-btn" data-mood="😌">😌</button>
+              <button type="button" class="mood-btn" data-mood="🙏">🙏</button>
             </div>
           </div>
 
@@ -243,6 +251,7 @@
           <span class="entry-badge" id="entryPrivateBadge" hidden>🔒 ส่วนตัว</span>
           <div class="head-actions">
             <button class="icon-btn" id="pinEntryBtn">📌 ปักหมุด</button>
+            <button class="icon-btn" id="shareEntryBtn">↗️ แชร์</button>
             <button class="icon-btn" id="editEntryBtn">แก้ไข</button>
             <button class="icon-btn danger" id="deleteEntryBtn">ลบ</button>
           </div>
@@ -266,6 +275,9 @@
             <button type="button" class="theme-swatch" data-theme="forest" aria-label="ธีมป่าไม้"></button>
             <button type="button" class="theme-swatch" data-theme="orchid" aria-label="ธีมกล้วยไม้"></button>
             <button type="button" class="theme-swatch" data-theme="paper" aria-label="ธีมกระดาษสว่าง"></button>
+            <button type="button" class="theme-swatch" data-theme="indigo" aria-label="ธีมท้องฟ้ายามค่ำ"></button>
+            <button type="button" class="theme-swatch" data-theme="wine" aria-label="ธีมไวน์"></button>
+            <button type="button" class="theme-swatch" data-theme="slate" aria-label="ธีมหินชนวน"></button>
           </div>
           <div class="fontsize-row" id="fontsizeRow">
             <button type="button" class="fontsize-btn small" data-size="small">เล็ก</button>
