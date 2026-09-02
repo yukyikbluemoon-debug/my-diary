@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "2.5.1";
+const APP_VERSION = "2.6.0";
 const APP_BUILD_DATE = "2026-09-02";
 
 const state = {
@@ -818,10 +818,41 @@ $("driveSyncBtn").addEventListener("click", async () => {
   }
 });
 
+/* ---------------- Telegram settings ---------------- */
+
+function refreshTelegramStatus() {
+  if (typeof TelegramNotify === "undefined") return;
+  const cfg = TelegramNotify.getConfig();
+  $("telegramTokenInput").value = cfg.token;
+  $("telegramChatIdInput").value = cfg.chatId;
+  $("telegramStatusText").textContent = TelegramNotify.isConfigured() ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า";
+}
+$("telegramSaveBtn").addEventListener("click", () => {
+  const token = $("telegramTokenInput").value.trim();
+  const chatId = $("telegramChatIdInput").value.trim();
+  if (!token || !chatId) { showToast("กรุณาใส่ทั้ง Bot Token และ Chat ID"); return; }
+  TelegramNotify.setConfig(token, chatId);
+  refreshTelegramStatus();
+  showToast("บันทึกการตั้งค่า Telegram แล้ว");
+});
+$("telegramTestBtn").addEventListener("click", async () => {
+  if (!TelegramNotify.isConfigured()) { showToast("กรุณาบันทึกการตั้งค่าก่อน"); return; }
+  $("telegramTestBtn").disabled = true;
+  try {
+    await TelegramNotify.sendTestMessage();
+    showToast("ส่งข้อความทดสอบสำเร็จ — เช็คที่กลุ่ม Telegram");
+  } catch (err) {
+    showToast("ส่งไม่สำเร็จ: " + (err && err.message ? err.message : "ไม่ทราบสาเหตุ"));
+  } finally {
+    $("telegramTestBtn").disabled = false;
+  }
+});
+
 function refreshSettingsView() {
   const has = DiaryCrypto.hasPassword();
   $("trashRetentionSelect").value = String(getTrashRetentionDays());
   $("autoLockSelect").value = String(getAutoLockMinutes());
+  refreshTelegramStatus();
   $("pwStatusText").textContent = has ? "ตั้งรหัสผ่านแล้ว" : "ยังไม่ได้ตั้งรหัสผ่าน";
   $("setPasswordBtn").hidden = has;
   $("changePwRow").hidden = !has;
@@ -1370,6 +1401,10 @@ $("saveEntryBtn").addEventListener("click", async () => {
     await DiaryDB.put(rec);
     const idx = state.entries.findIndex((e) => e.id === id);
     if (idx >= 0) state.entries[idx] = rec; else state.entries.push(rec);
+
+    if (!existing && !isPrivate && typeof TelegramNotify !== "undefined") {
+      TelegramNotify.sendEntry(rec, rec); // fire-and-forget; never blocks the save, never sent if private
+    }
 
     clearDraft();
     clearRecordingUI();

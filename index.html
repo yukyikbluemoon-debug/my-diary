@@ -432,6 +432,27 @@
           </div>
         </div>
 
+        <div class="settings-group">
+          <h2>Telegram</h2>
+          <p class="settings-note">บันทึกที่ไม่ใช่ส่วนตัว (ไดอารี่ + เหตุการณ์) จะถูกส่งเข้า Telegram อัตโนมัติทุกครั้งที่เขียนใหม่ — บันทึกส่วนตัว (🔒) จะไม่ถูกส่งเด็ดขาดไม่ว่ากรณีใด</p>
+          <div class="settings-row">
+            <span>สถานะ</span>
+            <span id="telegramStatusText">ยังไม่ได้ตั้งค่า</span>
+          </div>
+          <div class="field">
+            <label for="telegramTokenInput">Bot Token</label>
+            <input type="text" id="telegramTokenInput" placeholder="วางโทเคนจาก @BotFather" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="telegramChatIdInput">Chat ID (ของกลุ่ม)</label>
+            <input type="text" id="telegramChatIdInput" placeholder="เช่น -1001234567890" autocomplete="off">
+          </div>
+          <div class="settings-row">
+            <button class="text-btn" id="telegramSaveBtn">บันทึกการตั้งค่า</button>
+            <button class="text-btn" id="telegramTestBtn">ทดสอบส่งข้อความ</button>
+          </div>
+        </div>
+
         <p class="app-version" id="appVersionText"></p>
       </div>
     </section>
@@ -895,6 +916,7 @@
 <script src="js/theme.js"></script>
 <script src="js/finance.js"></script>
 <script src="js/assets.js"></script>
+<script src="js/telegram.js"></script>
 <script src="js/drive-config.js"></script>
 <script src="js/drive-sync.js"></script>
 <script src="js/app.js"></script>

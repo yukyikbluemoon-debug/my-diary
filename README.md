@@ -64,6 +64,7 @@ js/markdown.js        จัดรูปแบบข้อความเบา�
 js/theme.js           ธีม/ขนาดตัวอักษร
 js/finance.js         โมดูลการเงิน (รายรับ/รายจ่าย/โอนเงิน)
 js/assets.js          โมดูลทรัพย์สิน (หุ้น/ETF/คริปโต/ทอง — อัปเดตมูลค่าเอง)
+js/telegram.js        ส่งบันทึกที่ไม่ใช่ส่วนตัวเข้า Telegram อัตโนมัติ
 js/drive-config.js    ใส่ Google OAuth Client ID ของคุณตรงนี้
 js/drive-sync.js      ซิงค์ข้อมูล+ไฟล์แนบกับ Google Drive (กดปุ่มเอง)
 manifest.json        PWA manifest (มี share_target)

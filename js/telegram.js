@@ -1,0 +1,80 @@
+/* telegram.js — auto-forward non-private entries to a Telegram chat via
+   the Bot API (plain fetch, no server needed — Telegram's sendMessage
+   endpoint supports CORS from the browser).
+
+   Hard rule, enforced here and only here: a private entry is NEVER sent,
+   under any configuration. sendEntry() checks rec.private itself rather
+   than trusting the caller, so there's exactly one place this can go wrong. */
+
+const TelegramNotify = (() => {
+  const TOKEN_KEY = "diary_telegram_bot_token";
+  const CHAT_KEY = "diary_telegram_chat_id";
+
+  function getConfig() {
+    return {
+      token: localStorage.getItem(TOKEN_KEY) || "",
+      chatId: localStorage.getItem(CHAT_KEY) || "",
+    };
+  }
+  function isConfigured() {
+    const c = getConfig();
+    return !!(c.token && c.chatId);
+  }
+  function setConfig(token, chatId) {
+    localStorage.setItem(TOKEN_KEY, (token || "").trim());
+    localStorage.setItem(CHAT_KEY, (chatId || "").trim());
+  }
+  function clearConfig() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(CHAT_KEY);
+  }
+
+  async function sendMessage(text) {
+    const { token, chatId } = getConfig();
+    if (!token || !chatId) throw new Error("ยังไม่ได้ตั้งค่า Telegram");
+    const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+    });
+    if (!res.ok) {
+      let detail = "";
+      try { detail = (await res.json()).description || ""; } catch (e) {}
+      throw new Error(detail || `Telegram API error ${res.status}`);
+    }
+    return true;
+  }
+
+  async function sendTestMessage() {
+    await sendMessage("✅ เชื่อมต่อสมุดบันทึกกับ Telegram สำเร็จแล้ว");
+  }
+
+  function buildEntryText(rec, data) {
+    const lines = [];
+    const typeLabel = rec.entryType === "event"
+      ? `📌 เหตุการณ์ · ${rec.eventCategory || ""}`
+      : "📝 ไดอารี่";
+    lines.push(`${typeLabel} — ${rec.date} ${rec.time} น.`);
+    if (data.title) lines.push(data.title);
+    if (data.mood) lines.push(data.mood);
+    if (data.content) lines.push("", data.content.slice(0, 3000));
+    if (data.tags && data.tags.length) lines.push("", "แท็ก: " + data.tags.map((t) => "#" + t).join(" "));
+    return lines.join("\n");
+  }
+
+  async function sendEntry(rec, data) {
+    if (rec.private) return; // hard rule — no exceptions, no config can override this
+    if (!isConfigured()) return;
+    try {
+      await sendMessage(buildEntryText(rec, data));
+    } catch (err) {
+      console.error("Telegram send failed:", err);
+      if (typeof showToast === "function") {
+        showToast("ส่งเข้า Telegram ไม่สำเร็จ: " + (err && err.message ? err.message : ""));
+      }
+    }
+  }
+
+  return { getConfig, setConfig, clearConfig, isConfigured, sendMessage, sendTestMessage, sendEntry };
+})();
