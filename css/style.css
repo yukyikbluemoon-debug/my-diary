@@ -644,6 +644,36 @@ button, input, textarea, select {
 }
 .tx-type-btn.selected { border-color: var(--amber); background: var(--ink-600); color: var(--amber); }
 
+.entry-type-picker { display: flex; gap: 8px; }
+.entry-type-btn {
+  flex: 1;
+  background: var(--ink-800);
+  border: 1px solid var(--ink-500);
+  border-radius: var(--radius-m);
+  padding: 10px 6px;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.entry-type-btn.selected { border-color: var(--amber); background: var(--ink-600); color: var(--amber); }
+
+.entry-type-filter { display: flex; gap: 8px; margin-bottom: 12px; }
+.entry-type-filter-btn {
+  background: var(--ink-700);
+  border: 1px solid var(--ink-500);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--paper-dim);
+  cursor: pointer;
+}
+.entry-type-filter-btn.selected { border-color: var(--sage); color: var(--sage); background: var(--ink-600); }
+.entry-badge-event {
+  font-size: 12px; color: var(--amber);
+  border: 1px solid var(--amber-dim);
+  border-radius: 999px; padding: 1px 8px;
+  margin-left: 6px;
+}
+
 .tx-item {
   display: flex;
   align-items: center;

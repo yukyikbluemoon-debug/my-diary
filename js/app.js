@@ -5,7 +5,11 @@ const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.
 const THAI_MONTHS_FULL = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const TRASH_RETENTION_DAYS = 30;
 const VIDEO_MAX_SECONDS = 30;
-const APP_VERSION = "2.2.0";
+const EVENT_CATEGORY_ICONS = {
+  "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
+  "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
+};
+const APP_VERSION = "2.3.0";
 const APP_BUILD_DATE = "2026-09-02";
 
 const state = {
@@ -19,6 +23,8 @@ const state = {
   removedAttachmentIds: [],
   entryLocation: null,     // {lat, lng} | null
   entryColor: "none",
+  entryType: "diary",      // "diary" | "event"
+  filterEntryType: "",     // "" | "diary" | "event" — Diary tab list filter
   unlockResolve: null,
   dayFilter: null,
   cal: { year: 0, month: 0 },
@@ -431,6 +437,38 @@ $("sketchSaveBtn").addEventListener("click", () => {
   canvas.addEventListener("pointerleave", end);
 })();
 
+/* ---------------- entry type (diary / event) ---------------- */
+
+function populateEventLinkTxSelect(dateStr, selectedTxId) {
+  const sel = $("eventLinkTx");
+  const txs = (typeof Finance !== "undefined") ? Finance.getTransactionsForDate(dateStr) : [];
+  sel.innerHTML = '<option value="">ไม่ผูกกับรายการเงิน</option>' +
+    txs.map((t) => `<option value="${t.id}">${escapeHTML(t.title)} (${Finance.formatMoney(t.type === "expense" ? -t.amount : t.amount)})</option>`).join("");
+  sel.value = selectedTxId && txs.some((t) => t.id === selectedTxId) ? selectedTxId : "";
+  $("eventLinkTxHint").textContent = txs.length === 0 ? "ไม่พบรายการเงินในวันที่นี้" : "";
+}
+
+function setEntryType(type) {
+  state.entryType = type;
+  document.querySelectorAll(".entry-type-btn").forEach((b) => b.classList.toggle("selected", b.dataset.type === type));
+  $("eventCategoryField").hidden = type !== "event";
+  $("eventLinkTxField").hidden = type !== "event";
+  if (type === "event") populateEventLinkTxSelect($("entryDate").value || todayISO(), "");
+}
+$("entryTypePicker").addEventListener("click", (e) => {
+  const btn = e.target.closest(".entry-type-btn");
+  if (!btn) return;
+  setEntryType(btn.dataset.type);
+});
+
+$("entryTypeFilter").addEventListener("click", (e) => {
+  const btn = e.target.closest(".entry-type-filter-btn");
+  if (!btn) return;
+  state.filterEntryType = btn.dataset.filtertype;
+  document.querySelectorAll(".entry-type-filter-btn").forEach((b) => b.classList.toggle("selected", b === btn));
+  renderHome();
+});
+
 /* ---------------- color picker ---------------- */
 
 $("colorPicker").addEventListener("click", (e) => {
@@ -719,6 +757,7 @@ function getFilteredEntries() {
   return activeEntries().filter((e) => {
     if (state.dayFilter && e.date !== state.dayFilter) return false;
     if (month && !e.date.startsWith(month)) return false;
+    if (state.filterEntryType && (e.entryType || "diary") !== state.filterEntryType) return false;
     if (e.private) {
       if (q || tag) return false;
       return true;
@@ -825,13 +864,14 @@ function buildEntryCard(e) {
   card.className = "entry-card" + (e.color ? ` color-${e.color}` : "");
   card.dataset.id = e.id;
   const pinIcon = e.pinned ? '<span class="entry-pin-icon">📌</span>' : "";
+  const eventBadge = e.entryType === "event" ? `<span class="entry-badge-event">${EVENT_CATEGORY_ICONS[e.eventCategory] || "📌"} ${escapeHTML(e.eventCategory || "เหตุการณ์")}</span>` : "";
   const quickDelete = `<button type="button" class="card-quick-delete" data-id="${e.id}" aria-label="ลบ">🗑️</button>`;
 
   if (e.private) {
     card.innerHTML = `
       <div class="entry-time">${e.time}</div>
       <div class="entry-body">
-        <div class="entry-title-row">${pinIcon}<span class="entry-lock-icon">🔒</span><p class="entry-title">บันทึกส่วนตัว</p></div>
+        <div class="entry-title-row">${pinIcon}<span class="entry-lock-icon">🔒</span><p class="entry-title">บันทึกส่วนตัว</p>${eventBadge}</div>
       </div>
       ${quickDelete}`;
   } else {
@@ -843,6 +883,7 @@ function buildEntryCard(e) {
           ${pinIcon}<p class="entry-title">${escapeHTML(e.title || "(ไม่มีชื่อเรื่อง)")}</p>
           <span class="entry-mood">${e.mood || ""}</span>
         </div>
+        ${eventBadge ? `<div style="margin-top:4px;">${eventBadge}</div>` : ""}
         <p class="entry-preview">${escapeHTML(preview)}</p>
         ${(e.tags && e.tags.length) ? `<div class="entry-tags">${e.tags.map((t) => `<span class="entry-tag">${escapeHTML(t)}</span>`).join("")}</div>` : ""}
       </div>
@@ -1023,6 +1064,8 @@ function offerDraftRestore(targetEntryId) {
 
 function resetWriteForm() {
   $("entryId").value = "";
+  setEntryType("diary");
+  $("eventCategory").value = "ซื้อของ";
   setEntryDate(todayISO());
   $("entryTime").value = nowHM();
   $("entryTitle").value = "";
@@ -1086,12 +1129,17 @@ async function openWriteForEdit(id) {
   }
   resetWriteForm();
   $("entryId").value = rec.id;
+  setEntryType(rec.entryType === "event" ? "event" : "diary");
   setEntryDate(rec.date);
   $("entryTime").value = rec.time;
   $("entryTitle").value = data.title || "";
   $("entryContent").value = data.content || "";
   $("entryTags").value = (data.tags || []).join(", ");
   $("entryPrivate").checked = !!rec.private;
+  if (rec.entryType === "event") {
+    $("eventCategory").value = rec.eventCategory || "อื่นๆ";
+    populateEventLinkTxSelect(rec.date, rec.linkedTxId || "");
+  }
   state.moodSelected = data.mood || "";
   state.entryColor = rec.color || "none";
   document.querySelectorAll(".color-swatch").forEach((b) => b.classList.toggle("selected", b.dataset.color === state.entryColor));
@@ -1168,6 +1216,9 @@ $("saveEntryBtn").addEventListener("click", async () => {
       hasMedia: state.pendingAttachments.length > 0,
       color: state.entryColor === "none" ? null : state.entryColor,
       pinned: existing ? !!existing.pinned : false,
+      entryType: state.entryType,
+      eventCategory: state.entryType === "event" ? $("eventCategory").value : null,
+      linkedTxId: state.entryType === "event" ? ($("eventLinkTx").value || null) : null,
       deletedAt: null,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1235,6 +1286,7 @@ $("entryDatePicker").addEventListener("click", () => {
 function setEntryDate(dateStr) {
   $("entryDate").value = dateStr;
   $("entryDatePicker").textContent = formatFullThaiDate(dateStr);
+  if (state.entryType === "event") populateEventLinkTxSelect(dateStr, $("eventLinkTx").value);
 }
 
 /* ---------------- entry detail ---------------- */
@@ -1270,9 +1322,12 @@ async function openEntry(id) {
   const videos = mediaItems.filter((m) => m.type === "video");
   const loc = rec.private ? data.location : rec.location;
 
+  const linkedTx = (rec.entryType === "event" && rec.linkedTxId && typeof Finance !== "undefined") ? Finance.getTransactionById(rec.linkedTxId) : null;
+
   const detail = $("entryDetail");
   detail.innerHTML = `
     <div class="detail-datetime">${formatDateHeading(rec.date)} · ${rec.time} น.</div>
+    ${rec.entryType === "event" ? `<div class="entry-badge-event" style="display:inline-block;margin-bottom:8px;">${EVENT_CATEGORY_ICONS[rec.eventCategory] || "📌"} ${escapeHTML(rec.eventCategory || "เหตุการณ์")}</div>` : ""}
     ${data.title ? `<h2 class="detail-title">${escapeHTML(data.title)}</h2>` : ""}
     ${data.mood ? `<div class="detail-mood">${data.mood}</div>` : ""}
     <div class="detail-content">${MarkdownLite.render(data.content || "")}</div>
@@ -1282,11 +1337,16 @@ async function openEntry(id) {
         ${videos.map((m) => `<div><video controls src="${m.url}"></video>${m.blob ? `<div class="attach-size-label">${formatBytes(m.blob.size)}</div>` : ""}</div>`).join("")}
       </div>` : ""}
     ${loc ? `<div class="detail-location"><a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener">📍 ${loc.placeName ? escapeHTML(loc.placeName) : "ดูตำแหน่งใน Google Maps"}</a></div>` : ""}
+    ${linkedTx ? `<div class="detail-location" id="linkedTxLink" style="cursor:pointer;">🔗 ผูกกับรายการเงิน: ${escapeHTML(linkedTx.title)} (${Finance.formatMoney(linkedTx.type === "expense" ? -linkedTx.amount : linkedTx.amount)})</div>` : ""}
     ${(data.tags && data.tags.length) ? `<div class="detail-tags">${data.tags.map((t) => `<span class="entry-tag">${escapeHTML(t)}</span>`).join("")}</div>` : ""}
   `;
   showView("entry");
   pushNavState("entry");
 }
+
+$("entryDetail").addEventListener("click", (e) => {
+  if (e.target.closest("#linkedTxLink")) { showView("finance"); if (typeof Finance !== "undefined") Finance.render(); }
+});
 
 $("entryDetail").addEventListener("click", async (e) => {
   const copyBtn = e.target.closest(".code-copy-btn");

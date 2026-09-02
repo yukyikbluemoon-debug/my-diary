@@ -104,6 +104,12 @@
           <button class="text-btn" id="clearFilterBtn">ล้างตัวกรอง</button>
         </div>
 
+        <div class="entry-type-filter" id="entryTypeFilter">
+          <button type="button" class="entry-type-filter-btn selected" data-filtertype="">ทั้งหมด</button>
+          <button type="button" class="entry-type-filter-btn" data-filtertype="diary">📝 ไดอารี่</button>
+          <button type="button" class="entry-type-filter-btn" data-filtertype="event">📌 เหตุการณ์</button>
+        </div>
+
         <div class="day-filter-chip" id="dayFilterChip" hidden>
           <span id="dayFilterLabel"></span>
           <button type="button" id="clearDayFilterBtn" aria-label="ล้างตัวกรองวันที่">×</button>
@@ -149,6 +155,37 @@
               <label for="entryTime">เวลา</label>
               <input type="time" id="entryTime" required>
             </div>
+          </div>
+
+          <div class="field">
+            <label>ประเภทบันทึก</label>
+            <div class="entry-type-picker" id="entryTypePicker">
+              <button type="button" class="entry-type-btn selected" data-type="diary">📝 ไดอารี่</button>
+              <button type="button" class="entry-type-btn" data-type="event">📌 เหตุการณ์</button>
+            </div>
+          </div>
+
+          <div class="field" id="eventCategoryField" hidden>
+            <label for="eventCategory">หมวดเหตุการณ์</label>
+            <select id="eventCategory">
+              <option value="ซื้อของ">🛍️ ซื้อของ</option>
+              <option value="ไปทำงาน">💼 ไปทำงาน</option>
+              <option value="เดินทาง">✈️ เดินทาง</option>
+              <option value="ซื้อหุ้น">📈 ซื้อหุ้น</option>
+              <option value="ได้เงิน">💵 ได้เงิน</option>
+              <option value="จ่ายบิล">🧾 จ่ายบิล</option>
+              <option value="ซ่อมของ">🔧 ซ่อมของ</option>
+              <option value="ซื้อของมือสอง">♻️ ซื้อของมือสอง</option>
+              <option value="อื่นๆ">📌 อื่นๆ</option>
+            </select>
+          </div>
+
+          <div class="field" id="eventLinkTxField" hidden>
+            <label for="eventLinkTx">ผูกกับรายการเงิน (ถ้ามี)</label>
+            <select id="eventLinkTx">
+              <option value="">ไม่ผูกกับรายการเงิน</option>
+            </select>
+            <span class="field-hint" id="eventLinkTxHint"></span>
           </div>
 
           <div class="field">

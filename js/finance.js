@@ -372,10 +372,18 @@ const Finance = (() => {
     return new Set(activeTx().map((t) => t.date));
   }
 
+  function getTransactionsForDate(date) {
+    return activeTx().filter((t) => t.date === date);
+  }
+
+  function getTransactionById(id) {
+    return allTx.find((t) => t.id === id) || null;
+  }
+
   async function init() {
     wireEvents();
     allTx = await DiaryDB.getAllTransactions();
   }
 
-  return { init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, getTodaySummary, getTransactionDateSet, formatMoney };
+  return { init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, getTodaySummary, getTransactionDateSet, getTransactionsForDate, getTransactionById, formatMoney };
 })();
