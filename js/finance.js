@@ -283,6 +283,10 @@ const Finance = (() => {
     const idx = allTx.findIndex((t) => t.id === id);
     if (idx >= 0) allTx[idx] = tx; else allTx.push(tx);
 
+    if (!existing && typeof TelegramNotify !== "undefined") {
+      TelegramNotify.sendTransaction(tx); // fire-and-forget, only on create (not edits)
+    }
+
     closeTxModalVisual();
     popNavState();
     render();

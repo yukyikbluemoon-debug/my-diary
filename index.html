@@ -439,6 +439,13 @@
             <span>สถานะ</span>
             <span id="telegramStatusText">ยังไม่ได้ตั้งค่า</span>
           </div>
+          <div class="settings-row">
+            <span>ส่งรายการเงินเข้า Telegram ด้วย</span>
+            <span class="switch">
+              <input type="checkbox" id="telegramSendFinanceToggle">
+              <span class="switch-track"></span>
+            </span>
+          </div>
           <div class="field">
             <label for="telegramTokenInput">Bot Token</label>
             <input type="text" id="telegramTokenInput" placeholder="วางโทเคนจาก @BotFather" autocomplete="off">
@@ -558,6 +565,7 @@
               <div class="stats-label">กำไร/ขาดทุนรวม</div>
             </div>
           </div>
+          <div id="assetTypeChart" style="margin-bottom:14px;"></div>
           <div id="assetList"></div>
           <div class="empty-state" id="assetEmptyState" hidden>
             <p class="empty-title">ยังไม่มีทรัพย์สิน</p>
@@ -827,6 +835,23 @@
             <button class="text-btn" id="assetCancelBtn">ยกเลิก</button>
             <button class="text-btn primary" id="assetSaveBtn">บันทึก</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick asset value update -->
+    <div class="modal" id="assetQuickUpdateModal" hidden>
+      <div class="modal-card">
+        <h2>อัปเดตมูลค่า</h2>
+        <p class="modal-sub" id="quickUpdateAssetName"></p>
+        <input type="hidden" id="quickUpdateAssetId">
+        <div class="field">
+          <label for="quickUpdateValue" id="quickUpdateValueLabel">มูลค่าปัจจุบันต่อหน่วย</label>
+          <input type="number" id="quickUpdateValue" inputmode="decimal" step="0.01">
+        </div>
+        <div class="modal-actions">
+          <button class="text-btn" id="quickUpdateCancelBtn">ยกเลิก</button>
+          <button class="text-btn primary" id="quickUpdateSaveBtn">บันทึก</button>
         </div>
       </div>
     </div>

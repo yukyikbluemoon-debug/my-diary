@@ -12,8 +12,8 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "2.6.0";
-const APP_BUILD_DATE = "2026-09-02";
+const APP_VERSION = "2.7.0";
+const APP_BUILD_DATE = "2026-09-03";
 
 const state = {
   entries: [],
@@ -140,6 +140,7 @@ function closeCurrentLayer() {
   if (!$("finMetaModal").hidden && typeof Finance !== "undefined") { Finance.closeFinMetaModalVisual(); return; }
   if (!$("eventCatMetaModal").hidden) { closeEventCatMetaModalVisual(); return; }
   if (!$("assetModal").hidden && typeof Assets !== "undefined") { Assets.closeAssetModalVisual(); return; }
+  if (!$("assetQuickUpdateModal").hidden && typeof Assets !== "undefined") { Assets.closeQuickUpdateVisual(); return; }
   if (state.view === "trash") { showView("settings"); return; }
   if (state.view === "stats") { showView(state.statsReturnView || "dashboard"); return; }
   if (state.view === "write") { clearRecordingUI(); showView(state.editId ? "entry" : "home"); return; }
@@ -826,7 +827,11 @@ function refreshTelegramStatus() {
   $("telegramTokenInput").value = cfg.token;
   $("telegramChatIdInput").value = cfg.chatId;
   $("telegramStatusText").textContent = TelegramNotify.isConfigured() ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า";
+  $("telegramSendFinanceToggle").checked = TelegramNotify.isFinanceForwardingEnabled();
 }
+$("telegramSendFinanceToggle").addEventListener("change", (e) => {
+  TelegramNotify.setFinanceForwardingEnabled(e.target.checked);
+});
 $("telegramSaveBtn").addEventListener("click", () => {
   const token = $("telegramTokenInput").value.trim();
   const chatId = $("telegramChatIdInput").value.trim();

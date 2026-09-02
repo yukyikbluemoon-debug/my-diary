@@ -122,21 +122,26 @@ const Assets = (() => {
     $("assetEmptyState").hidden = items.length > 0;
 
     let totalValue = 0, totalCost = 0;
+    const typeTotals = {};
     items.forEach((a) => {
       const value = assetValueTHB(a);
       const cost = assetCostTHB(a);
       totalValue += value;
       totalCost += cost;
+      typeTotals[a.type] = (typeTotals[a.type] || 0) + value;
       const gain = value - cost;
       const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
       const row = document.createElement("div");
       row.className = "asset-row";
       row.dataset.id = a.id;
       const unitLabel = a.currency === "USD" ? `$${a.currentValuePerUnit}` : Finance.formatMoney(a.currentValuePerUnit);
+      const updatedLabel = typeof formatDateHeading === "function" ? formatDateHeading((a.updatedAt || a.createdAt).slice(0, 10)) : (a.updatedAt || "").slice(0, 10);
       row.innerHTML = `
+        <button type="button" class="asset-quick-update-btn" data-id="${a.id}" aria-label="อัปเดตมูลค่า">🔄</button>
         <div class="asset-row-body">
           <div class="asset-row-title">${escapeHTML(a.name)}</div>
           <div class="asset-row-sub">${escapeHTML(a.type)} · ${a.quantity} หน่วย @ ${unitLabel}</div>
+          <div class="asset-row-updated">อัปเดตล่าสุด ${updatedLabel}</div>
         </div>
         <div class="asset-row-value">
           <div class="asset-row-total">${Finance.formatMoney(value)}</div>
@@ -148,6 +153,47 @@ const Assets = (() => {
     $("assetTotalValue").textContent = Finance.formatMoney(totalValue);
     const totalGain = totalValue - totalCost;
     $("assetTotalGain").textContent = (totalGain >= 0 ? "+" : "") + Finance.formatMoney(totalGain);
+
+    const typeRows = Object.entries(typeTotals).sort((a, b) => b[1] - a[1]).map(([label, amount]) => ({ label, count: amount, displayText: Finance.formatMoney(amount) }));
+    const chartEl = $("assetTypeChart");
+    if (typeRows.length === 0) { chartEl.innerHTML = ""; }
+    else {
+      const max = Math.max(...typeRows.map((r) => r.count), 1);
+      chartEl.innerHTML = typeRows.map((r) => `
+        <div class="stat-bar-row">
+          <span class="stat-bar-label">${escapeHTML(r.label)}</span>
+          <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${Math.round((r.count / max) * 100)}%"></span></span>
+          <span class="stat-bar-count" style="width:auto;">${escapeHTML(r.displayText)}</span>
+        </div>`).join("");
+    }
+  }
+
+  function openQuickUpdate(id) {
+    const a = allAssets.find((x) => x.id === id);
+    if (!a) return;
+    $("quickUpdateAssetId").value = a.id;
+    $("quickUpdateAssetName").textContent = `${a.name} (${a.type})`;
+    $("quickUpdateValueLabel").textContent = a.currency === "USD" ? "มูลค่าปัจจุบันต่อหน่วย (USD)" : "มูลค่าปัจจุบันต่อหน่วย (บาท)";
+    $("quickUpdateValue").value = a.currentValuePerUnit;
+    $("assetQuickUpdateModal").hidden = false;
+    pushNavState("assetquick");
+  }
+  function closeQuickUpdateVisual() { $("assetQuickUpdateModal").hidden = true; }
+  function closeQuickUpdate() { closeQuickUpdateVisual(); popNavState(); }
+
+  async function saveQuickUpdate() {
+    const id = $("quickUpdateAssetId").value;
+    const a = allAssets.find((x) => x.id === id);
+    if (!a) return;
+    const newValue = parseFloat($("quickUpdateValue").value);
+    if (isNaN(newValue) || newValue < 0) { showToast("กรุณาใส่มูลค่าที่ถูกต้อง"); return; }
+    a.currentValuePerUnit = newValue;
+    a.updatedAt = new Date().toISOString();
+    await DiaryDB.putAsset(a);
+    closeQuickUpdateVisual();
+    popNavState();
+    render();
+    showToast("อัปเดตมูลค่าแล้ว");
   }
 
   async function render() {
@@ -162,9 +208,13 @@ const Assets = (() => {
     $("assetDeleteBtn").addEventListener("click", deleteAsset);
     $("assetCurrency").addEventListener("change", (e) => setAssetCurrency(e.target.value));
     $("assetList").addEventListener("click", (e) => {
+      const quickBtn = e.target.closest(".asset-quick-update-btn");
+      if (quickBtn) { openQuickUpdate(quickBtn.dataset.id); return; }
       const row = e.target.closest(".asset-row");
       if (row) openEditAsset(row.dataset.id);
     });
+    $("quickUpdateCancelBtn").addEventListener("click", closeQuickUpdate);
+    $("quickUpdateSaveBtn").addEventListener("click", saveQuickUpdate);
   }
 
   async function init() {
@@ -172,5 +222,5 @@ const Assets = (() => {
     allAssets = await DiaryDB.getAllAssets();
   }
 
-  return { init, render, closeAssetModalVisual };
+  return { init, render, closeAssetModalVisual, closeQuickUpdateVisual };
 })();

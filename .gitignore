@@ -1,0 +1,7 @@
+# Diary backup/export files — contain real diary content, never commit these
+diary-backup-*.json
+diary-entry-*.json
+
+# OS junk
+.DS_Store
+Thumbs.db

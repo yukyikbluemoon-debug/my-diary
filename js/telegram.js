@@ -76,5 +76,46 @@ const TelegramNotify = (() => {
     }
   }
 
-  return { getConfig, setConfig, clearConfig, isConfigured, sendMessage, sendTestMessage, sendEntry };
+  function isFinanceForwardingEnabled() {
+    return localStorage.getItem("diary_telegram_send_finance") !== "0"; // default ON
+  }
+  function setFinanceForwardingEnabled(on) {
+    localStorage.setItem("diary_telegram_send_finance", on ? "1" : "0");
+  }
+
+  function formatMoneyPlain(n) {
+    return "฿" + Math.abs(n).toLocaleString("th-TH", { maximumFractionDigits: 2 });
+  }
+
+  function buildTxText(tx) {
+    const typeLabel = tx.type === "income" ? "💰 รายรับ" : tx.type === "expense" ? "💸 รายจ่าย" : "🔁 โอนเงิน";
+    const lines = [`${typeLabel} — ${tx.date}`, tx.title];
+    if (tx.type === "transfer") {
+      lines.push(`${tx.wallet} → ${tx.toWallet}`);
+      lines.push(formatMoneyPlain(tx.amount));
+    } else {
+      const sign = tx.type === "income" ? "+" : "-";
+      lines.push(`${sign}${formatMoneyPlain(tx.amount)} [${tx.wallet}]`);
+      if (tx.category) lines.push("หมวด: " + tx.category);
+    }
+    if (tx.note) lines.push("หมายเหตุ: " + tx.note);
+    return lines.join("\n");
+  }
+
+  async function sendTransaction(tx) {
+    if (!isConfigured() || !isFinanceForwardingEnabled()) return;
+    try {
+      await sendMessage(buildTxText(tx));
+    } catch (err) {
+      console.error("Telegram transaction send failed:", err);
+      if (typeof showToast === "function") {
+        showToast("ส่งรายการเงินเข้า Telegram ไม่สำเร็จ: " + (err && err.message ? err.message : ""));
+      }
+    }
+  }
+
+  return {
+    getConfig, setConfig, clearConfig, isConfigured, sendMessage, sendTestMessage, sendEntry,
+    sendTransaction, isFinanceForwardingEnabled, setFinanceForwardingEnabled,
+  };
 })();
