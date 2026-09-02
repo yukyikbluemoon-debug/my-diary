@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "2.7.0";
+const APP_VERSION = "2.8.0";
 const APP_BUILD_DATE = "2026-09-03";
 
 const state = {
@@ -853,6 +853,41 @@ $("telegramTestBtn").addEventListener("click", async () => {
   }
 });
 
+$("telegramResendAllBtn").addEventListener("click", async () => {
+  if (typeof TelegramNotify === "undefined" || !TelegramNotify.isConfigured()) {
+    showToast("กรุณาตั้งค่า Telegram ก่อน");
+    return;
+  }
+  const entries = activeEntries().filter((e) => !e.private).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const includeFinance = TelegramNotify.isFinanceForwardingEnabled();
+  const txs = includeFinance
+    ? (await DiaryDB.getAllTransactions()).filter((t) => !t.deletedAt).sort((a, b) => a.date.localeCompare(b.date))
+    : [];
+  const total = entries.length + txs.length;
+  if (total === 0) { showToast("ไม่มีรายการให้ส่ง"); return; }
+  if (!confirm(`จะส่งบันทึก ${entries.length} รายการ${includeFinance ? ` และรายการเงิน ${txs.length} รายการ` : ""} (รวม ${total} ข้อความ) เข้า Telegram ย้อนหลังทั้งหมด อาจใช้เวลาสักครู่ ต้องการดำเนินการต่อหรือไม่?`)) return;
+
+  $("telegramResendAllBtn").disabled = true;
+  let sent = 0;
+  try {
+    for (const e of entries) {
+      showToast(`กำลังส่ง ${sent + 1}/${total}...`);
+      await TelegramNotify.sendEntry(e, e);
+      sent++;
+      await new Promise((r) => setTimeout(r, 700)); // stay well under Telegram's rate limit
+    }
+    for (const t of txs) {
+      showToast(`กำลังส่ง ${sent + 1}/${total}...`);
+      await TelegramNotify.sendTransaction(t);
+      sent++;
+      await new Promise((r) => setTimeout(r, 700));
+    }
+    showToast(`ส่งย้อนหลังเสร็จแล้ว (${sent} รายการ)`);
+  } finally {
+    $("telegramResendAllBtn").disabled = false;
+  }
+});
+
 function refreshSettingsView() {
   const has = DiaryCrypto.hasPassword();
   $("trashRetentionSelect").value = String(getTrashRetentionDays());
@@ -1453,6 +1488,7 @@ async function openEntry(id) {
   state.viewDecrypted = data;
   $("entryPrivateBadge").hidden = !rec.private;
   $("shareEntryBtn").hidden = rec.private;
+  $("telegramResendBtn").hidden = rec.private;
   $("pinEntryBtn").textContent = rec.pinned ? "📌 เลิกปักหมุด" : "📌 ปักหมุด";
 
   let mediaItems = [];
@@ -1602,6 +1638,22 @@ $("shareEntryBtn").addEventListener("click", async () => {
     if (err && err.name === "AbortError") return; // user cancelled the share sheet
     console.error("Share failed:", err);
     showToast("แชร์ไม่สำเร็จ: " + (err && err.message ? err.message : ""));
+  }
+});
+
+$("telegramResendBtn").addEventListener("click", async () => {
+  const rec = state.entries.find((e) => e.id === state.viewId);
+  if (!rec || rec.private) return;
+  if (typeof TelegramNotify === "undefined" || !TelegramNotify.isConfigured()) {
+    showToast("ยังไม่ได้ตั้งค่า Telegram (ตั้งค่า → Telegram)");
+    return;
+  }
+  $("telegramResendBtn").disabled = true;
+  try {
+    await TelegramNotify.sendEntry(rec, rec);
+    showToast("ส่งเข้า Telegram แล้ว");
+  } finally {
+    $("telegramResendBtn").disabled = false;
   }
 });
 
