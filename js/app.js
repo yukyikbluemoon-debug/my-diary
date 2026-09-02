@@ -5,7 +5,7 @@ const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.
 const THAI_MONTHS_FULL = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const TRASH_RETENTION_DAYS = 30;
 const VIDEO_MAX_SECONDS = 30;
-const APP_VERSION = "2.1.0";
+const APP_VERSION = "2.2.0";
 const APP_BUILD_DATE = "2026-09-02";
 
 const state = {
@@ -905,8 +905,24 @@ function renderHome() {
   updateDayFilterChip();
   renderOnThisDay();
   updateReminderBanner();
+  renderTodaySummary();
   refreshSettingsView();
 }
+
+function renderTodaySummary() {
+  const today = todayISO();
+  const diaryCount = activeEntries().filter((e) => e.date === today).length;
+  $("todayDiaryCount").textContent = `${diaryCount} รายการ`;
+  if (typeof Finance !== "undefined") {
+    const s = Finance.getTodaySummary();
+    $("todayIncomeText").textContent = Finance.formatMoney(s.income);
+    $("todayExpenseText").textContent = Finance.formatMoney(s.expense);
+  }
+}
+$("todaySummary").addEventListener("click", () => {
+  showView("finance");
+  if (typeof Finance !== "undefined") Finance.render();
+});
 
 $("entryList").addEventListener("click", (e) => {
   const del = e.target.closest(".card-quick-delete");
@@ -1671,10 +1687,16 @@ $("restoreFile").addEventListener("change", async (e) => {
 function computeCalendarDayInfo() {
   const info = {};
   activeEntries().forEach((e) => {
-    if (!info[e.date]) info[e.date] = { hasEntry: false, hasMedia: false };
+    if (!info[e.date]) info[e.date] = { hasEntry: false, hasMedia: false, hasMoney: false };
     info[e.date].hasEntry = true;
     if (e.hasMedia) info[e.date].hasMedia = true;
   });
+  if (typeof Finance !== "undefined") {
+    Finance.getTransactionDateSet().forEach((date) => {
+      if (!info[date]) info[date] = { hasEntry: false, hasMedia: false, hasMoney: false };
+      info[date].hasMoney = true;
+    });
+  }
   return info;
 }
 
@@ -1695,9 +1717,12 @@ function buildCalendarGrid(gridEl, titleEl, year, month) {
     const classes = ["cal-cell"];
     if (dateStr === todayStr) classes.push("today");
     if (info && info.hasEntry) classes.push("has-entry");
-    if (info && info.hasMedia) classes.push("has-image");
-    const mark = info && info.hasEntry ? '<span class="cal-mark"></span>' : "";
-    gridEl.insertAdjacentHTML("beforeend", `<button type="button" class="${classes.join(" ")}" data-date="${dateStr}">${d}${mark}</button>`);
+    const dots = [];
+    if (info && info.hasEntry) dots.push('<i class="cal-dot-mark entry"></i>');
+    if (info && info.hasMedia) dots.push('<i class="cal-dot-mark media"></i>');
+    if (info && info.hasMoney) dots.push('<i class="cal-dot-mark money"></i>');
+    const marks = dots.length ? `<span class="cal-dots">${dots.join("")}</span>` : "";
+    gridEl.insertAdjacentHTML("beforeend", `<button type="button" class="${classes.join(" ")}" data-date="${dateStr}">${d}${marks}</button>`);
   }
 }
 
@@ -1818,13 +1843,12 @@ async function init() {
     await DiaryDB.migrateIfNeeded();
     state.entries = await DiaryDB.getAll();
     await purgeOldTrash();
+    if (typeof Finance !== "undefined") await Finance.init();
 
     renderHome();
     refreshSettingsView();
     showView("dashboard");
     handleShareTarget();
-
-    if (typeof Finance !== "undefined") Finance.init();
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js").catch(() => {});

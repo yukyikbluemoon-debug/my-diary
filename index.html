@@ -66,12 +66,19 @@
           </button>
         </div>
 
+        <div class="today-summary" id="todaySummary">
+          <h3>วันนี้</h3>
+          <div class="today-summary-row"><span>📝 ไดอารี่</span><span id="todayDiaryCount">0 รายการ</span></div>
+          <div class="today-summary-row"><span>💰 รายรับ</span><span id="todayIncomeText">฿0</span></div>
+          <div class="today-summary-row"><span>💸 รายจ่าย</span><span id="todayExpenseText">฿0</span></div>
+        </div>
+
         <div class="on-this-day" id="onThisDay" hidden>
           <h3>📅 วันนี้ในอดีต</h3>
           <div id="onThisDayList"></div>
         </div>
 
-        <p class="settings-note">สรุปวันนี้ (ไดอารี่ + รายรับ-รายจ่าย) จะมาเพิ่มในเฟสถัดไป</p>
+        <p class="settings-note">แตะที่ยอดรายรับ/รายจ่ายเพื่อไปหน้าการเงิน</p>
       </div>
     </section>
 
@@ -502,6 +509,7 @@
         <div class="cal-legend">
           <span><i class="cal-dot has-entry"></i> มีบันทึก</span>
           <span><i class="cal-dot has-image"></i> มีรูป/ไฟล์แนบ</span>
+          <span><i class="cal-dot has-money"></i> มีรายการเงิน</span>
         </div>
         <div class="cal-weekdays">
           <span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span>
@@ -629,6 +637,7 @@
       <div class="cal-legend">
         <span><i class="cal-dot has-entry"></i> มีบันทึก</span>
         <span><i class="cal-dot has-image"></i> มีรูป/ไฟล์แนบ</span>
+        <span><i class="cal-dot has-money"></i> มีรายการเงิน</span>
       </div>
       <div class="cal-weekdays">
         <span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span>

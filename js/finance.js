@@ -306,6 +306,8 @@ const Finance = (() => {
     renderCategoryChart();
     renderRollupTable();
     renderTxList();
+    if (typeof renderTodaySummary === "function") renderTodaySummary();
+    if (typeof state !== "undefined" && state.view === "calendarPage" && typeof renderCalendarPage === "function") renderCalendarPage();
   }
 
   /* ---------- wiring ---------- */
@@ -355,9 +357,25 @@ const Finance = (() => {
     });
   }
 
-  function init() {
-    wireEvents();
+  function getTodaySummary() {
+    const today = todayISO();
+    let income = 0, expense = 0;
+    activeTx().forEach((t) => {
+      if (t.date !== today) return;
+      if (t.type === "income") income += t.amount;
+      else if (t.type === "expense") expense += t.amount;
+    });
+    return { income, expense };
   }
 
-  return { init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual };
+  function getTransactionDateSet() {
+    return new Set(activeTx().map((t) => t.date));
+  }
+
+  async function init() {
+    wireEvents();
+    allTx = await DiaryDB.getAllTransactions();
+  }
+
+  return { init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, getTodaySummary, getTransactionDateSet, formatMoney };
 })();

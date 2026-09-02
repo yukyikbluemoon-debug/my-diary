@@ -784,6 +784,7 @@ button, input, textarea, select {
 .cal-legend span { display: flex; align-items: center; gap: 5px; }
 .cal-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--sage); }
 .cal-dot.has-image { background: var(--danger); }
+.cal-dot.has-money { background: var(--amber); }
 .cal-weekdays, .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -810,15 +811,17 @@ button, input, textarea, select {
 .cal-cell.empty { visibility: hidden; cursor: default; }
 .cal-cell.today { outline: 1px solid var(--ink-500); }
 .cal-cell.has-entry { font-weight: 700; color: var(--sage); }
-.cal-cell.has-image { color: var(--danger); }
 .cal-cell:hover:not(.empty) { background: var(--ink-600); }
-.cal-cell .cal-mark {
+.cal-dots {
   position: absolute;
-  bottom: 4px;
-  width: 4px; height: 4px;
-  border-radius: 50%;
-  background: currentColor;
+  bottom: 4px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 2px;
 }
+.cal-dot-mark { width: 4px; height: 4px; border-radius: 50%; }
+.cal-dot-mark.entry { background: var(--sage); }
+.cal-dot-mark.media { background: var(--danger); }
+.cal-dot-mark.money { background: var(--amber); }
 
 /* ============================================================
    Markdown-lite (checklist / bullets)
@@ -1027,6 +1030,17 @@ button, input, textarea, select {
 }
 .dashboard-shortcut:hover { border-color: var(--amber-dim); transform: translateY(-1px); }
 .dashboard-shortcut-ico { font-size: 28px; }
+
+.today-summary {
+  background: linear-gradient(155deg, var(--ink-700), var(--ink-800));
+  border: 1px solid var(--ink-600);
+  border-radius: var(--radius-m);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+.today-summary h3 { font-family: var(--serif); font-size: 14px; color: var(--amber); margin: 0 0 10px; }
+.today-summary-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
 .otd-year { color: var(--paper-dim); font-size: 12px; margin-right: 6px; }
 
 /* ============================================================
