@@ -154,24 +154,29 @@ const DriveSync = (() => {
   }
 
   async function syncAttachments(mergedEntries) {
-    // 1) upload any local blob that doesn't have a Drive file yet
-    let uploadedCount = 0;
+    // 1) figure out the total pending count first, so progress toasts can
+    // say "X/Y" instead of just a running count with no sense of how much
+    // is left.
+    const pending = [];
     for (const entry of mergedEntries) {
       if (entry.private || entry.deletedAt || !entry.attachmentRefs) continue;
       for (const ref of entry.attachmentRefs) {
         const att = await DiaryDB.getAttachment(ref.id);
-        if (att && att.blob && !att.driveFileId) {
-          try {
-            if (typeof showToast === "function") showToast(`กำลังอัปโหลดไฟล์แนบ (${uploadedCount + 1})...`);
-            const driveFileId = await uploadNewFile(`diary-attach-${att.id}`, att.blob);
-            att.driveFileId = driveFileId;
-            await DiaryDB.putAttachment(att);
-            uploadedCount++;
-          } catch (err) {
-            // don't fail the whole sync over one attachment; it'll retry next sync
-            console.error("Attachment upload failed:", err);
-          }
-        }
+        if (att && att.blob && !att.driveFileId) pending.push(att);
+      }
+    }
+    let uploadedCount = 0;
+    const total = pending.length;
+    for (const att of pending) {
+      try {
+        if (typeof showToast === "function") showToast(`กำลังอัปโหลดไฟล์แนบ ${uploadedCount + 1}/${total}...`);
+        const driveFileId = await uploadNewFile(`diary-attach-${att.id}`, att.blob);
+        att.driveFileId = driveFileId;
+        await DiaryDB.putAttachment(att);
+        uploadedCount++;
+      } catch (err) {
+        // don't fail the whole sync over one attachment; it'll retry next sync
+        console.error("Attachment upload failed:", err);
       }
     }
     // 2) build the index of everything we can point another device to

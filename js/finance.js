@@ -93,6 +93,59 @@ const Finance = (() => {
     return rows;
   }
 
+  function computeWalletBalance(wallet) {
+    let balance = 0;
+    activeTx().forEach((t) => {
+      if (t.type === "income" && t.wallet === wallet) balance += t.amount;
+      else if (t.type === "expense" && t.wallet === wallet) balance -= t.amount;
+      else if (t.type === "transfer") {
+        if (t.wallet === wallet) balance -= t.amount;
+        if (t.toWallet === wallet) balance += t.amount;
+      }
+    });
+    return balance;
+  }
+
+  function renderWalletBalances() {
+    const wallets = getWallets();
+    const container = $("walletBalanceList");
+    container.innerHTML = wallets.map((w) => {
+      const bal = computeWalletBalance(w);
+      return `<div class="wallet-balance-row"><span>${escapeHTML(w)}</span><span class="wallet-balance-amount${bal < 0 ? " negative" : ""}">${formatMoney(bal)}</span></div>`;
+    }).join("");
+  }
+
+  /* ---------- search / filter ---------- */
+
+  function populateFilterSelects() {
+    const catSel = $("txFilterCategory");
+    const currentCat = catSel.value;
+    catSel.innerHTML = '<option value="">ทั้งหมด</option>' + getCategories().map((c) => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join("");
+    catSel.value = currentCat;
+
+    const walletSel = $("txFilterWallet");
+    const currentWallet = walletSel.value;
+    walletSel.innerHTML = '<option value="">ทั้งหมด</option>' + getWallets().map((w) => `<option value="${escapeHTML(w)}">${escapeHTML(w)}</option>`).join("");
+    walletSel.value = currentWallet;
+  }
+
+  function getFilteredTx() {
+    const q = $("txSearchInput").value.trim().toLowerCase();
+    const type = $("txFilterType").value;
+    const category = $("txFilterCategory").value;
+    const wallet = $("txFilterWallet").value;
+    return activeTx().filter((t) => {
+      if (type && t.type !== type) return false;
+      if (category && t.category !== category) return false;
+      if (wallet && t.wallet !== wallet && t.toWallet !== wallet) return false;
+      if (q) {
+        const hay = `${t.title || ""} ${t.note || ""} ${t.category || ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
   /* ---------- transaction form ---------- */
 
   let txType = "expense";
@@ -245,7 +298,7 @@ const Finance = (() => {
   }
 
   function renderTxList() {
-    const active = activeTx().slice().sort((a, b) => (b.date + (b.createdAt || "")).localeCompare(a.date + (a.createdAt || "")));
+    const active = getFilteredTx().sort((a, b) => (b.date + (b.createdAt || "")).localeCompare(a.date + (a.createdAt || "")));
     const list = $("txList");
     list.innerHTML = "";
     $("txEmptyState").hidden = active.length > 0;
@@ -310,9 +363,11 @@ const Finance = (() => {
   async function render() {
     allTx = await DiaryDB.getAllTransactions();
     renderSummaryCards();
+    renderWalletBalances();
     renderMonthlyChart();
     renderCategoryChart();
     renderRollupTable();
+    populateFilterSelects();
     renderTxList();
     if (typeof renderTodaySummary === "function") renderTodaySummary();
     if (typeof state !== "undefined" && state.view === "calendarPage" && typeof renderCalendarPage === "function") renderCalendarPage();
@@ -321,6 +376,23 @@ const Finance = (() => {
   /* ---------- wiring ---------- */
 
   function wireEvents() {
+    $("txSearchInput").addEventListener("input", renderTxList);
+    $("txFilterType").addEventListener("change", renderTxList);
+    $("txFilterCategory").addEventListener("change", renderTxList);
+    $("txFilterWallet").addEventListener("change", renderTxList);
+    $("txClearFilterBtn").addEventListener("click", () => {
+      $("txSearchInput").value = "";
+      $("txFilterType").value = "";
+      $("txFilterCategory").value = "";
+      $("txFilterWallet").value = "";
+      renderTxList();
+    });
+    $("txFilterToggleBtn").addEventListener("click", () => {
+      const panel = $("txFilterPanel");
+      panel.hidden = !panel.hidden;
+      $("txFilterToggleBtn").setAttribute("aria-expanded", String(!panel.hidden));
+    });
+
     $("txTypePicker").addEventListener("click", (e) => {
       const btn = e.target.closest(".tx-type-btn");
       if (!btn) return;

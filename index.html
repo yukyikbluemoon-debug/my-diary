@@ -166,18 +166,8 @@
           </div>
 
           <div class="field" id="eventCategoryField" hidden>
-            <label for="eventCategory">หมวดเหตุการณ์</label>
-            <select id="eventCategory">
-              <option value="ซื้อของ">🛍️ ซื้อของ</option>
-              <option value="ไปทำงาน">💼 ไปทำงาน</option>
-              <option value="เดินทาง">✈️ เดินทาง</option>
-              <option value="ซื้อหุ้น">📈 ซื้อหุ้น</option>
-              <option value="ได้เงิน">💵 ได้เงิน</option>
-              <option value="จ่ายบิล">🧾 จ่ายบิล</option>
-              <option value="ซ่อมของ">🔧 ซ่อมของ</option>
-              <option value="ซื้อของมือสอง">♻️ ซื้อของมือสอง</option>
-              <option value="อื่นๆ">📌 อื่นๆ</option>
-            </select>
+            <label for="eventCategory">หมวดเหตุการณ์ <button type="button" class="text-btn" id="manageEventCatBtn" style="font-size:12px;padding:0 0 0 6px;">(จัดการ)</button></label>
+            <select id="eventCategory"></select>
           </div>
 
           <div class="field" id="eventLinkTxField" hidden>
@@ -383,6 +373,16 @@
             <span>ล็อกเซสชันตอนนี้</span>
             <button class="text-btn" id="lockNowBtn">ล็อก</button>
           </div>
+          <div class="settings-row">
+            <span>ล็อกอัตโนมัติเมื่อไม่ใช้งาน</span>
+            <select id="autoLockSelect">
+              <option value="0">ไม่ล็อกอัตโนมัติ</option>
+              <option value="1">1 นาที</option>
+              <option value="5">5 นาที</option>
+              <option value="15">15 นาที</option>
+              <option value="30">30 นาที</option>
+            </select>
+          </div>
         </div>
 
         <div class="settings-group">
@@ -407,6 +407,16 @@
           <div class="settings-row">
             <span>ถังขยะ</span>
             <button class="text-btn" id="openTrashBtn">เปิด (<span id="trashCountText">0</span>)</button>
+          </div>
+          <div class="settings-row">
+            <span>เก็บถังขยะไว้กี่วัน</span>
+            <select id="trashRetentionSelect">
+              <option value="7">7 วัน</option>
+              <option value="14">14 วัน</option>
+              <option value="30">30 วัน</option>
+              <option value="60">60 วัน</option>
+              <option value="90">90 วัน</option>
+            </select>
           </div>
         </div>
 
@@ -433,7 +443,8 @@
           <button class="text-btn" id="backFromTrashBtn">ย้อนกลับ</button>
           <h1>ถังขยะ</h1>
         </div>
-        <p class="settings-note" style="margin-bottom:14px;">บันทึกที่ลบจะอยู่ที่นี่ 30 วัน ก่อนลบถาวรอัตโนมัติ</p>
+        <p class="settings-note" style="margin-bottom:14px;" id="trashRetentionNote"></p>
+        <div class="trash-warning" id="trashWarningBanner" hidden></div>
         <div id="trashList"></div>
         <div class="empty-state" id="trashEmptyState" hidden>
           <p class="empty-title">ถังขยะว่าง</p>
@@ -507,6 +518,11 @@
         </div>
 
         <div class="settings-group">
+          <h2>ยอดคงเหลือแต่ละกระเป๋า</h2>
+          <div id="walletBalanceList"></div>
+        </div>
+
+        <div class="settings-group">
           <h2>รายรับ/รายจ่ายรายเดือน</h2>
           <div id="finMonthlyChart"></div>
         </div>
@@ -523,6 +539,32 @@
 
         <div class="settings-group">
           <h2>รายการทั้งหมด</h2>
+          <div class="toolbar">
+            <div class="search-wrap">
+              <input type="search" id="txSearchInput" placeholder="ค้นหารายการเงิน...">
+            </div>
+            <button class="icon-btn" id="txFilterToggleBtn" aria-label="กรอง" aria-expanded="false">ตัวกรอง</button>
+          </div>
+          <div class="filter-panel" id="txFilterPanel" hidden>
+            <div class="filter-row">
+              <label for="txFilterType">ประเภท</label>
+              <select id="txFilterType">
+                <option value="">ทั้งหมด</option>
+                <option value="income">รายรับ</option>
+                <option value="expense">รายจ่าย</option>
+                <option value="transfer">โอนเงิน</option>
+              </select>
+            </div>
+            <div class="filter-row">
+              <label for="txFilterCategory">หมวดหมู่</label>
+              <select id="txFilterCategory"><option value="">ทั้งหมด</option></select>
+            </div>
+            <div class="filter-row">
+              <label for="txFilterWallet">กระเป๋าเงิน</label>
+              <select id="txFilterWallet"><option value="">ทั้งหมด</option></select>
+            </div>
+            <button class="text-btn" id="txClearFilterBtn">ล้างตัวกรอง</button>
+          </div>
           <div id="txList"></div>
           <div class="empty-state" id="txEmptyState" hidden>
             <p class="empty-title">ยังไม่มีรายการ</p>
@@ -639,6 +681,23 @@
 
         <div class="modal-actions">
           <button class="text-btn primary" id="finMetaCloseBtn">เสร็จสิ้น</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event category manager -->
+    <div class="modal" id="eventCatMetaModal" hidden>
+      <div class="modal-card">
+        <h2>หมวดเหตุการณ์</h2>
+        <div class="fin-meta-section">
+          <div class="fin-meta-list" id="eventCatMetaList"></div>
+          <div class="fin-meta-add">
+            <input type="text" id="newEventCatInput" placeholder="เพิ่มหมวดใหม่ (พิมพ์อีโมจิ+ชื่อ)">
+            <button type="button" class="text-btn" id="addEventCatBtn">เพิ่ม</button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="text-btn primary" id="eventCatMetaCloseBtn">เสร็จสิ้น</button>
         </div>
       </div>
     </div>

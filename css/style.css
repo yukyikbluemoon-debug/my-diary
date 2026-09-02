@@ -731,6 +731,18 @@ select {
 .fin-rollup-row.head { color: var(--paper-dim); background: none; padding: 0 10px; }
 .fin-rollup-row span:not(:first-child) { text-align: right; }
 
+.wallet-balance-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px;
+  background: linear-gradient(155deg, var(--ink-700), var(--ink-800));
+  border: 1px solid var(--ink-600);
+  border-radius: var(--radius-m);
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.wallet-balance-amount { font-weight: 600; }
+.wallet-balance-amount.negative { color: var(--danger); }
+
 .fin-meta-section { margin-bottom: 16px; }
 .fin-meta-section h3 { font-family: var(--serif); font-size: 14px; color: var(--amber); margin: 0 0 8px; }
 .fin-meta-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
@@ -1111,6 +1123,15 @@ select {
 .trash-item-info { font-size: 13.5px; }
 .trash-item-sub { font-size: 12px; color: var(--paper-dim); margin-top: 2px; }
 .trash-actions { display: flex; gap: 8px; }
+.trash-warning {
+  background: linear-gradient(155deg, var(--ink-700), var(--ink-800));
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-m);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 13.5px;
+  color: var(--danger);
+}
 
 /* ============================================================
    Theme + font-size pickers (settings)

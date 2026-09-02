@@ -3,13 +3,16 @@
 const $ = (id) => document.getElementById(id);
 const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 const THAI_MONTHS_FULL = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
-const TRASH_RETENTION_DAYS = 30;
+function getTrashRetentionDays() {
+  return parseInt(localStorage.getItem("diary_trash_retention_days"), 10) || 30;
+}
 const VIDEO_MAX_SECONDS = 30;
+const VIDEO_SIZE_WARN_BYTES = 20 * 1024 * 1024; // 20 MB — just a heads-up, recording still allowed past this
 const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "2.3.2";
+const APP_VERSION = "2.4.0";
 const APP_BUILD_DATE = "2026-09-02";
 
 const state = {
@@ -135,6 +138,7 @@ function closeCurrentLayer() {
   if (!$("unlockModal").hidden) { closeUnlockModalVisual(false); return; }
   if (!$("txModal").hidden && typeof Finance !== "undefined") { Finance.closeTxModalVisual(); return; }
   if (!$("finMetaModal").hidden && typeof Finance !== "undefined") { Finance.closeFinMetaModalVisual(); return; }
+  if (!$("eventCatMetaModal").hidden) { closeEventCatMetaModalVisual(); return; }
   if (state.view === "trash") { showView("settings"); return; }
   if (state.view === "stats") { showView(state.statsReturnView || "dashboard"); return; }
   if (state.view === "write") { clearRecordingUI(); showView(state.editId ? "entry" : "home"); return; }
@@ -283,6 +287,9 @@ async function startRecording(type) {
   recorder.onstop = () => {
     const blob = new Blob(state.recorderChunks, { type: recorder.mimeType || (type === "video" ? "video/webm" : "audio/webm") });
     addPendingAttachment(type === "video" ? "video" : "audio", blob);
+    if (type === "video" && blob.size > VIDEO_SIZE_WARN_BYTES) {
+      showToast(`⚠️ วิดีโอนี้ขนาด ${formatBytes(blob.size)} — ใหญ่พอสมควร อาจกินพื้นที่และเวลาซิงค์นาน`);
+    }
     stream.getTracks().forEach((t) => t.stop());
     if (type === "video") { $("videoLivePreview").hidden = true; $("videoLivePreview").srcObject = null; }
   };
@@ -478,6 +485,64 @@ $("entryTypeFilter").addEventListener("click", (e) => {
   state.filterEntryType = btn.dataset.filtertype;
   document.querySelectorAll(".entry-type-filter-btn").forEach((b) => b.classList.toggle("selected", b === btn));
   renderHome();
+});
+
+/* ---------------- event categories (customizable) ---------------- */
+
+const DEFAULT_EVENT_CATEGORIES = Object.keys(EVENT_CATEGORY_ICONS);
+
+function getEventCategories() {
+  try { return JSON.parse(localStorage.getItem("diary_event_categories")) || DEFAULT_EVENT_CATEGORIES.slice(); }
+  catch (e) { return DEFAULT_EVENT_CATEGORIES.slice(); }
+}
+function saveEventCategories(list) { localStorage.setItem("diary_event_categories", JSON.stringify(list)); }
+function addEventCategory(name) {
+  const list = getEventCategories();
+  if (!name || list.includes(name)) return;
+  list.push(name);
+  saveEventCategories(list);
+}
+function removeEventCategory(name) {
+  saveEventCategories(getEventCategories().filter((c) => c !== name));
+}
+
+function populateEventCategorySelect(selected) {
+  const sel = $("eventCategory");
+  const cats = getEventCategories();
+  sel.innerHTML = cats.map((c) => `<option value="${escapeHTML(c)}">${EVENT_CATEGORY_ICONS[c] || "📌"} ${escapeHTML(c)}</option>`).join("");
+  if (selected && cats.includes(selected)) sel.value = selected;
+}
+
+function renderEventCatMetaList() {
+  $("eventCatMetaList").innerHTML = getEventCategories().map((c) =>
+    `<span class="fin-meta-chip">${EVENT_CATEGORY_ICONS[c] || "📌"} ${escapeHTML(c)}<button type="button" data-name="${escapeHTML(c)}">×</button></span>`
+  ).join("");
+}
+function closeEventCatMetaModalVisual() { $("eventCatMetaModal").hidden = true; }
+function closeEventCatMetaModal() {
+  closeEventCatMetaModalVisual();
+  popNavState();
+  populateEventCategorySelect($("eventCategory").value);
+}
+$("manageEventCatBtn").addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  renderEventCatMetaList();
+  $("eventCatMetaModal").hidden = false;
+  pushNavState("eventcatmeta");
+});
+$("eventCatMetaCloseBtn").addEventListener("click", closeEventCatMetaModal);
+$("addEventCatBtn").addEventListener("click", () => {
+  const input = $("newEventCatInput");
+  addEventCategory(input.value.trim());
+  input.value = "";
+  renderEventCatMetaList();
+});
+$("eventCatMetaList").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-name]");
+  if (!btn) return;
+  removeEventCategory(btn.dataset.name);
+  renderEventCatMetaList();
 });
 
 /* ---------------- color picker ---------------- */
@@ -706,6 +771,31 @@ $("lockNowBtn").addEventListener("click", () => {
   showToast("ล็อกเซสชันแล้ว");
 });
 
+/* ---------------- auto-lock on inactivity ---------------- */
+
+let autoLockTimer = null;
+function getAutoLockMinutes() {
+  return parseInt(localStorage.getItem("diary_autolock_minutes"), 10) || 0;
+}
+function resetAutoLockTimer() {
+  clearTimeout(autoLockTimer);
+  const minutes = getAutoLockMinutes();
+  if (minutes <= 0) return;
+  autoLockTimer = setTimeout(() => {
+    if (DiaryCrypto.isUnlocked()) {
+      DiaryCrypto.lock();
+      showToast("ล็อกเซสชันอัตโนมัติแล้ว (ไม่ได้ใช้งานเกินเวลาที่ตั้งไว้)");
+    }
+  }, minutes * 60000);
+}
+["click", "touchstart", "keydown", "input"].forEach((evt) => {
+  document.addEventListener(evt, resetAutoLockTimer, { passive: true });
+});
+$("autoLockSelect").addEventListener("change", (e) => {
+  localStorage.setItem("diary_autolock_minutes", e.target.value);
+  resetAutoLockTimer();
+});
+
 $("driveSyncBtn").addEventListener("click", async () => {
   if (typeof DriveSync === "undefined") { showToast("โหลดฟีเจอร์ซิงค์ไม่สำเร็จ"); return; }
   $("driveSyncBtn").disabled = true;
@@ -728,6 +818,8 @@ $("driveSyncBtn").addEventListener("click", async () => {
 
 function refreshSettingsView() {
   const has = DiaryCrypto.hasPassword();
+  $("trashRetentionSelect").value = String(getTrashRetentionDays());
+  $("autoLockSelect").value = String(getAutoLockMinutes());
   $("pwStatusText").textContent = has ? "ตั้งรหัสผ่านแล้ว" : "ยังไม่ได้ตั้งรหัสผ่าน";
   $("setPasswordBtn").hidden = has;
   $("changePwRow").hidden = !has;
@@ -1076,7 +1168,7 @@ function offerDraftRestore(targetEntryId) {
 function resetWriteForm() {
   $("entryId").value = "";
   setEntryType("diary");
-  $("eventCategory").value = "ซื้อของ";
+  populateEventCategorySelect();
   setEntryDate(todayISO());
   $("entryTime").value = nowHM();
   $("entryTitle").value = "";
@@ -1148,7 +1240,7 @@ async function openWriteForEdit(id) {
   $("entryTags").value = (data.tags || []).join(", ");
   $("entryPrivate").checked = !!rec.private;
   if (rec.entryType === "event") {
-    $("eventCategory").value = rec.eventCategory || "อื่นๆ";
+    populateEventCategorySelect(rec.eventCategory || "อื่นๆ");
     populateEventLinkTxSelect(rec.date, rec.linkedTxId || "");
   }
   state.moodSelected = data.mood || "";
@@ -1477,15 +1569,29 @@ function activeTrashed() {
 }
 
 function renderTrash() {
+  $("trashRetentionNote").textContent = `บันทึกที่ลบจะอยู่ที่นี่ ${getTrashRetentionDays()} วัน ก่อนลบถาวรอัตโนมัติ`;
   const trashed = activeTrashed().sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
   const list = $("trashList");
   list.innerHTML = "";
   $("trashEmptyState").hidden = trashed.length > 0;
+
+  const soonCount = trashed.filter((e) => {
+    const daysLeft = getTrashRetentionDays() - Math.floor((Date.now() - new Date(e.deletedAt).getTime()) / 86400000);
+    return daysLeft <= 3;
+  }).length;
+  const warnBanner = $("trashWarningBanner");
+  if (soonCount > 0) {
+    warnBanner.hidden = false;
+    warnBanner.textContent = `⚠️ มี ${soonCount} รายการจะถูกลบถาวรภายใน 3 วัน`;
+  } else {
+    warnBanner.hidden = true;
+  }
+
   trashed.forEach((e) => {
     const item = document.createElement("div");
     item.className = "trash-item";
     const label = e.private ? "🔒 บันทึกส่วนตัว" : escapeHTML(e.title || "(ไม่มีชื่อเรื่อง)");
-    const daysLeft = TRASH_RETENTION_DAYS - Math.floor((Date.now() - new Date(e.deletedAt).getTime()) / 86400000);
+    const daysLeft = getTrashRetentionDays() - Math.floor((Date.now() - new Date(e.deletedAt).getTime()) / 86400000);
     item.innerHTML = `
       <div class="trash-item-info">
         <div>${label}</div>
@@ -1497,6 +1603,24 @@ function renderTrash() {
       </div>`;
     list.appendChild(item);
   });
+}
+
+$("trashRetentionSelect").addEventListener("change", (e) => {
+  localStorage.setItem("diary_trash_retention_days", e.target.value);
+  renderTrash();
+});
+
+function checkTrashExpiryWarning() {
+  const trashed = activeTrashed();
+  const soon = trashed.filter((e) => {
+    const daysLeft = getTrashRetentionDays() - Math.floor((Date.now() - new Date(e.deletedAt).getTime()) / 86400000);
+    return daysLeft <= 3;
+  });
+  if (soon.length === 0) return;
+  const warnedDate = localStorage.getItem("diary_trash_warned_date");
+  if (warnedDate === todayISO()) return; // once per day is enough
+  localStorage.setItem("diary_trash_warned_date", todayISO());
+  showToast(`⚠️ มี ${soon.length} รายการในถังขยะจะถูกลบถาวรภายใน 3 วัน`);
 }
 
 // Permanently purging locally must not let a later sync pull the entry back
@@ -1545,7 +1669,7 @@ $("openTrashBtn").addEventListener("click", () => { renderTrash(); showView("tra
 $("backFromTrashBtn").addEventListener("click", () => { showView("settings"); popNavState(); });
 
 async function purgeOldTrash() {
-  const cutoff = Date.now() - TRASH_RETENTION_DAYS * 86400000;
+  const cutoff = Date.now() - getTrashRetentionDays() * 86400000;
   const toPurge = state.entries.filter((e) => e.deletedAt && !e.purged && new Date(e.deletedAt).getTime() < cutoff);
   for (const e of toPurge) await purgeToTombstone(e);
 }
@@ -1920,6 +2044,8 @@ async function init() {
     refreshSettingsView();
     showView("dashboard");
     handleShareTarget();
+    checkTrashExpiryWarning();
+    resetAutoLockTimer();
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js").catch(() => {});
