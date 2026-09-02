@@ -32,6 +32,21 @@ const DiaryDB = (() => {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
+      let settled = false;
+
+      // If another tab/window still has this database open at an older
+      // version, the browser silently blocks this open() request forever
+      // (no error, no event) until that other connection closes. Without
+      // a timeout, every DB call in the app (including sync) just hangs
+      // with no feedback — which is exactly what happened after the
+      // schema change in v2.5.0. Surface it instead of hanging silently.
+      const timeoutId = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        dbPromise = null;
+        reject(new Error("เปิดฐานข้อมูลไม่สำเร็จ — อาจมีแท็บ/หน้าต่างอื่นของแอปนี้เปิดค้างอยู่ ลองปิดแท็บ/หน้าต่างอื่นทั้งหมดแล้วเปิดแอปใหม่อีกครั้ง"));
+      }, 8000);
+
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(ENTRIES_STORE)) {
@@ -50,8 +65,26 @@ const DiaryDB = (() => {
           db.createObjectStore(ASSET_STORE, { keyPath: "id" });
         }
       };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      req.onblocked = () => {
+        console.error("DiaryDB open() blocked by another open connection (likely another tab).");
+      };
+      req.onsuccess = () => {
+        if (settled) { req.result.close(); return; } // timed out already; don't leak the late connection
+        settled = true;
+        clearTimeout(timeoutId);
+        const db = req.result;
+        // If a newer version tries to open elsewhere later, release our
+        // lock immediately instead of blocking it the same way.
+        db.onversionchange = () => { db.close(); dbPromise = null; };
+        resolve(db);
+      };
+      req.onerror = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        dbPromise = null;
+        reject(req.error);
+      };
     });
     return dbPromise;
   }
