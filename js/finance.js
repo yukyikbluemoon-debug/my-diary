@@ -1,0 +1,350 @@
+/* finance.js — income/expense/transfer tracking, separate from the diary
+   but sharing the same IndexedDB (via DiaryDB) and the same app shell
+   (calendar date-picker, toasts, nav helpers) from app.js.
+
+   Categories and wallets are just short config lists, so they live in
+   localStorage (like theme settings) rather than as IndexedDB records. */
+
+const Finance = (() => {
+  const CAT_KEY = "diary_fin_categories";
+  const WALLET_KEY = "diary_fin_wallets";
+  const DEFAULT_CATEGORIES = ["เงินเดือน", "อาหาร", "เดินทาง", "บ้าน", "โทรศัพท์", "ของใช้", "ลงทุน", "หนี้", "สุขภาพ", "บันเทิง", "อื่นๆ"];
+  const DEFAULT_WALLETS = ["เงินสด", "ธนาคาร", "Dime", "Orbix", "อื่นๆ"];
+
+  let allTx = []; // cached in-memory copy of all transactions, kept in sync with DiaryDB
+
+  /* ---------- categories / wallets config ---------- */
+
+  function getCategories() {
+    try { return JSON.parse(localStorage.getItem(CAT_KEY)) || DEFAULT_CATEGORIES.slice(); }
+    catch (e) { return DEFAULT_CATEGORIES.slice(); }
+  }
+  function getWallets() {
+    try { return JSON.parse(localStorage.getItem(WALLET_KEY)) || DEFAULT_WALLETS.slice(); }
+    catch (e) { return DEFAULT_WALLETS.slice(); }
+  }
+  function saveCategories(list) { localStorage.setItem(CAT_KEY, JSON.stringify(list)); }
+  function saveWallets(list) { localStorage.setItem(WALLET_KEY, JSON.stringify(list)); }
+
+  function addCategory(name) {
+    const list = getCategories();
+    if (!name || list.includes(name)) return;
+    list.push(name);
+    saveCategories(list);
+  }
+  function removeCategory(name) {
+    saveCategories(getCategories().filter((c) => c !== name));
+  }
+  function addWallet(name) {
+    const list = getWallets();
+    if (!name || list.includes(name)) return;
+    list.push(name);
+    saveWallets(list);
+  }
+  function removeWallet(name) {
+    saveWallets(getWallets().filter((w) => w !== name));
+  }
+
+  /* ---------- formatting / calculation ---------- */
+
+  function formatMoney(n) {
+    const sign = n < 0 ? "-" : "";
+    return sign + "฿" + Math.abs(n).toLocaleString("th-TH", { maximumFractionDigits: 2 });
+  }
+
+  function signedAmount(tx) {
+    if (tx.type === "income") return tx.amount;
+    if (tx.type === "expense") return -tx.amount;
+    return 0; // transfers net to zero across the whole ledger (money just moves wallets)
+  }
+
+  function computeMonthSummary(txs, yyyymm) {
+    let income = 0, expense = 0;
+    txs.forEach((t) => {
+      if (t.date.slice(0, 7) !== yyyymm) return;
+      if (t.type === "income") income += t.amount;
+      else if (t.type === "expense") expense += t.amount;
+    });
+    return { income, expense, net: income - expense };
+  }
+
+  function computeCategoryBreakdown(txs, yyyymm) {
+    const totals = {};
+    txs.forEach((t) => {
+      if (t.type !== "expense" || t.date.slice(0, 7) !== yyyymm) return;
+      totals[t.category || "อื่นๆ"] = (totals[t.category || "อื่นๆ"] || 0) + t.amount;
+    });
+    return Object.entries(totals).sort((a, b) => b[1] - a[1]).map(([label, amount]) => ({ label, amount }));
+  }
+
+  function computeMonthlyRollup(txs, monthsBack) {
+    const now = new Date();
+    const rows = [];
+    for (let i = monthsBack - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const s = computeMonthSummary(txs, key);
+      rows.push({ label: `${THAI_MONTHS[d.getMonth()]} ${(d.getFullYear() + 543).toString().slice(2)}`, ...s });
+    }
+    return rows;
+  }
+
+  /* ---------- transaction form ---------- */
+
+  let txType = "expense";
+
+  function populateSelects() {
+    const catSel = $("txCategory");
+    const cats = getCategories();
+    catSel.innerHTML = cats.map((c) => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join("");
+    const walletOpts = getWallets().map((w) => `<option value="${escapeHTML(w)}">${escapeHTML(w)}</option>`).join("");
+    $("txWallet").innerHTML = walletOpts;
+    $("txToWallet").innerHTML = walletOpts;
+  }
+
+  function setTxType(type) {
+    txType = type;
+    document.querySelectorAll(".tx-type-btn").forEach((b) => b.classList.toggle("selected", b.dataset.type === type));
+    $("txCategoryField").hidden = type === "transfer";
+    $("txToWalletField").hidden = type !== "transfer";
+    $("txWalletLabel").textContent = type === "transfer" ? "จาก" : "กระเป๋าเงิน";
+  }
+
+  function setTxDate(dateStr) {
+    $("txDate").value = dateStr;
+    $("txDatePicker").textContent = formatFullThaiDate(dateStr);
+  }
+
+  function openNewTx() {
+    populateSelects();
+    $("txId").value = "";
+    setTxType("expense");
+    setTxDate(todayISO());
+    $("txTitle").value = "";
+    $("txAmount").value = "";
+    $("txNote").value = "";
+    $("txModalTitle").textContent = "เพิ่มรายการเงิน";
+    $("txDeleteBtn").hidden = true;
+    $("txModal").hidden = false;
+    pushNavState("tx");
+  }
+
+  function openEditTx(id) {
+    const tx = allTx.find((t) => t.id === id);
+    if (!tx) return;
+    populateSelects();
+    $("txId").value = tx.id;
+    setTxType(tx.type);
+    setTxDate(tx.date);
+    $("txTitle").value = tx.title || "";
+    $("txCategory").value = tx.category || "";
+    $("txWallet").value = tx.wallet || "";
+    if (tx.type === "transfer") $("txToWallet").value = tx.toWallet || "";
+    $("txAmount").value = tx.amount;
+    $("txNote").value = tx.note || "";
+    $("txModalTitle").textContent = "แก้ไขรายการเงิน";
+    $("txDeleteBtn").hidden = false;
+    $("txModal").hidden = false;
+    pushNavState("tx");
+  }
+
+  function closeTxModalVisual() { $("txModal").hidden = true; }
+  function closeTxModal() { closeTxModalVisual(); popNavState(); }
+
+  async function saveTx() {
+    const date = $("txDate").value;
+    const title = $("txTitle").value.trim();
+    const amount = parseFloat($("txAmount").value);
+    if (!date) { showToast("กรุณาเลือกวันที่"); return; }
+    if (!title) { showToast("กรุณาใส่ชื่อรายการ"); return; }
+    if (!amount || amount <= 0) { showToast("กรุณาใส่จำนวนเงินที่ถูกต้อง"); return; }
+    const wallet = $("txWallet").value;
+    if (txType === "transfer" && wallet === $("txToWallet").value) {
+      showToast("กระเป๋าต้นทางและปลายทางต้องไม่ใช่อันเดียวกัน");
+      return;
+    }
+
+    const id = $("txId").value || uid();
+    const existing = allTx.find((t) => t.id === id);
+    const tx = {
+      id, date, type: txType, title,
+      wallet,
+      toWallet: txType === "transfer" ? $("txToWallet").value : null,
+      category: txType === "transfer" ? null : $("txCategory").value,
+      amount,
+      note: $("txNote").value.trim(),
+      createdAt: existing ? existing.createdAt : new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await DiaryDB.putTransaction(tx);
+    const idx = allTx.findIndex((t) => t.id === id);
+    if (idx >= 0) allTx[idx] = tx; else allTx.push(tx);
+
+    closeTxModalVisual();
+    popNavState();
+    render();
+    showToast("บันทึกแล้ว");
+  }
+
+  async function deleteTx() {
+    const id = $("txId").value;
+    if (!id) return;
+    if (!confirm("ลบรายการนี้หรือไม่?")) return;
+    await DiaryDB.removeTransaction(id);
+    allTx = allTx.filter((t) => t.id !== id);
+    closeTxModalVisual();
+    popNavState();
+    render();
+    showToast("ลบแล้ว");
+  }
+
+  /* ---------- category / wallet manager modal ---------- */
+
+  function renderMetaModal() {
+    const catList = $("categoryMetaList");
+    catList.innerHTML = getCategories().map((c) => `<span class="fin-meta-chip">${escapeHTML(c)}<button type="button" data-kind="cat" data-name="${escapeHTML(c)}">×</button></span>`).join("");
+    const walletList = $("walletMetaList");
+    walletList.innerHTML = getWallets().map((w) => `<span class="fin-meta-chip">${escapeHTML(w)}<button type="button" data-kind="wallet" data-name="${escapeHTML(w)}">×</button></span>`).join("");
+  }
+
+  function openMetaModal() {
+    renderMetaModal();
+    $("finMetaModal").hidden = false;
+    pushNavState("finmeta");
+  }
+  function closeFinMetaModalVisual() { $("finMetaModal").hidden = true; }
+  function closeFinMetaModal() { closeFinMetaModalVisual(); popNavState(); }
+
+  /* ---------- transaction list + summary rendering ---------- */
+
+  function txIcon(tx) {
+    if (tx.type === "income") return "💰";
+    if (tx.type === "transfer") return "🔁";
+    return "💸";
+  }
+
+  function renderTxList() {
+    const active = allTx.slice().sort((a, b) => (b.date + (b.createdAt || "")).localeCompare(a.date + (a.createdAt || "")));
+    const list = $("txList");
+    list.innerHTML = "";
+    $("txEmptyState").hidden = active.length > 0;
+    active.forEach((tx) => {
+      const row = document.createElement("div");
+      row.className = "tx-item";
+      row.dataset.id = tx.id;
+      const amountClass = tx.type;
+      const amountText = tx.type === "income" ? "+" + formatMoney(tx.amount) : tx.type === "expense" ? "-" + formatMoney(tx.amount) : formatMoney(tx.amount);
+      const subParts = [formatDateHeading(tx.date)];
+      if (tx.type === "transfer") subParts.push(`${tx.wallet} → ${tx.toWallet}`);
+      else subParts.push(tx.category || "", tx.wallet || "");
+      if (tx.note) subParts.push(tx.note);
+      row.innerHTML = `
+        <span class="tx-item-icon">${txIcon(tx)}</span>
+        <div class="tx-item-body">
+          <div class="tx-item-title">${escapeHTML(tx.title)}</div>
+          <div class="tx-item-sub">${subParts.filter(Boolean).map(escapeHTML).join(" · ")}</div>
+        </div>
+        <span class="tx-item-amount ${amountClass}">${amountText}</span>`;
+      list.appendChild(row);
+    });
+  }
+
+  function renderSummaryCards() {
+    const thisMonth = todayISO().slice(0, 7);
+    const s = computeMonthSummary(allTx, thisMonth);
+    $("finIncomeThisMonth").textContent = formatMoney(s.income);
+    $("finExpenseThisMonth").textContent = formatMoney(s.expense);
+    $("finNetThisMonth").textContent = formatMoney(s.net);
+  }
+
+  function renderMonthlyChart() {
+    const rows = computeMonthlyRollup(allTx, 6).map((r) => ({ label: r.label, count: r.income - r.expense, displayText: formatMoney(r.income - r.expense) }));
+    renderBarChartMoney($("finMonthlyChart"), rows);
+  }
+
+  function renderCategoryChart() {
+    const thisMonth = todayISO().slice(0, 7);
+    const rows = computeCategoryBreakdown(allTx, thisMonth).slice(0, 8).map((r) => ({ label: r.label, count: r.amount, displayText: formatMoney(r.amount) }));
+    renderBarChartMoney($("finCategoryChart"), rows);
+  }
+
+  function renderBarChartMoney(container, rows) {
+    if (rows.length === 0) { container.innerHTML = '<p class="settings-note">ยังไม่มีข้อมูล</p>'; return; }
+    const max = Math.max(...rows.map((r) => Math.abs(r.count)), 1);
+    container.innerHTML = rows.map((r) => `
+      <div class="stat-bar-row">
+        <span class="stat-bar-label">${escapeHTML(r.label)}</span>
+        <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${Math.round((Math.abs(r.count) / max) * 100)}%"></span></span>
+        <span class="stat-bar-count" style="width:auto;">${escapeHTML(r.displayText)}</span>
+      </div>`).join("");
+  }
+
+  function renderRollupTable() {
+    const rows = computeMonthlyRollup(allTx, 6);
+    const head = `<div class="fin-rollup-row head"><span>เดือน</span><span>รายรับ</span><span>รายจ่าย</span><span>เงินเหลือ</span></div>`;
+    const body = rows.map((r) => `<div class="fin-rollup-row"><span>${escapeHTML(r.label)}</span><span>${formatMoney(r.income)}</span><span>${formatMoney(r.expense)}</span><span>${formatMoney(r.net)}</span></div>`).join("");
+    $("finRollupTable").innerHTML = head + body;
+  }
+
+  async function render() {
+    allTx = await DiaryDB.getAllTransactions();
+    renderSummaryCards();
+    renderMonthlyChart();
+    renderCategoryChart();
+    renderRollupTable();
+    renderTxList();
+  }
+
+  /* ---------- wiring ---------- */
+
+  function wireEvents() {
+    $("txTypePicker").addEventListener("click", (e) => {
+      const btn = e.target.closest(".tx-type-btn");
+      if (!btn) return;
+      setTxType(btn.dataset.type);
+    });
+    $("txDatePicker").addEventListener("click", () => {
+      openCalendarForPick($("txDate").value, (dateStr) => setTxDate(dateStr));
+    });
+    $("txCancelBtn").addEventListener("click", closeTxModal);
+    $("txSaveBtn").addEventListener("click", saveTx);
+    $("txDeleteBtn").addEventListener("click", deleteTx);
+    $("txList").addEventListener("click", (e) => {
+      const row = e.target.closest(".tx-item");
+      if (row) openEditTx(row.dataset.id);
+    });
+
+    $("manageFinanceMetaBtn").addEventListener("click", openMetaModal);
+    $("finMetaCloseBtn").addEventListener("click", closeFinMetaModal);
+    $("addCategoryBtn").addEventListener("click", () => {
+      const input = $("newCategoryInput");
+      addCategory(input.value.trim());
+      input.value = "";
+      renderMetaModal();
+    });
+    $("addWalletBtn").addEventListener("click", () => {
+      const input = $("newWalletInput");
+      addWallet(input.value.trim());
+      input.value = "";
+      renderMetaModal();
+    });
+    $("categoryMetaList").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-kind='cat']");
+      if (!btn) return;
+      removeCategory(btn.dataset.name);
+      renderMetaModal();
+    });
+    $("walletMetaList").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-kind='wallet']");
+      if (!btn) return;
+      removeWallet(btn.dataset.name);
+      renderMetaModal();
+    });
+  }
+
+  function init() {
+    wireEvents();
+  }
+
+  return { init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual };
+})();

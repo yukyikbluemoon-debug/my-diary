@@ -1,5 +1,5 @@
 /* db.js — storage layer backed by IndexedDB.
-   Two object stores:
+   Object stores:
    - "entries": diary entry records (metadata + text; for private entries,
      everything content-related is inside an encrypted blob, as before)
    - "attachments": binary blobs (photos, sketches, voice notes, video
@@ -7,6 +7,9 @@
      Private-entry media stays inline as base64 inside the encrypted
      payload (same mechanism as before) — simplest way to guarantee it's
      covered by encryption regardless of media type.
+   - "transactions": finance module records (income/expense/transfer).
+     Wallet/category lists themselves live in localStorage (see finance.js)
+     since they're small config lists, not growing record data.
 
    Now that the app runs on a real https:// origin (GitHub Pages) instead
    of file://, IndexedDB is reliable again and gives us a much bigger
@@ -16,9 +19,10 @@
 
 const DiaryDB = (() => {
   const DB_NAME = "diary_db_v2";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const ENTRIES_STORE = "entries";
   const ATTACH_STORE = "attachments";
+  const TX_STORE = "transactions";
   const OLD_LS_KEY = "diary_entries_v1";
 
   let dbPromise = null;
@@ -36,6 +40,10 @@ const DiaryDB = (() => {
         if (!db.objectStoreNames.contains(ATTACH_STORE)) {
           const s = db.createObjectStore(ATTACH_STORE, { keyPath: "id" });
           s.createIndex("entryId", "entryId", { unique: false });
+        }
+        if (!db.objectStoreNames.contains(TX_STORE)) {
+          const s = db.createObjectStore(TX_STORE, { keyPath: "id" });
+          s.createIndex("date", "date", { unique: false });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -168,9 +176,44 @@ const DiaryDB = (() => {
     localStorage.removeItem(OLD_LS_KEY);
   }
 
+  /* ---------- transactions (finance module) ---------- */
+
+  async function putTransaction(tx) {
+    const store = await storeTx(TX_STORE, "readwrite");
+    await reqToPromise(store.put(tx));
+    return tx;
+  }
+
+  async function removeTransaction(id) {
+    const store = await storeTx(TX_STORE, "readwrite");
+    await reqToPromise(store.delete(id));
+    return true;
+  }
+
+  async function getAllTransactions() {
+    const store = await storeTx(TX_STORE, "readonly");
+    return reqToPromise(store.getAll());
+  }
+
+  async function getTransaction(id) {
+    const store = await storeTx(TX_STORE, "readonly");
+    const res = await reqToPromise(store.get(id));
+    return res || null;
+  }
+
+  async function bulkPutTransactions(txs) {
+    const store = await storeTx(TX_STORE, "readwrite");
+    return new Promise((resolve, reject) => {
+      txs.forEach((t) => store.put(t));
+      store.transaction.oncomplete = () => resolve(true);
+      store.transaction.onerror = () => reject(store.transaction.error);
+    });
+  }
+
   return {
     put, remove, getAll, get, bulkPut,
     putAttachment, getAttachment, getAttachmentsByEntry, getAllAttachments, removeAttachment,
+    putTransaction, removeTransaction, getAllTransactions, getTransaction, bulkPutTransactions,
     migrateIfNeeded,
   };
 })();

@@ -5,7 +5,7 @@ const THAI_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.
 const THAI_MONTHS_FULL = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const TRASH_RETENTION_DAYS = 30;
 const VIDEO_MAX_SECONDS = 30;
-const APP_VERSION = "1.8.0";
+const APP_VERSION = "2.0.0";
 const APP_BUILD_DATE = "2026-09-02";
 
 const state = {
@@ -22,7 +22,8 @@ const state = {
   unlockResolve: null,
   dayFilter: null,
   cal: { year: 0, month: 0 },
-  calMode: "browse",
+  calPage: { year: 0, month: 0 },
+  calPickCallback: null,
   recorder: null,          // active MediaRecorder
   recorderStream: null,
   recorderChunks: [],
@@ -126,7 +127,10 @@ function closeCurrentLayer() {
   if (!$("calendarModal").hidden) { closeCalendarVisual(); return; }
   if (!$("setPwModal").hidden) { closeSetPwModalVisual(); return; }
   if (!$("unlockModal").hidden) { closeUnlockModalVisual(false); return; }
+  if (!$("txModal").hidden && typeof Finance !== "undefined") { Finance.closeTxModalVisual(); return; }
+  if (!$("finMetaModal").hidden && typeof Finance !== "undefined") { Finance.closeFinMetaModalVisual(); return; }
   if (state.view === "trash") { showView("settings"); return; }
+  if (state.view === "stats") { showView(state.statsReturnView || "dashboard"); return; }
   if (state.view === "write") { clearRecordingUI(); showView(state.editId ? "entry" : "home"); return; }
   if (state.view === "entry") { showView("home"); return; }
 }
@@ -141,6 +145,8 @@ window.addEventListener("popstate", () => {
 function showView(name) {
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
   document.querySelectorAll(".nav-btn[data-nav]").forEach((b) => b.classList.toggle("active", b.dataset.nav === name));
+  $("newEntryBtn").hidden = name !== "home";
+  $("newTxBtn").hidden = name !== "finance";
   state.view = name;
   window.scrollTo(0, 0);
 }
@@ -1207,11 +1213,7 @@ $("saveEntryBtn").addEventListener("click", async () => {
 /* ---------------- date picker ---------------- */
 
 $("entryDatePicker").addEventListener("click", () => {
-  state.calMode = "pick";
-  const [y, m] = ($("entryDate").value || todayISO()).split("-").map(Number);
-  state.cal.year = y;
-  state.cal.month = m - 1;
-  openCalendar();
+  openCalendarForPick($("entryDate").value, (dateStr) => setEntryDate(dateStr));
 });
 function setEntryDate(dateStr) {
   $("entryDate").value = dateStr;
@@ -1534,9 +1536,7 @@ function renderStats() {
   }
   renderBarChart($("statMonthChart"), monthRows);
 }
-
-$("openStatsBtn").addEventListener("click", () => { renderStats(); showView("stats"); pushNavState("stats"); });
-$("backFromStatsBtn").addEventListener("click", () => { showView("settings"); popNavState(); });
+$("backFromStatsBtn").addEventListener("click", () => { showView(state.statsReturnView || "dashboard"); popNavState(); });
 
 /* ---------------- backup / restore ---------------- */
 
@@ -1665,27 +1665,28 @@ $("restoreFile").addEventListener("change", async (e) => {
   e.target.value = "";
 });
 
-/* ---------------- calendar picker ---------------- */
+/* ---------------- calendar picker (modal — always date-pick mode) ---------------- */
 
-function renderCalendar() {
-  const { year, month } = state.cal;
-  $("calTitle").textContent = `${THAI_MONTHS[month]} ${year + 543}`;
+function computeCalendarDayInfo() {
+  const info = {};
+  activeEntries().forEach((e) => {
+    if (!info[e.date]) info[e.date] = { hasEntry: false, hasMedia: false };
+    info[e.date].hasEntry = true;
+    if (e.hasMedia) info[e.date].hasMedia = true;
+  });
+  return info;
+}
 
+function buildCalendarGrid(gridEl, titleEl, year, month) {
+  titleEl.textContent = `${THAI_MONTHS[month]} ${year + 543}`;
   const firstWeekday = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const todayStr = todayISO();
+  const dayInfo = computeCalendarDayInfo();
 
-  const dayInfo = {};
-  activeEntries().forEach((e) => {
-    if (!dayInfo[e.date]) dayInfo[e.date] = { hasEntry: false, hasMedia: false };
-    dayInfo[e.date].hasEntry = true;
-    if (e.hasMedia) dayInfo[e.date].hasMedia = true;
-  });
-
-  const grid = $("calGrid");
-  grid.innerHTML = "";
+  gridEl.innerHTML = "";
   for (let i = 0; i < firstWeekday; i++) {
-    grid.insertAdjacentHTML("beforeend", '<span class="cal-cell empty"></span>');
+    gridEl.insertAdjacentHTML("beforeend", '<span class="cal-cell empty"></span>');
   }
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${pad2(month + 1)}-${pad2(d)}`;
@@ -1695,15 +1696,24 @@ function renderCalendar() {
     if (info && info.hasEntry) classes.push("has-entry");
     if (info && info.hasMedia) classes.push("has-image");
     const mark = info && info.hasEntry ? '<span class="cal-mark"></span>' : "";
-    grid.insertAdjacentHTML("beforeend", `<button type="button" class="${classes.join(" ")}" data-date="${dateStr}">${d}${mark}</button>`);
+    gridEl.insertAdjacentHTML("beforeend", `<button type="button" class="${classes.join(" ")}" data-date="${dateStr}">${d}${mark}</button>`);
   }
 }
 
-function openCalendar() { $("calendarModal").hidden = false; pushNavState("calendar"); renderCalendar(); }
+function renderCalendar() { buildCalendarGrid($("calGrid"), $("calTitle"), state.cal.year, state.cal.month); }
+
+function openCalendarForPick(initialDateStr, onPick) {
+  const [y, m] = (initialDateStr || todayISO()).split("-").map(Number);
+  state.cal.year = y;
+  state.cal.month = m - 1;
+  state.calPickCallback = onPick;
+  $("calendarModal").hidden = false;
+  pushNavState("calendar");
+  renderCalendar();
+}
 function closeCalendarVisual() { $("calendarModal").hidden = true; }
 function closeCalendar() { closeCalendarVisual(); popNavState(); }
 
-$("todayPill").addEventListener("click", () => { state.calMode = "browse"; openCalendar(); });
 $("calCloseBtn").addEventListener("click", closeCalendar);
 $("calPrevBtn").addEventListener("click", () => {
   state.cal.month -= 1;
@@ -1719,14 +1729,31 @@ $("calGrid").addEventListener("click", (e) => {
   const cell = e.target.closest(".cal-cell:not(.empty)");
   if (!cell) return;
   const dateStr = cell.dataset.date;
-
-  if (state.calMode === "pick") {
-    setEntryDate(dateStr);
-    closeCalendar();
-    return;
-  }
-
+  const cb = state.calPickCallback;
   closeCalendar();
+  if (cb) cb(dateStr);
+});
+
+/* ---------------- calendar page (persistent tab — browse mode) ---------------- */
+
+function renderCalendarPage() {
+  buildCalendarGrid($("calPageGrid"), $("calPageTitle"), state.calPage.year, state.calPage.month);
+}
+$("todayPill").addEventListener("click", () => { showView("calendarPage"); renderCalendarPage(); });
+$("calPagePrevBtn").addEventListener("click", () => {
+  state.calPage.month -= 1;
+  if (state.calPage.month < 0) { state.calPage.month = 11; state.calPage.year -= 1; }
+  renderCalendarPage();
+});
+$("calPageNextBtn").addEventListener("click", () => {
+  state.calPage.month += 1;
+  if (state.calPage.month > 11) { state.calPage.month = 0; state.calPage.year += 1; }
+  renderCalendarPage();
+});
+$("calPageGrid").addEventListener("click", (e) => {
+  const cell = e.target.closest(".cal-cell:not(.empty)");
+  if (!cell) return;
+  const dateStr = cell.dataset.date;
   if (cell.classList.contains("has-entry")) {
     state.dayFilter = dateStr;
     showView("home");
@@ -1740,8 +1767,22 @@ $("calGrid").addEventListener("click", (e) => {
 /* ---------------- nav ---------------- */
 
 document.querySelectorAll(".nav-btn[data-nav]").forEach((btn) => {
-  btn.addEventListener("click", () => showView(btn.dataset.nav));
+  btn.addEventListener("click", () => {
+    showView(btn.dataset.nav);
+    if (btn.dataset.nav === "finance" && typeof Finance !== "undefined") Finance.render();
+    if (btn.dataset.nav === "calendarPage") renderCalendarPage();
+  });
 });
+$("headerSettingsBtn").addEventListener("click", () => showView("settings"));
+$("headerStatsBtn").addEventListener("click", () => {
+  state.statsReturnView = state.view;
+  renderStats();
+  showView("stats");
+  pushNavState("stats");
+});
+$("dashWriteBtn").addEventListener("click", openWriteForNew);
+$("dashAddTxBtn").addEventListener("click", () => { if (typeof Finance !== "undefined") Finance.openNewTx(); });
+$("newTxBtn").addEventListener("click", () => { if (typeof Finance !== "undefined") Finance.openNewTx(); });
 
 /* ---------------- share target (Web Share Target API) ---------------- */
 
@@ -1770,6 +1811,8 @@ async function init() {
     $("appVersionText").textContent = `เวอร์ชัน ${APP_VERSION} · อัปเดตล่าสุด ${formatFullThaiDate(APP_BUILD_DATE)}`;
     state.cal.year = today.getFullYear();
     state.cal.month = today.getMonth();
+    state.calPage.year = today.getFullYear();
+    state.calPage.month = today.getMonth();
 
     await DiaryDB.migrateIfNeeded();
     state.entries = await DiaryDB.getAll();
@@ -1777,8 +1820,10 @@ async function init() {
 
     renderHome();
     refreshSettingsView();
-    showView("home");
+    showView("dashboard");
     handleShareTarget();
+
+    if (typeof Finance !== "undefined") Finance.init();
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js").catch(() => {});
