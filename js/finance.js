@@ -11,7 +11,11 @@ const Finance = (() => {
   const DEFAULT_CATEGORIES = ["เงินเดือน", "อาหาร", "เดินทาง", "บ้าน", "โทรศัพท์", "ของใช้", "ลงทุน", "หนี้", "สุขภาพ", "บันเทิง", "อื่นๆ"];
   const DEFAULT_WALLETS = ["เงินสด", "ธนาคาร", "Dime", "Orbix", "อื่นๆ"];
 
-  let allTx = []; // cached in-memory copy of all transactions, kept in sync with DiaryDB
+  let allTx = []; // cached in-memory copy of ALL transactions (including soft-deleted), kept in sync with DiaryDB
+
+  function activeTx() {
+    return allTx.filter((t) => !t.deletedAt);
+  }
 
   /* ---------- categories / wallets config ---------- */
 
@@ -190,8 +194,17 @@ const Finance = (() => {
     const id = $("txId").value;
     if (!id) return;
     if (!confirm("ลบรายการนี้หรือไม่?")) return;
-    await DiaryDB.removeTransaction(id);
-    allTx = allTx.filter((t) => t.id !== id);
+    const tx = allTx.find((t) => t.id === id);
+    if (!tx) return;
+    // Soft-delete (not a hard remove): if we removed the record outright,
+    // a later sync would just pull the still-existing remote copy back —
+    // same bug that used to affect diary entries. A deletedAt flag with a
+    // fresh updatedAt always wins the merge instead. Deleted transactions
+    // are tiny and harmless to keep around forever, so there's no separate
+    // trash/purge UI for these like the diary has.
+    tx.deletedAt = new Date().toISOString();
+    tx.updatedAt = new Date().toISOString();
+    await DiaryDB.putTransaction(tx);
     closeTxModalVisual();
     popNavState();
     render();
@@ -224,7 +237,7 @@ const Finance = (() => {
   }
 
   function renderTxList() {
-    const active = allTx.slice().sort((a, b) => (b.date + (b.createdAt || "")).localeCompare(a.date + (a.createdAt || "")));
+    const active = activeTx().slice().sort((a, b) => (b.date + (b.createdAt || "")).localeCompare(a.date + (a.createdAt || "")));
     const list = $("txList");
     list.innerHTML = "";
     $("txEmptyState").hidden = active.length > 0;
@@ -251,20 +264,20 @@ const Finance = (() => {
 
   function renderSummaryCards() {
     const thisMonth = todayISO().slice(0, 7);
-    const s = computeMonthSummary(allTx, thisMonth);
+    const s = computeMonthSummary(activeTx(), thisMonth);
     $("finIncomeThisMonth").textContent = formatMoney(s.income);
     $("finExpenseThisMonth").textContent = formatMoney(s.expense);
     $("finNetThisMonth").textContent = formatMoney(s.net);
   }
 
   function renderMonthlyChart() {
-    const rows = computeMonthlyRollup(allTx, 6).map((r) => ({ label: r.label, count: r.income - r.expense, displayText: formatMoney(r.income - r.expense) }));
+    const rows = computeMonthlyRollup(activeTx(), 6).map((r) => ({ label: r.label, count: r.income - r.expense, displayText: formatMoney(r.income - r.expense) }));
     renderBarChartMoney($("finMonthlyChart"), rows);
   }
 
   function renderCategoryChart() {
     const thisMonth = todayISO().slice(0, 7);
-    const rows = computeCategoryBreakdown(allTx, thisMonth).slice(0, 8).map((r) => ({ label: r.label, count: r.amount, displayText: formatMoney(r.amount) }));
+    const rows = computeCategoryBreakdown(activeTx(), thisMonth).slice(0, 8).map((r) => ({ label: r.label, count: r.amount, displayText: formatMoney(r.amount) }));
     renderBarChartMoney($("finCategoryChart"), rows);
   }
 
@@ -280,7 +293,7 @@ const Finance = (() => {
   }
 
   function renderRollupTable() {
-    const rows = computeMonthlyRollup(allTx, 6);
+    const rows = computeMonthlyRollup(activeTx(), 6);
     const head = `<div class="fin-rollup-row head"><span>เดือน</span><span>รายรับ</span><span>รายจ่าย</span><span>เงินเหลือ</span></div>`;
     const body = rows.map((r) => `<div class="fin-rollup-row"><span>${escapeHTML(r.label)}</span><span>${formatMoney(r.income)}</span><span>${formatMoney(r.expense)}</span><span>${formatMoney(r.net)}</span></div>`).join("");
     $("finRollupTable").innerHTML = head + body;

@@ -205,21 +205,25 @@ const DriveSync = (() => {
     toast("กำลังเชื่อมต่อ Google...");
     await requestAccessToken();
     const local = await DiaryDB.getAll();
+    const localTx = await DiaryDB.getAllTransactions();
     toast("กำลังดาวน์โหลดข้อมูลจาก Drive...");
     let remoteObj = null;
     try { remoteObj = await downloadRemote(); } catch (e) { remoteObj = null; }
     const remoteEntries = (remoteObj && remoteObj.entries) || [];
+    const remoteTx = (remoteObj && remoteObj.transactions) || [];
     const merged = mergeEntries(local, remoteEntries);
+    const mergedTx = mergeEntries(localTx, remoteTx); // same last-write-wins-by-updatedAt logic works for transactions too
     await DiaryDB.bulkPut(merged);
+    await DiaryDB.bulkPutTransactions(mergedTx);
 
     await adoptRemoteAttachmentIndex(remoteObj && remoteObj.attachmentIndex);
     const { index: attachmentIndex, uploadedCount } = await syncAttachments(merged);
     if (uploadedCount > 0) toast(`อัปโหลดไฟล์แนบเสร็จ ${uploadedCount} ไฟล์`);
 
     toast("กำลังบันทึกข้อมูลขึ้น Drive...");
-    await uploadRemote({ version: 2, syncedAt: new Date().toISOString(), entries: merged, attachmentIndex });
+    await uploadRemote({ version: 3, syncedAt: new Date().toISOString(), entries: merged, transactions: mergedTx, attachmentIndex });
     localStorage.setItem("diary_last_synced", new Date().toISOString());
-    return merged.length;
+    return merged.length + mergedTx.length;
   }
 
   function lastSyncedText() {
