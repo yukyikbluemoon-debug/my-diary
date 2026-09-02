@@ -119,16 +119,19 @@ const Finance = (() => {
     $("txDatePicker").textContent = formatFullThaiDate(dateStr);
   }
 
-  function openNewTx() {
+  let txCreatedCallback = null;
+
+  function openNewTx(prefill, onCreated) {
     populateSelects();
     $("txId").value = "";
-    setTxType("expense");
-    setTxDate(todayISO());
-    $("txTitle").value = "";
+    setTxType((prefill && prefill.type) || "expense");
+    setTxDate((prefill && prefill.date) || todayISO());
+    $("txTitle").value = (prefill && prefill.title) || "";
     $("txAmount").value = "";
     $("txNote").value = "";
     $("txModalTitle").textContent = "เพิ่มรายการเงิน";
     $("txDeleteBtn").hidden = true;
+    txCreatedCallback = onCreated || null;
     $("txModal").hidden = false;
     pushNavState("tx");
   }
@@ -153,7 +156,7 @@ const Finance = (() => {
   }
 
   function closeTxModalVisual() { $("txModal").hidden = true; }
-  function closeTxModal() { closeTxModalVisual(); popNavState(); }
+  function closeTxModal() { txCreatedCallback = null; closeTxModalVisual(); popNavState(); }
 
   async function saveTx() {
     const date = $("txDate").value;
@@ -188,6 +191,11 @@ const Finance = (() => {
     popNavState();
     render();
     showToast("บันทึกแล้ว");
+    if (txCreatedCallback) {
+      const cb = txCreatedCallback;
+      txCreatedCallback = null;
+      cb(tx.id);
+    }
   }
 
   async function deleteTx() {

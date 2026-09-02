@@ -9,7 +9,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "2.3.0";
+const APP_VERSION = "2.3.1";
 const APP_BUILD_DATE = "2026-09-02";
 
 const state = {
@@ -442,11 +442,22 @@ $("sketchSaveBtn").addEventListener("click", () => {
 function populateEventLinkTxSelect(dateStr, selectedTxId) {
   const sel = $("eventLinkTx");
   const txs = (typeof Finance !== "undefined") ? Finance.getTransactionsForDate(dateStr) : [];
-  sel.innerHTML = '<option value="">ไม่ผูกกับรายการเงิน</option>' +
+  sel.innerHTML = '<option value="">ไม่ผูกกับรายการเงิน</option><option value="__new__">➕ สร้างรายการเงินใหม่...</option>' +
     txs.map((t) => `<option value="${t.id}">${escapeHTML(t.title)} (${Finance.formatMoney(t.type === "expense" ? -t.amount : t.amount)})</option>`).join("");
   sel.value = selectedTxId && txs.some((t) => t.id === selectedTxId) ? selectedTxId : "";
-  $("eventLinkTxHint").textContent = txs.length === 0 ? "ไม่พบรายการเงินในวันที่นี้" : "";
+  const baseHint = "การผูกเป็นแค่การอ้างอิงเฉยๆ ไม่ได้หักหรือเปลี่ยนยอดเงินในกระเป๋าใดๆ ทั้งสิ้น";
+  $("eventLinkTxHint").textContent = txs.length === 0 ? `ยังไม่มีรายการเงินในวันที่นี้ — เลือก "สร้างรายการเงินใหม่" ได้เลย · ${baseHint}` : baseHint;
 }
+
+$("eventLinkTx").addEventListener("change", () => {
+  if ($("eventLinkTx").value !== "__new__") return;
+  $("eventLinkTx").value = ""; // reset optimistically; set to the real id once creation succeeds
+  if (typeof Finance === "undefined") return;
+  Finance.openNewTx(
+    { date: $("entryDate").value || todayISO(), title: $("entryTitle").value || $("eventCategory").value, type: "expense" },
+    (newTxId) => populateEventLinkTxSelect($("entryDate").value, newTxId)
+  );
+});
 
 function setEntryType(type) {
   state.entryType = type;
