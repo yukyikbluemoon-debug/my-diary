@@ -523,6 +523,27 @@
         </div>
 
         <div class="settings-group">
+          <div class="page-head" style="margin-bottom:10px;">
+            <h2 style="margin:0;">ทรัพย์สิน</h2>
+            <button class="icon-btn" id="addAssetBtn">+ เพิ่มทรัพย์สิน</button>
+          </div>
+          <div class="stats-cards">
+            <div class="stats-card">
+              <div class="stats-num" id="assetTotalValue">฿0</div>
+              <div class="stats-label">มูลค่ารวม</div>
+            </div>
+            <div class="stats-card">
+              <div class="stats-num" id="assetTotalGain">฿0</div>
+              <div class="stats-label">กำไร/ขาดทุนรวม</div>
+            </div>
+          </div>
+          <div id="assetList"></div>
+          <div class="empty-state" id="assetEmptyState" hidden>
+            <p class="empty-title">ยังไม่มีทรัพย์สิน</p>
+          </div>
+        </div>
+
+        <div class="settings-group">
           <h2>รายรับ/รายจ่ายรายเดือน</h2>
           <div id="finMonthlyChart"></div>
         </div>
@@ -637,8 +658,23 @@
         </div>
 
         <div class="field">
-          <label for="txAmount">จำนวนเงิน (บาท)</label>
+          <label for="txCurrency">สกุลเงิน</label>
+          <select id="txCurrency">
+            <option value="THB">บาท (THB)</option>
+            <option value="USD">ดอลลาร์สหรัฐ (USD)</option>
+          </select>
+        </div>
+
+        <div class="field" id="txExchangeRateField" hidden>
+          <label for="txExchangeRate">อัตราแลกเปลี่ยน (บาทต่อ 1 ดอลลาร์)</label>
+          <input type="number" id="txExchangeRate" inputmode="decimal" placeholder="เช่น 36.50" min="0" step="0.01">
+          <a href="https://www.google.com/search?q=usd+to+thb" target="_blank" rel="noopener" class="field-hint" style="display:inline-block;color:var(--sage);">🔍 เช็คอัตราวันนี้ (เปิดแท็บใหม่)</a>
+        </div>
+
+        <div class="field">
+          <label for="txAmount" id="txAmountLabel">จำนวนเงิน (บาท)</label>
           <input type="number" id="txAmount" inputmode="decimal" placeholder="0" min="0" step="0.01">
+          <span class="field-hint" id="txAmountConverted"></span>
         </div>
 
         <div class="field">
@@ -698,6 +734,78 @@
         </div>
         <div class="modal-actions">
           <button class="text-btn primary" id="eventCatMetaCloseBtn">เสร็จสิ้น</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Asset form -->
+    <div class="modal" id="assetModal" hidden>
+      <div class="modal-card tx-card">
+        <h2 id="assetModalTitle">เพิ่มทรัพย์สิน</h2>
+        <input type="hidden" id="assetId">
+
+        <div class="field">
+          <label for="assetType">ประเภท</label>
+          <select id="assetType">
+            <option value="เงินสด">เงินสด</option>
+            <option value="บัญชีธนาคาร">บัญชีธนาคาร</option>
+            <option value="หุ้น">หุ้น</option>
+            <option value="ETF">ETF</option>
+            <option value="คริปโต">คริปโต</option>
+            <option value="ทอง">ทอง</option>
+            <option value="ของมีค่า">ของมีค่า</option>
+            <option value="อื่นๆ">อื่นๆ</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="assetName">ชื่อ</label>
+          <input type="text" id="assetName" placeholder="เช่น VOO, ทองคำแท่ง, เงินสดในกระเป๋า">
+        </div>
+
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="assetQuantity">จำนวน</label>
+            <input type="number" id="assetQuantity" inputmode="decimal" step="0.0001" placeholder="1">
+          </div>
+          <div class="field">
+            <label for="assetCurrency">สกุลเงิน</label>
+            <select id="assetCurrency">
+              <option value="THB">บาท (THB)</option>
+              <option value="USD">ดอลลาร์ (USD)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field" id="assetExchangeRateField" hidden>
+          <label for="assetExchangeRate">อัตราแลกเปลี่ยน (บาทต่อ 1 ดอลลาร์)</label>
+          <input type="number" id="assetExchangeRate" inputmode="decimal" step="0.01" placeholder="เช่น 36.50">
+          <a href="https://www.google.com/search?q=usd+to+thb" target="_blank" rel="noopener" class="field-hint" style="display:inline-block;color:var(--sage);">🔍 เช็คอัตราวันนี้ (เปิดแท็บใหม่)</a>
+        </div>
+
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="assetCost">ต้นทุนต่อหน่วย</label>
+            <input type="number" id="assetCost" inputmode="decimal" step="0.01" placeholder="0">
+          </div>
+          <div class="field">
+            <label for="assetCurrentValue">มูลค่าปัจจุบันต่อหน่วย</label>
+            <input type="number" id="assetCurrentValue" inputmode="decimal" step="0.01" placeholder="0">
+          </div>
+        </div>
+        <p class="settings-note">มูลค่าปัจจุบันต้องอัปเดตเองเป็นระยะ ไม่ได้ดึงราคาสดอัตโนมัติ</p>
+
+        <div class="field">
+          <label for="assetNote">หมายเหตุ (ไม่บังคับ)</label>
+          <input type="text" id="assetNote" placeholder="เช่น ซื้อผ่าน Dime">
+        </div>
+
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="text-btn danger" id="assetDeleteBtn" hidden>ลบ</button>
+          <div style="display:flex; gap:12px;">
+            <button class="text-btn" id="assetCancelBtn">ยกเลิก</button>
+            <button class="text-btn primary" id="assetSaveBtn">บันทึก</button>
+          </div>
         </div>
       </div>
     </div>
@@ -786,6 +894,7 @@
 <script src="js/markdown.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/finance.js"></script>
+<script src="js/assets.js"></script>
 <script src="js/drive-config.js"></script>
 <script src="js/drive-sync.js"></script>
 <script src="js/app.js"></script>

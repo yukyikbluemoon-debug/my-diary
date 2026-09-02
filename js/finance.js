@@ -174,12 +174,35 @@ const Finance = (() => {
 
   let txCreatedCallback = null;
 
+  function setTxCurrency(currency) {
+    $("txCurrency").value = currency;
+    const isUSD = currency === "USD";
+    $("txExchangeRateField").hidden = !isUSD;
+    $("txAmountLabel").textContent = isUSD ? "จำนวนเงิน (USD)" : "จำนวนเงิน (บาท)";
+    if (isUSD && !$("txExchangeRate").value) {
+      const lastRate = localStorage.getItem("diary_last_exchange_rate");
+      if (lastRate) $("txExchangeRate").value = lastRate;
+    }
+    updateTxAmountPreview();
+  }
+
+  function updateTxAmountPreview() {
+    const isUSD = $("txCurrency").value === "USD";
+    const hint = $("txAmountConverted");
+    if (!isUSD) { hint.textContent = ""; return; }
+    const amount = parseFloat($("txAmount").value);
+    const rate = parseFloat($("txExchangeRate").value);
+    hint.textContent = (amount > 0 && rate > 0) ? `≈ ${formatMoney(amount * rate)}` : "";
+  }
+
   function openNewTx(prefill, onCreated) {
     populateSelects();
     $("txId").value = "";
     setTxType((prefill && prefill.type) || "expense");
     setTxDate((prefill && prefill.date) || todayISO());
     $("txTitle").value = (prefill && prefill.title) || "";
+    setTxCurrency("THB");
+    $("txExchangeRate").value = "";
     $("txAmount").value = "";
     $("txNote").value = "";
     $("txModalTitle").textContent = "เพิ่มรายการเงิน";
@@ -200,7 +223,14 @@ const Finance = (() => {
     $("txCategory").value = tx.category || "";
     $("txWallet").value = tx.wallet || "";
     if (tx.type === "transfer") $("txToWallet").value = tx.toWallet || "";
-    $("txAmount").value = tx.amount;
+    if (tx.currency === "USD") {
+      $("txExchangeRate").value = tx.exchangeRate || "";
+      $("txAmount").value = tx.originalAmount != null ? tx.originalAmount : tx.amount;
+      setTxCurrency("USD");
+    } else {
+      $("txAmount").value = tx.amount;
+      setTxCurrency("THB");
+    }
     $("txNote").value = tx.note || "";
     $("txModalTitle").textContent = "แก้ไขรายการเงิน";
     $("txDeleteBtn").hidden = false;
@@ -214,14 +244,24 @@ const Finance = (() => {
   async function saveTx() {
     const date = $("txDate").value;
     const title = $("txTitle").value.trim();
-    const amount = parseFloat($("txAmount").value);
+    const enteredAmount = parseFloat($("txAmount").value);
     if (!date) { showToast("กรุณาเลือกวันที่"); return; }
     if (!title) { showToast("กรุณาใส่ชื่อรายการ"); return; }
-    if (!amount || amount <= 0) { showToast("กรุณาใส่จำนวนเงินที่ถูกต้อง"); return; }
+    if (!enteredAmount || enteredAmount <= 0) { showToast("กรุณาใส่จำนวนเงินที่ถูกต้อง"); return; }
     const wallet = $("txWallet").value;
     if (txType === "transfer" && wallet === $("txToWallet").value) {
       showToast("กระเป๋าต้นทางและปลายทางต้องไม่ใช่อันเดียวกัน");
       return;
+    }
+
+    const currency = $("txCurrency").value;
+    let amount = enteredAmount; // canonical amount is always stored in THB
+    let exchangeRate = null;
+    if (currency === "USD") {
+      exchangeRate = parseFloat($("txExchangeRate").value);
+      if (!exchangeRate || exchangeRate <= 0) { showToast("กรุณาใส่อัตราแลกเปลี่ยน"); return; }
+      amount = enteredAmount * exchangeRate;
+      localStorage.setItem("diary_last_exchange_rate", exchangeRate);
     }
 
     const id = $("txId").value || uid();
@@ -231,7 +271,10 @@ const Finance = (() => {
       wallet,
       toWallet: txType === "transfer" ? $("txToWallet").value : null,
       category: txType === "transfer" ? null : $("txCategory").value,
-      amount,
+      amount, // always THB — every existing summary/chart/rollup keeps working unchanged
+      currency,
+      originalAmount: currency === "USD" ? enteredAmount : null,
+      exchangeRate,
       note: $("txNote").value.trim(),
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -307,7 +350,10 @@ const Finance = (() => {
       row.className = "tx-item";
       row.dataset.id = tx.id;
       const amountClass = tx.type;
-      const amountText = tx.type === "income" ? "+" + formatMoney(tx.amount) : tx.type === "expense" ? "-" + formatMoney(tx.amount) : formatMoney(tx.amount);
+      const sign = tx.type === "income" ? "+" : tx.type === "expense" ? "-" : "";
+      const amountText = tx.currency === "USD"
+        ? `${sign}$${tx.originalAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })} (≈${formatMoney(tx.amount)})`
+        : sign + formatMoney(tx.amount);
       const subParts = [formatDateHeading(tx.date)];
       if (tx.type === "transfer") subParts.push(`${tx.wallet} → ${tx.toWallet}`);
       else subParts.push(tx.category || "", tx.wallet || "");
@@ -398,6 +444,9 @@ const Finance = (() => {
       if (!btn) return;
       setTxType(btn.dataset.type);
     });
+    $("txCurrency").addEventListener("change", (e) => setTxCurrency(e.target.value));
+    $("txAmount").addEventListener("input", updateTxAmountPreview);
+    $("txExchangeRate").addEventListener("input", updateTxAmountPreview);
     $("txDatePicker").addEventListener("click", () => {
       openCalendarForPick($("txDate").value, (dateStr) => setTxDate(dateStr));
     });

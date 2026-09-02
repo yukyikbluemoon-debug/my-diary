@@ -63,6 +63,7 @@ js/crypto.js          เข้ารหัส/ถอดรหัสบันท
 js/markdown.js        จัดรูปแบบข้อความเบาๆ + เช็คลิสต์
 js/theme.js           ธีม/ขนาดตัวอักษร
 js/finance.js         โมดูลการเงิน (รายรับ/รายจ่าย/โอนเงิน)
+js/assets.js          โมดูลทรัพย์สิน (หุ้น/ETF/คริปโต/ทอง — อัปเดตมูลค่าเอง)
 js/drive-config.js    ใส่ Google OAuth Client ID ของคุณตรงนี้
 js/drive-sync.js      ซิงค์ข้อมูล+ไฟล์แนบกับ Google Drive (กดปุ่มเอง)
 manifest.json        PWA manifest (มี share_target)

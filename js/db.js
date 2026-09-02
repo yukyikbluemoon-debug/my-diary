@@ -19,10 +19,11 @@
 
 const DiaryDB = (() => {
   const DB_NAME = "diary_db_v2";
-  const DB_VERSION = 2;
+  const DB_VERSION = 3;
   const ENTRIES_STORE = "entries";
   const ATTACH_STORE = "attachments";
   const TX_STORE = "transactions";
+  const ASSET_STORE = "assets";
   const OLD_LS_KEY = "diary_entries_v1";
 
   let dbPromise = null;
@@ -44,6 +45,9 @@ const DiaryDB = (() => {
         if (!db.objectStoreNames.contains(TX_STORE)) {
           const s = db.createObjectStore(TX_STORE, { keyPath: "id" });
           s.createIndex("date", "date", { unique: false });
+        }
+        if (!db.objectStoreNames.contains(ASSET_STORE)) {
+          db.createObjectStore(ASSET_STORE, { keyPath: "id" });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -210,10 +214,31 @@ const DiaryDB = (() => {
     });
   }
 
+  /* ---------- assets (finance module) ---------- */
+
+  async function putAsset(asset) {
+    const store = await storeTx(ASSET_STORE, "readwrite");
+    await reqToPromise(store.put(asset));
+    return asset;
+  }
+  async function getAllAssets() {
+    const store = await storeTx(ASSET_STORE, "readonly");
+    return reqToPromise(store.getAll());
+  }
+  async function bulkPutAssets(assets) {
+    const store = await storeTx(ASSET_STORE, "readwrite");
+    return new Promise((resolve, reject) => {
+      assets.forEach((a) => store.put(a));
+      store.transaction.oncomplete = () => resolve(true);
+      store.transaction.onerror = () => reject(store.transaction.error);
+    });
+  }
+
   return {
     put, remove, getAll, get, bulkPut,
     putAttachment, getAttachment, getAttachmentsByEntry, getAllAttachments, removeAttachment,
     putTransaction, removeTransaction, getAllTransactions, getTransaction, bulkPutTransactions,
+    putAsset, getAllAssets, bulkPutAssets,
     migrateIfNeeded,
   };
 })();

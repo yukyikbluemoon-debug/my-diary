@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "2.4.0";
+const APP_VERSION = "2.5.0";
 const APP_BUILD_DATE = "2026-09-02";
 
 const state = {
@@ -139,6 +139,7 @@ function closeCurrentLayer() {
   if (!$("txModal").hidden && typeof Finance !== "undefined") { Finance.closeTxModalVisual(); return; }
   if (!$("finMetaModal").hidden && typeof Finance !== "undefined") { Finance.closeFinMetaModalVisual(); return; }
   if (!$("eventCatMetaModal").hidden) { closeEventCatMetaModalVisual(); return; }
+  if (!$("assetModal").hidden && typeof Assets !== "undefined") { Assets.closeAssetModalVisual(); return; }
   if (state.view === "trash") { showView("settings"); return; }
   if (state.view === "stats") { showView(state.statsReturnView || "dashboard"); return; }
   if (state.view === "write") { clearRecordingUI(); showView(state.editId ? "entry" : "home"); return; }
@@ -805,6 +806,7 @@ $("driveSyncBtn").addEventListener("click", async () => {
     state.entries = await DiaryDB.getAll();
     renderHome();
     if (typeof Finance !== "undefined") Finance.render();
+    if (typeof Assets !== "undefined") Assets.render();
     $("driveSyncStatus").textContent = `ซิงค์แล้ว (${count} รายการ) — ${DriveSync.lastSyncedText()}`;
     showToast("ซิงค์กับ Google Drive สำเร็จ");
   } catch (err) {
@@ -1066,6 +1068,7 @@ function renderTodaySummary() {
 $("todaySummary").addEventListener("click", () => {
   showView("finance");
   if (typeof Finance !== "undefined") Finance.render();
+  if (typeof Assets !== "undefined") Assets.render();
 });
 
 $("entryList").addEventListener("click", (e) => {
@@ -1448,7 +1451,7 @@ async function openEntry(id) {
 }
 
 $("entryDetail").addEventListener("click", (e) => {
-  if (e.target.closest("#linkedTxLink")) { showView("finance"); if (typeof Finance !== "undefined") Finance.render(); }
+  if (e.target.closest("#linkedTxLink")) { showView("finance"); if (typeof Finance !== "undefined") Finance.render(); if (typeof Assets !== "undefined") Assets.render(); }
 });
 
 $("entryDetail").addEventListener("click", async (e) => {
@@ -1991,6 +1994,7 @@ document.querySelectorAll(".nav-btn[data-nav]").forEach((btn) => {
   btn.addEventListener("click", () => {
     showView(btn.dataset.nav);
     if (btn.dataset.nav === "finance" && typeof Finance !== "undefined") Finance.render();
+    if (btn.dataset.nav === "finance" && typeof Assets !== "undefined") Assets.render();
     if (btn.dataset.nav === "calendarPage") renderCalendarPage();
   });
 });
@@ -2039,6 +2043,7 @@ async function init() {
     state.entries = await DiaryDB.getAll();
     await purgeOldTrash();
     if (typeof Finance !== "undefined") await Finance.init();
+    if (typeof Assets !== "undefined") await Assets.init();
 
     renderHome();
     refreshSettingsView();
