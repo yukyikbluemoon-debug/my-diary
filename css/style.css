@@ -2,6 +2,12 @@
    Tokens
    ============================================================ */
 :root {
+  /* Tell the browser explicitly this page is dark, so it stops guessing
+     colors for native form controls (select/input/checkbox chrome) via
+     "Force Dark" heuristics — that guessing is what was producing
+     white-on-white unreadable fields on some Android/Chrome builds. */
+  color-scheme: dark;
+
   --ink-900: #14181D;
   --ink-800: #1B2027;
   --ink-700: #232A33;
@@ -59,6 +65,7 @@ html[data-theme="orchid"] {
   --accent-shadow: rgba(185,140,218,0.28); --accent-shadow-strong: rgba(185,140,218,0.4);
 }
 html[data-theme="paper"] {
+  color-scheme: light;
   --ink-900: #F3EFE6; --ink-800: #EAE4D6; --ink-700: #E0D9C8; --ink-600: #D2C9B4; --ink-500: #B9AD92;
   --paper: #2B2620; --paper-dim: #6B6153;
   --amber: #B5761E; --amber-dim: #8C5A16;
@@ -502,15 +509,32 @@ button, input, textarea, select {
 .field input[type="text"],
 .field input[type="date"],
 .field input[type="time"],
+.field input[type="number"],
+.field select,
 .field textarea {
   width: 100%;
   background: var(--ink-700);
+  color: var(--paper);
   border: 1px solid var(--ink-500);
   border-radius: var(--radius-s);
   padding: 10px 12px;
   font-size: 15px;
 }
 .field textarea { resize: vertical; line-height: 1.6; font-family: var(--serif); font-size: calc(15px * var(--content-scale, 1)); }
+
+/* Belt-and-suspenders: ANY select on the page (not just inside .field —
+   e.g. the finance transaction form) gets explicit dark styling. Without
+   this, native <select> chrome falls back to the browser's own default
+   (usually a white box), and our light text color on top of that is
+   unreadable — this isn't just a dark-mode-guessing issue, it happens
+   every time regardless of device. */
+select {
+  background: var(--ink-700);
+  color: var(--paper);
+  border: 1px solid var(--ink-500);
+  border-radius: var(--radius-s);
+  padding: 8px 10px;
+}
 
 .mood-picker { display: flex; gap: 8px; flex-wrap: wrap; }
 .mood-btn {
