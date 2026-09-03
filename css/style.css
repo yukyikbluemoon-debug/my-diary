@@ -749,6 +749,22 @@ select {
 }
 .wallet-balance-amount { font-weight: 600; }
 .wallet-balance-amount.negative { color: var(--danger); }
+.wallet-group-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px;
+  background: linear-gradient(155deg, var(--ink-600), var(--ink-700));
+  border: 1px solid var(--amber-dim);
+  border-radius: var(--radius-m);
+  margin-bottom: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.wallet-group-title { display: flex; align-items: center; gap: 6px; }
+.wallet-group-toggle { font-size: 11px; color: var(--paper-dim); transition: transform 0.15s; }
+.wallet-group-header.expanded .wallet-group-toggle { transform: rotate(180deg); }
+.wallet-group-members { margin-bottom: 8px; padding-left: 12px; }
+.wallet-group-members.collapsed { display: none; }
+.wallet-sub-row { opacity: 0.85; font-size: 13px; padding: 8px 14px; }
 
 .asset-row {
   position: relative;

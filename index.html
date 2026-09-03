@@ -806,6 +806,7 @@
 
         <div class="fin-meta-section">
           <h3>กระเป๋าเงิน</h3>
+          <p class="settings-note" style="margin:-4px 0 8px;">แตะชื่อกระเป๋าเพื่อเปลี่ยนชื่อ/จัดกลุ่ม (เช่น รวมหลายธนาคารเป็นแถบเดียว)</p>
           <div class="fin-meta-list" id="walletMetaList"></div>
           <div class="fin-meta-add">
             <input type="text" id="newWalletInput" placeholder="เพิ่มกระเป๋าเงินใหม่">
@@ -815,6 +816,28 @@
 
         <div class="modal-actions">
           <button class="text-btn primary" id="finMetaCloseBtn">เสร็จสิ้น</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wallet edit (rename + group) -->
+    <div class="modal" id="walletEditModal" hidden>
+      <div class="modal-card">
+        <h2>แก้ไขกระเป๋าเงิน</h2>
+        <input type="hidden" id="walletEditOldName">
+        <div class="field">
+          <label for="walletEditName">ชื่อกระเป๋า</label>
+          <input type="text" id="walletEditName">
+        </div>
+        <div class="field">
+          <label for="walletEditGroup">กลุ่ม (ไม่บังคับ)</label>
+          <input type="text" id="walletEditGroup" list="walletGroupOptions" placeholder="เช่น ธนาคาร — เว้นว่างถ้าไม่ต้องการรวมกลุ่ม">
+          <datalist id="walletGroupOptions"></datalist>
+          <span class="field-hint">กระเป๋าที่มีกลุ่มเดียวกันจะถูกรวมยอดแสดงเป็นแถบเดียวในหน้าการเงิน กดขยายดูรายละเอียดได้</span>
+        </div>
+        <div class="modal-actions">
+          <button class="text-btn" id="walletEditCancelBtn">ยกเลิก</button>
+          <button class="text-btn primary" id="walletEditSaveBtn">บันทึก</button>
         </div>
       </div>
     </div>

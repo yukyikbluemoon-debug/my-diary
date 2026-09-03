@@ -8,6 +8,7 @@
 const Finance = (() => {
   const CAT_KEY = "diary_fin_categories";
   const WALLET_KEY = "diary_fin_wallets";
+  const WALLET_GROUP_KEY = "diary_fin_wallet_groups";
   const DEFAULT_CATEGORIES = ["เงินเดือน", "อาหาร", "เดินทาง", "บ้าน", "โทรศัพท์", "ของใช้", "ลงทุน", "หนี้", "สุขภาพ", "บันเทิง", "อื่นๆ"];
   const DEFAULT_WALLETS = ["เงินสด", "ธนาคาร", "Dime", "Orbix", "อื่นๆ"];
 
@@ -47,6 +48,34 @@ const Finance = (() => {
   }
   function removeWallet(name) {
     saveWallets(getWallets().filter((w) => w !== name));
+    setWalletGroup(name, null);
+  }
+
+  function getWalletGroups() {
+    try { return JSON.parse(localStorage.getItem(WALLET_GROUP_KEY)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveWalletGroups(map) { localStorage.setItem(WALLET_GROUP_KEY, JSON.stringify(map)); }
+  function setWalletGroup(wallet, group) {
+    const map = getWalletGroups();
+    if (group) map[wallet] = group; else delete map[wallet];
+    saveWalletGroups(map);
+  }
+
+  async function renameWallet(oldName, newName) {
+    if (!newName || oldName === newName) return;
+    const list = getWallets().map((w) => (w === oldName ? newName : w));
+    saveWallets(list);
+    const groups = getWalletGroups();
+    if (groups[oldName]) { groups[newName] = groups[oldName]; delete groups[oldName]; saveWalletGroups(groups); }
+    const changed = [];
+    allTx.forEach((t) => {
+      let touched = false;
+      if (t.wallet === oldName) { t.wallet = newName; touched = true; }
+      if (t.toWallet === oldName) { t.toWallet = newName; touched = true; }
+      if (touched) { t.updatedAt = new Date().toISOString(); changed.push(t); }
+    });
+    if (changed.length > 0) await DiaryDB.bulkPutTransactions(changed);
   }
 
   /* ---------- formatting / calculation ---------- */
@@ -108,11 +137,39 @@ const Finance = (() => {
 
   function renderWalletBalances() {
     const wallets = getWallets();
+    const groups = getWalletGroups();
     const container = $("walletBalanceList");
-    container.innerHTML = wallets.map((w) => {
+
+    const byGroup = {};
+    const groupOrder = [];
+    let html = "";
+
+    wallets.forEach((w) => {
       const bal = computeWalletBalance(w);
-      return `<div class="wallet-balance-row"><span>${escapeHTML(w)}</span><span class="wallet-balance-amount${bal < 0 ? " negative" : ""}">${formatMoney(bal)}</span></div>`;
-    }).join("");
+      const g = groups[w];
+      if (g) {
+        if (!byGroup[g]) { byGroup[g] = []; groupOrder.push(g); }
+        byGroup[g].push({ name: w, bal });
+      } else {
+        html += `<div class="wallet-balance-row"><span>${escapeHTML(w)}</span><span class="wallet-balance-amount${bal < 0 ? " negative" : ""}">${formatMoney(bal)}</span></div>`;
+      }
+    });
+
+    groupOrder.forEach((g) => {
+      const members = byGroup[g];
+      const total = members.reduce((s, m) => s + m.bal, 0);
+      const groupId = "walgrp-" + encodeURIComponent(g).replace(/[^a-zA-Z0-9]/g, "");
+      html += `
+        <div class="wallet-group-header" data-target="${groupId}">
+          <span class="wallet-group-title">${escapeHTML(g)} <span class="wallet-group-toggle">▾</span></span>
+          <span class="wallet-balance-amount${total < 0 ? " negative" : ""}">${formatMoney(total)}</span>
+        </div>
+        <div class="wallet-group-members collapsed" id="${groupId}">
+          ${members.map((m) => `<div class="wallet-balance-row wallet-sub-row"><span>${escapeHTML(m.name)}</span><span class="wallet-balance-amount${m.bal < 0 ? " negative" : ""}">${formatMoney(m.bal)}</span></div>`).join("")}
+        </div>`;
+    });
+
+    container.innerHTML = html;
   }
 
   /* ---------- search / filter ---------- */
@@ -329,7 +386,12 @@ const Finance = (() => {
     const catList = $("categoryMetaList");
     catList.innerHTML = getCategories().map((c) => `<span class="fin-meta-chip">${escapeHTML(c)}<button type="button" data-kind="cat" data-name="${escapeHTML(c)}">×</button></span>`).join("");
     const walletList = $("walletMetaList");
-    walletList.innerHTML = getWallets().map((w) => `<span class="fin-meta-chip">${escapeHTML(w)}<button type="button" data-kind="wallet" data-name="${escapeHTML(w)}">×</button></span>`).join("");
+    const groups = getWalletGroups();
+    walletList.innerHTML = getWallets().map((w) => {
+      const g = groups[w];
+      const label = g ? `${escapeHTML(w)} <span style="opacity:0.6;">(${escapeHTML(g)})</span>` : escapeHTML(w);
+      return `<span class="fin-meta-chip" data-wallet-chip="${escapeHTML(w)}" style="cursor:pointer;">${label}<button type="button" data-kind="wallet" data-name="${escapeHTML(w)}">×</button></span>`;
+    }).join("");
   }
 
   function openMetaModal() {
@@ -339,6 +401,34 @@ const Finance = (() => {
   }
   function closeFinMetaModalVisual() { $("finMetaModal").hidden = true; }
   function closeFinMetaModal() { closeFinMetaModalVisual(); popNavState(); }
+
+  function openWalletEditModal(walletName) {
+    $("walletEditOldName").value = walletName;
+    $("walletEditName").value = walletName;
+    $("walletEditGroup").value = getWalletGroups()[walletName] || "";
+    const existingGroups = [...new Set(Object.values(getWalletGroups()))];
+    $("walletGroupOptions").innerHTML = existingGroups.map((g) => `<option value="${escapeHTML(g)}"></option>`).join("");
+    $("walletEditModal").hidden = false;
+    pushNavState("walletedit");
+  }
+  function closeWalletEditModalVisual() { $("walletEditModal").hidden = true; }
+  function closeWalletEditModal() { closeWalletEditModalVisual(); popNavState(); }
+
+  async function saveWalletEdit() {
+    const oldName = $("walletEditOldName").value;
+    const newName = $("walletEditName").value.trim();
+    const group = $("walletEditGroup").value.trim();
+    if (!newName) { showToast("กรุณาใส่ชื่อกระเป๋า"); return; }
+    if (newName !== oldName && getWallets().includes(newName)) { showToast("มีกระเป๋าชื่อนี้อยู่แล้ว"); return; }
+    await renameWallet(oldName, newName);
+    setWalletGroup(newName, group);
+    closeWalletEditModalVisual();
+    popNavState();
+    renderMetaModal();
+    renderWalletBalances();
+    renderTxList();
+    showToast("บันทึกแล้ว");
+  }
 
   /* ---------- transaction list + summary rendering ---------- */
 
@@ -430,6 +520,15 @@ const Finance = (() => {
   /* ---------- wiring ---------- */
 
   function wireEvents() {
+    $("walletBalanceList").addEventListener("click", (e) => {
+      const header = e.target.closest(".wallet-group-header");
+      if (!header) return;
+      const members = document.getElementById(header.dataset.target);
+      if (!members) return;
+      members.classList.toggle("collapsed");
+      header.classList.toggle("expanded");
+    });
+
     $("txSearchInput").addEventListener("input", renderTxList);
     $("txFilterType").addEventListener("change", renderTxList);
     $("txFilterCategory").addEventListener("change", renderTxList);
@@ -487,11 +586,18 @@ const Finance = (() => {
       renderMetaModal();
     });
     $("walletMetaList").addEventListener("click", (e) => {
-      const btn = e.target.closest("button[data-kind='wallet']");
-      if (!btn) return;
-      removeWallet(btn.dataset.name);
-      renderMetaModal();
+      const delBtn = e.target.closest("button[data-kind='wallet']");
+      if (delBtn) {
+        removeWallet(delBtn.dataset.name);
+        renderMetaModal();
+        renderWalletBalances();
+        return;
+      }
+      const chip = e.target.closest("[data-wallet-chip]");
+      if (chip) openWalletEditModal(chip.dataset.walletChip);
     });
+    $("walletEditCancelBtn").addEventListener("click", closeWalletEditModal);
+    $("walletEditSaveBtn").addEventListener("click", saveWalletEdit);
   }
 
   function getTodaySummary() {
@@ -523,7 +629,7 @@ const Finance = (() => {
   }
 
   return {
-    init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, getTodaySummary,
+    init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, closeWalletEditModalVisual, getTodaySummary,
     getTransactionDateSet, getTransactionsForDate, getTransactionById, formatMoney,
     getWallets, computeWalletBalance,
   };

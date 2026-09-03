@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.0.2";
+const APP_VERSION = "3.1.0";
 const APP_BUILD_DATE = "2026-09-03";
 
 const state = {
@@ -138,6 +138,7 @@ function closeCurrentLayer() {
   if (!$("unlockModal").hidden) { closeUnlockModalVisual(false); return; }
   if (!$("txModal").hidden && typeof Finance !== "undefined") { Finance.closeTxModalVisual(); return; }
   if (!$("finMetaModal").hidden && typeof Finance !== "undefined") { Finance.closeFinMetaModalVisual(); return; }
+  if (!$("walletEditModal").hidden && typeof Finance !== "undefined") { Finance.closeWalletEditModalVisual(); return; }
   if (!$("eventCatMetaModal").hidden) { closeEventCatMetaModalVisual(); return; }
   if (!$("assetModal").hidden && typeof Assets !== "undefined") { Assets.closeAssetModalVisual(); return; }
   if (!$("assetQuickUpdateModal").hidden && typeof Assets !== "undefined") { Assets.closeQuickUpdateVisual(); return; }
