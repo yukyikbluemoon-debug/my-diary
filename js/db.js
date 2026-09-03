@@ -11,9 +11,12 @@
      Wallet/category lists themselves live in localStorage (see finance.js)
      since they're small config lists, not growing record data.
    - "bank_accounts" / "debts" / "other_info": Banking & Liabilities module
-     records (see banking.js). Every record is stored fully encrypted
-     (encIv/encData via DiaryCrypto), same mechanism as private diary
-     entries — there's no "public" variant of these, unlike transactions.
+     records (see banking.js). Debts and other_info are stored fully
+     encrypted (encIv/encData via DiaryCrypto), same mechanism as private
+     diary entries. Bank accounts are a deliberate exception: bankName and
+     accountName are kept as plaintext fields (so the Finance module's
+     "แหล่งเงิน" picker works without an unlock), while everything else
+     about the account is still encrypted.
 
    Now that the app runs on a real https:// origin (GitHub Pages) instead
    of file://, IndexedDB is reliable again and gives us a much bigger

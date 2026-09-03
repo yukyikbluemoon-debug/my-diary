@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.3.0";
+const APP_VERSION = "3.5.0";
 const APP_BUILD_DATE = "2026-09-03";
 
 const state = {
@@ -138,7 +138,6 @@ function closeCurrentLayer() {
   if (!$("unlockModal").hidden) { closeUnlockModalVisual(false); return; }
   if (!$("txModal").hidden && typeof Finance !== "undefined") { Finance.closeTxModalVisual(); return; }
   if (!$("finMetaModal").hidden && typeof Finance !== "undefined") { Finance.closeFinMetaModalVisual(); return; }
-  if (!$("walletEditModal").hidden && typeof Finance !== "undefined") { Finance.closeWalletEditModalVisual(); return; }
   if (!$("eventCatMetaModal").hidden) { closeEventCatMetaModalVisual(); return; }
   if (!$("assetModal").hidden && typeof Assets !== "undefined") { Assets.closeAssetModalVisual(); return; }
   if (!$("assetQuickUpdateModal").hidden && typeof Assets !== "undefined") { Assets.closeQuickUpdateVisual(); return; }
@@ -810,9 +809,9 @@ $("driveSyncBtn").addEventListener("click", async () => {
     const count = await DriveSync.sync();
     state.entries = await DiaryDB.getAll();
     renderHome();
+    if (typeof Banking !== "undefined") Banking.render();
     if (typeof Finance !== "undefined") Finance.render();
     if (typeof Assets !== "undefined") Assets.render();
-    if (typeof Banking !== "undefined") Banking.render();
     $("driveSyncStatus").textContent = `ซิงค์แล้ว (${count} รายการ) — ${DriveSync.lastSyncedText()}`;
     showToast("ซิงค์กับ Google Drive สำเร็จ");
   } catch (err) {
@@ -1203,9 +1202,9 @@ function renderTodaySummary() {
 }
 $("todaySummary").addEventListener("click", () => {
   showView("finance");
+  if (typeof Banking !== "undefined") Banking.render();
   if (typeof Finance !== "undefined") Finance.render();
   if (typeof Assets !== "undefined") Assets.render();
-  if (typeof Banking !== "undefined") Banking.render();
 });
 
 $("entryList").addEventListener("click", (e) => {
@@ -1593,7 +1592,7 @@ async function openEntry(id) {
 }
 
 $("entryDetail").addEventListener("click", (e) => {
-  if (e.target.closest("#linkedTxLink")) { showView("finance"); if (typeof Finance !== "undefined") Finance.render(); if (typeof Assets !== "undefined") Assets.render(); if (typeof Banking !== "undefined") Banking.render(); }
+  if (e.target.closest("#linkedTxLink")) { showView("finance"); if (typeof Banking !== "undefined") Banking.render(); if (typeof Finance !== "undefined") Finance.render(); if (typeof Assets !== "undefined") Assets.render(); }
 });
 
 $("entryDetail").addEventListener("click", async (e) => {
@@ -2164,9 +2163,9 @@ $("calPageGrid").addEventListener("click", (e) => {
 document.querySelectorAll(".nav-btn[data-nav]").forEach((btn) => {
   btn.addEventListener("click", () => {
     showView(btn.dataset.nav);
+    if (btn.dataset.nav === "finance" && typeof Banking !== "undefined") Banking.render();
     if (btn.dataset.nav === "finance" && typeof Finance !== "undefined") Finance.render();
     if (btn.dataset.nav === "finance" && typeof Assets !== "undefined") Assets.render();
-    if (btn.dataset.nav === "finance" && typeof Banking !== "undefined") Banking.render();
     if (btn.dataset.nav === "gallery" && typeof Gallery !== "undefined") Gallery.openTab();
     if (btn.dataset.nav === "calendarPage") renderCalendarPage();
   });
@@ -2216,9 +2215,9 @@ async function init() {
     await DiaryDB.migrateIfNeeded();
     state.entries = await DiaryDB.getAll();
     await purgeOldTrash();
+    if (typeof Banking !== "undefined") await Banking.init();
     if (typeof Finance !== "undefined") await Finance.init();
     if (typeof Assets !== "undefined") await Assets.init();
-    if (typeof Banking !== "undefined") await Banking.init();
     if (typeof Gallery !== "undefined") Gallery.init();
 
     renderHome();

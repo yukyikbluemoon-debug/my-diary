@@ -716,9 +716,10 @@
             <h2 style="margin:0;">บัญชีธนาคาร</h2>
             <button class="icon-btn" id="addBankBtn">+ เพิ่มบัญชี</button>
           </div>
+          <p class="settings-note">บัญชีที่เพิ่มไว้ที่นี่จะเป็นตัวเลือก "แหล่งเงิน" ในหน้ารายรับ-รายจ่ายด้วย ยอดคงเหลือคำนวณจากธุรกรรมที่เลือกบัญชีนั้นโดยอัตโนมัติ ไม่ต้องปลดล็อกเพื่อดูรายชื่อ/ยอด แต่ต้องปลดล็อกเพื่อดูเลขบัญชี/สาขา</p>
           <div class="toolbar">
             <div class="search-wrap">
-              <input type="search" id="bankSearchInput" placeholder="ค้นหาบัญชี เช่น ชื่อธนาคาร, 4 ตัวท้าย...">
+              <input type="search" id="bankSearchInput" placeholder="ค้นหาบัญชี เช่น ชื่อธนาคาร...">
             </div>
           </div>
           <div id="bankList"></div>
@@ -837,7 +838,7 @@
 
         <div class="field-row two-col">
           <div class="field">
-            <label for="txWallet" id="txWalletLabel">กระเป๋าเงิน</label>
+            <label for="txWallet" id="txWalletLabel">แหล่งเงิน</label>
             <select id="txWallet"></select>
           </div>
           <div class="field" id="txToWalletField" hidden>
@@ -885,7 +886,7 @@
     <!-- Category / wallet manager -->
     <div class="modal" id="finMetaModal" hidden>
       <div class="modal-card">
-        <h2>หมวดหมู่ &amp; กระเป๋าเงิน</h2>
+        <h2>หมวดหมู่</h2>
 
         <div class="fin-meta-section">
           <h3>หมวดหมู่</h3>
@@ -896,44 +897,10 @@
           </div>
         </div>
 
-        <div class="fin-meta-section">
-          <h3>กระเป๋าเงิน <button type="button" class="text-btn" id="walletBatchToggleBtn" style="font-size:12px;">จัดกลุ่มหลายอัน</button></h3>
-          <p class="settings-note" style="margin:-4px 0 8px;">แตะชื่อกระเป๋าเพื่อเปลี่ยนชื่อ/จัดกลุ่มทีละอัน หรือกด "จัดกลุ่มหลายอัน" เพื่อเลือกทีเดียวหลายกระเป๋า</p>
-          <div class="fin-meta-list" id="walletMetaList"></div>
-          <div class="fin-meta-batch-toolbar" id="walletBatchToolbar" hidden>
-            <input type="text" id="walletBatchGroupInput" placeholder="ชื่อกลุ่ม เช่น ธนาคาร" list="walletGroupOptions">
-            <button type="button" class="text-btn primary" id="walletBatchApplyBtn">ใส่กลุ่ม (<span id="walletBatchCount">0</span>)</button>
-          </div>
-          <div class="fin-meta-add">
-            <input type="text" id="newWalletInput" placeholder="เพิ่มกระเป๋าเงินใหม่">
-            <button type="button" class="text-btn" id="addWalletBtn">เพิ่ม</button>
-          </div>
-        </div>
+        <p class="settings-note">แหล่งเงิน (เงินสด/บัญชีธนาคาร) จัดการได้ที่แท็บ "บัญชี" ในหน้าการเงินแทน — ไม่ได้อยู่ในหน้านี้อีกต่อไป</p>
 
         <div class="modal-actions">
           <button class="text-btn primary" id="finMetaCloseBtn">เสร็จสิ้น</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Wallet edit (rename + group) -->
-    <div class="modal" id="walletEditModal" hidden>
-      <div class="modal-card">
-        <h2>แก้ไขกระเป๋าเงิน</h2>
-        <input type="hidden" id="walletEditOldName">
-        <div class="field">
-          <label for="walletEditName">ชื่อกระเป๋า</label>
-          <input type="text" id="walletEditName">
-        </div>
-        <div class="field">
-          <label for="walletEditGroup">กลุ่ม (ไม่บังคับ)</label>
-          <input type="text" id="walletEditGroup" list="walletGroupOptions" placeholder="เช่น ธนาคาร — เว้นว่างถ้าไม่ต้องการรวมกลุ่ม">
-          <datalist id="walletGroupOptions"></datalist>
-          <span class="field-hint">กระเป๋าที่มีกลุ่มเดียวกันจะถูกรวมยอดแสดงเป็นแถบเดียวในหน้าการเงิน กดขยายดูรายละเอียดได้</span>
-        </div>
-        <div class="modal-actions">
-          <button class="text-btn" id="walletEditCancelBtn">ยกเลิก</button>
-          <button class="text-btn primary" id="walletEditSaveBtn">บันทึก</button>
         </div>
       </div>
     </div>
@@ -1082,14 +1049,10 @@
           </div>
         </div>
         <div class="field">
-          <label for="bankBalance">ยอดคงเหลือ (อัปเดตเองเป็นระยะ)</label>
-          <input type="number" id="bankBalance" inputmode="decimal" step="0.01" placeholder="0">
-        </div>
-        <div class="field">
           <label for="bankNote">หมายเหตุ (ไม่บังคับ)</label>
           <input type="text" id="bankNote" placeholder="เช่น บัญชีหลัก">
         </div>
-        <p class="settings-note">🔒 ข้อมูลนี้เข้ารหัสด้วยรหัสผ่านของคุณเสมอ เหมือนบันทึกส่วนตัว</p>
+        <p class="settings-note">🔒 ชื่อธนาคาร/ชื่อบัญชีไม่เข้ารหัส (ใช้เลือกในหน้ารายรับ-รายจ่ายได้โดยไม่ต้องปลดล็อก) ส่วนเลขบัญชี/สาขา/เจ้าของบัญชี/หมายเหตุเข้ารหัสไว้เสมอ — ยอดคงเหลือคำนวณจากธุรกรรมที่เลือกบัญชีนี้โดยอัตโนมัติ</p>
 
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="text-btn danger" id="bankDeleteBtn" hidden>ลบ</button>

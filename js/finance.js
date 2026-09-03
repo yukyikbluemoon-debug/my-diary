@@ -7,31 +7,22 @@
 
 const Finance = (() => {
   const CAT_KEY = "diary_fin_categories";
-  const WALLET_KEY = "diary_fin_wallets";
-  const WALLET_GROUP_KEY = "diary_fin_wallet_groups";
   const DEFAULT_CATEGORIES = ["เงินเดือน", "อาหาร", "เดินทาง", "บ้าน", "โทรศัพท์", "ของใช้", "ลงทุน", "หนี้", "สุขภาพ", "บันเทิง", "อื่นๆ"];
-  const DEFAULT_WALLETS = ["เงินสด", "ธนาคาร", "Dime", "Orbix", "อื่นๆ"];
+  const CASH_LABEL = "เงินสด";
 
   let allTx = []; // cached in-memory copy of ALL transactions (including soft-deleted), kept in sync with DiaryDB
-  let walletBatchMode = false;
-  let walletBatchSelected = new Set();
 
   function activeTx() {
     return allTx.filter((t) => !t.deletedAt);
   }
 
-  /* ---------- categories / wallets config ---------- */
+  /* ---------- categories config ---------- */
 
   function getCategories() {
     try { return JSON.parse(localStorage.getItem(CAT_KEY)) || DEFAULT_CATEGORIES.slice(); }
     catch (e) { return DEFAULT_CATEGORIES.slice(); }
   }
-  function getWallets() {
-    try { return JSON.parse(localStorage.getItem(WALLET_KEY)) || DEFAULT_WALLETS.slice(); }
-    catch (e) { return DEFAULT_WALLETS.slice(); }
-  }
   function saveCategories(list) { localStorage.setItem(CAT_KEY, JSON.stringify(list)); }
-  function saveWallets(list) { localStorage.setItem(WALLET_KEY, JSON.stringify(list)); }
 
   function addCategory(name) {
     const list = getCategories();
@@ -42,34 +33,24 @@ const Finance = (() => {
   function removeCategory(name) {
     saveCategories(getCategories().filter((c) => c !== name));
   }
-  function addWallet(name) {
-    const list = getWallets();
-    if (!name || list.includes(name)) return;
-    list.push(name);
-    saveWallets(list);
-  }
-  function removeWallet(name) {
-    saveWallets(getWallets().filter((w) => w !== name));
-    setWalletGroup(name, null);
+
+  /* ---------- "wallets" = เงินสด + bank account labels from the Banking
+     module. There's no independent wallet list anymore — the Banking tab
+     (บัญชีธนาคาร) IS the wallet list now. getWallets() keeps returning a
+     flat array of plain strings so every existing computation, filter, and
+     display below (which all just compare wallet strings with ===)
+     continues to work unchanged. */
+
+  function getWallets() {
+    const bankLabels = (typeof Banking !== "undefined") ? Banking.getBankAccountLabels() : [];
+    return [CASH_LABEL, ...bankLabels.map((b) => b.label)];
   }
 
-  function getWalletGroups() {
-    try { return JSON.parse(localStorage.getItem(WALLET_GROUP_KEY)) || {}; }
-    catch (e) { return {}; }
-  }
-  function saveWalletGroups(map) { localStorage.setItem(WALLET_GROUP_KEY, JSON.stringify(map)); }
-  function setWalletGroup(wallet, group) {
-    const map = getWalletGroups();
-    if (group) map[wallet] = group; else delete map[wallet];
-    saveWalletGroups(map);
-  }
-
+  // Called by Banking.saveBank() when a bank account's display label
+  // (bank name / account name) changes, so existing transaction history
+  // still points at the right label instead of silently orphaning.
   async function renameWallet(oldName, newName) {
     if (!newName || oldName === newName) return;
-    const list = getWallets().map((w) => (w === oldName ? newName : w));
-    saveWallets(list);
-    const groups = getWalletGroups();
-    if (groups[oldName]) { groups[newName] = groups[oldName]; delete groups[oldName]; saveWalletGroups(groups); }
     const changed = [];
     allTx.forEach((t) => {
       let touched = false;
@@ -78,24 +59,6 @@ const Finance = (() => {
       if (touched) { t.updatedAt = new Date().toISOString(); changed.push(t); }
     });
     if (changed.length > 0) await DiaryDB.bulkPutTransactions(changed);
-  }
-
-  // Moves all of oldName's transaction history into an EXISTING wallet
-  // (targetName), then removes oldName from the wallet list entirely —
-  // for when a wallet was set up as a placeholder/duplicate and the real
-  // money actually belongs under a wallet that already exists.
-  async function mergeWallet(oldName, targetName) {
-    if (!targetName || oldName === targetName) return;
-    const changed = [];
-    allTx.forEach((t) => {
-      let touched = false;
-      if (t.wallet === oldName) { t.wallet = targetName; touched = true; }
-      if (t.toWallet === oldName) { t.toWallet = targetName; touched = true; }
-      if (touched) { t.updatedAt = new Date().toISOString(); changed.push(t); }
-    });
-    if (changed.length > 0) await DiaryDB.bulkPutTransactions(changed);
-    saveWallets(getWallets().filter((w) => w !== oldName));
-    setWalletGroup(oldName, null);
   }
 
   /* ---------- formatting / calculation ---------- */
@@ -157,39 +120,11 @@ const Finance = (() => {
 
   function renderWalletBalances() {
     const wallets = getWallets();
-    const groups = getWalletGroups();
     const container = $("walletBalanceList");
-
-    const byGroup = {};
-    const groupOrder = [];
-    let html = "";
-
-    wallets.forEach((w) => {
+    container.innerHTML = wallets.map((w) => {
       const bal = computeWalletBalance(w);
-      const g = groups[w];
-      if (g) {
-        if (!byGroup[g]) { byGroup[g] = []; groupOrder.push(g); }
-        byGroup[g].push({ name: w, bal });
-      } else {
-        html += `<div class="wallet-balance-row"><span>${escapeHTML(w)}</span><span class="wallet-balance-amount${bal < 0 ? " negative" : ""}">${formatMoney(bal)}</span></div>`;
-      }
-    });
-
-    groupOrder.forEach((g) => {
-      const members = byGroup[g];
-      const total = members.reduce((s, m) => s + m.bal, 0);
-      const groupId = "walgrp-" + encodeURIComponent(g).replace(/[^a-zA-Z0-9]/g, "");
-      html += `
-        <div class="wallet-group-header" data-target="${groupId}">
-          <span class="wallet-group-title">${escapeHTML(g)} <span class="wallet-group-toggle">▾</span></span>
-          <span class="wallet-balance-amount${total < 0 ? " negative" : ""}">${formatMoney(total)}</span>
-        </div>
-        <div class="wallet-group-members collapsed" id="${groupId}">
-          ${members.map((m) => `<div class="wallet-balance-row wallet-sub-row"><span>${escapeHTML(m.name)}</span><span class="wallet-balance-amount${m.bal < 0 ? " negative" : ""}">${formatMoney(m.bal)}</span></div>`).join("")}
-        </div>`;
-    });
-
-    container.innerHTML = html;
+      return `<div class="wallet-balance-row"><span>${escapeHTML(w)}</span><span class="wallet-balance-amount${bal < 0 ? " negative" : ""}">${formatMoney(bal)}</span></div>`;
+    }).join("");
   }
 
   /* ---------- search / filter ---------- */
@@ -241,7 +176,7 @@ const Finance = (() => {
     document.querySelectorAll(".tx-type-btn").forEach((b) => b.classList.toggle("selected", b.dataset.type === type));
     $("txCategoryField").hidden = type === "transfer";
     $("txToWalletField").hidden = type !== "transfer";
-    $("txWalletLabel").textContent = type === "transfer" ? "จาก" : "กระเป๋าเงิน";
+    $("txWalletLabel").textContent = type === "transfer" ? "จาก" : "แหล่งเงิน";
   }
 
   function setTxDate(dateStr) {
@@ -400,68 +335,20 @@ const Finance = (() => {
     showToast("ลบแล้ว");
   }
 
-  /* ---------- category / wallet manager modal ---------- */
+  /* ---------- category manager modal ---------- */
 
   function renderMetaModal() {
     const catList = $("categoryMetaList");
     catList.innerHTML = getCategories().map((c) => `<span class="fin-meta-chip">${escapeHTML(c)}<button type="button" data-kind="cat" data-name="${escapeHTML(c)}">×</button></span>`).join("");
-    const walletList = $("walletMetaList");
-    const groups = getWalletGroups();
-    walletList.innerHTML = getWallets().map((w) => {
-      const g = groups[w];
-      const label = g ? `${escapeHTML(w)} <span style="opacity:0.6;">(${escapeHTML(g)})</span>` : escapeHTML(w);
-      const selectedClass = walletBatchMode && walletBatchSelected.has(w) ? " batch-selected" : "";
-      const delBtn = walletBatchMode ? "" : `<button type="button" data-kind="wallet" data-name="${escapeHTML(w)}">×</button>`;
-      return `<span class="fin-meta-chip${selectedClass}" data-wallet-chip="${escapeHTML(w)}" style="cursor:pointer;">${label}${delBtn}</span>`;
-    }).join("");
-    $("walletBatchCount").textContent = walletBatchSelected.size;
   }
 
   function openMetaModal() {
-    walletBatchMode = false;
-    walletBatchSelected.clear();
-    $("walletBatchToolbar").hidden = true;
-    $("walletBatchToggleBtn").textContent = "จัดกลุ่มหลายอัน";
     renderMetaModal();
     $("finMetaModal").hidden = false;
     pushNavState("finmeta");
   }
   function closeFinMetaModalVisual() { $("finMetaModal").hidden = true; }
   function closeFinMetaModal() { closeFinMetaModalVisual(); popNavState(); }
-
-  function openWalletEditModal(walletName) {
-    $("walletEditOldName").value = walletName;
-    $("walletEditName").value = walletName;
-    $("walletEditGroup").value = getWalletGroups()[walletName] || "";
-    const existingGroups = [...new Set(Object.values(getWalletGroups()))];
-    $("walletGroupOptions").innerHTML = existingGroups.map((g) => `<option value="${escapeHTML(g)}"></option>`).join("");
-    $("walletEditModal").hidden = false;
-    pushNavState("walletedit");
-  }
-  function closeWalletEditModalVisual() { $("walletEditModal").hidden = true; }
-  function closeWalletEditModal() { closeWalletEditModalVisual(); popNavState(); }
-
-  async function saveWalletEdit() {
-    const oldName = $("walletEditOldName").value;
-    const newName = $("walletEditName").value.trim();
-    const group = $("walletEditGroup").value.trim();
-    if (!newName) { showToast("กรุณาใส่ชื่อกระเป๋า"); return; }
-
-    if (newName !== oldName && getWallets().includes(newName)) {
-      const ok = confirm(`มีกระเป๋าชื่อ "${newName}" อยู่แล้ว\n\nต้องการรวมยอด/ประวัติทั้งหมดของ "${oldName}" เข้ากับ "${newName}" หรือไม่? "${oldName}" จะถูกลบออกจากลิสต์หลังรวมเสร็จ (ยอดเงินไม่หาย แค่ย้ายไปอยู่ใน "${newName}")`);
-      if (!ok) return;
-      await mergeWallet(oldName, newName);
-    } else {
-      await renameWallet(oldName, newName);
-    }
-    setWalletGroup(newName, group);
-    closeWalletEditModalVisual();
-    popNavState();
-    renderMetaModal();
-    renderWalletBalances();
-    renderTxList();
-    showToast("บันทึกแล้ว");
-  }
 
   /* ---------- transaction list + summary rendering ---------- */
 
@@ -553,15 +440,6 @@ const Finance = (() => {
   /* ---------- wiring ---------- */
 
   function wireEvents() {
-    $("walletBalanceList").addEventListener("click", (e) => {
-      const header = e.target.closest(".wallet-group-header");
-      if (!header) return;
-      const members = document.getElementById(header.dataset.target);
-      if (!members) return;
-      members.classList.toggle("collapsed");
-      header.classList.toggle("expanded");
-    });
-
     $("txSearchInput").addEventListener("input", renderTxList);
     $("txFilterType").addEventListener("change", renderTxList);
     $("txFilterCategory").addEventListener("change", renderTxList);
@@ -606,57 +484,12 @@ const Finance = (() => {
       input.value = "";
       renderMetaModal();
     });
-    $("addWalletBtn").addEventListener("click", () => {
-      const input = $("newWalletInput");
-      addWallet(input.value.trim());
-      input.value = "";
-      renderMetaModal();
-    });
     $("categoryMetaList").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-kind='cat']");
       if (!btn) return;
       removeCategory(btn.dataset.name);
       renderMetaModal();
     });
-    $("walletMetaList").addEventListener("click", (e) => {
-      const delBtn = e.target.closest("button[data-kind='wallet']");
-      if (delBtn) {
-        removeWallet(delBtn.dataset.name);
-        renderMetaModal();
-        renderWalletBalances();
-        return;
-      }
-      const chip = e.target.closest("[data-wallet-chip]");
-      if (!chip) return;
-      const w = chip.dataset.walletChip;
-      if (walletBatchMode) {
-        if (walletBatchSelected.has(w)) walletBatchSelected.delete(w); else walletBatchSelected.add(w);
-        renderMetaModal();
-        return;
-      }
-      openWalletEditModal(w);
-    });
-    $("walletBatchToggleBtn").addEventListener("click", () => {
-      walletBatchMode = !walletBatchMode;
-      walletBatchSelected.clear();
-      $("walletBatchToolbar").hidden = !walletBatchMode;
-      $("walletBatchToggleBtn").textContent = walletBatchMode ? "ยกเลิก" : "จัดกลุ่มหลายอัน";
-      renderMetaModal();
-    });
-    $("walletBatchApplyBtn").addEventListener("click", () => {
-      const group = $("walletBatchGroupInput").value.trim();
-      if (!group) { showToast("กรุณาใส่ชื่อกลุ่ม"); return; }
-      if (walletBatchSelected.size === 0) { showToast("กรุณาเลือกกระเป๋าอย่างน้อย 1 อัน"); return; }
-      walletBatchSelected.forEach((w) => setWalletGroup(w, group));
-      const count = walletBatchSelected.size;
-      walletBatchSelected.clear();
-      $("walletBatchGroupInput").value = "";
-      renderMetaModal();
-      renderWalletBalances();
-      showToast(`จัดกลุ่ม ${count} กระเป๋าแล้ว`);
-    });
-    $("walletEditCancelBtn").addEventListener("click", closeWalletEditModal);
-    $("walletEditSaveBtn").addEventListener("click", saveWalletEdit);
   }
 
   function getTodaySummary() {
@@ -688,8 +521,8 @@ const Finance = (() => {
   }
 
   return {
-    init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, closeWalletEditModalVisual, getTodaySummary,
+    init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, getTodaySummary,
     getTransactionDateSet, getTransactionsForDate, getTransactionById, formatMoney,
-    getWallets, computeWalletBalance,
+    getWallets, computeWalletBalance, renameWallet,
   };
 })();
