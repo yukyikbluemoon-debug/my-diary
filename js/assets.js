@@ -31,6 +31,11 @@ const Assets = (() => {
     }
   }
 
+  function updatePriceCheckLink(linkEl, name) {
+    const q = (name || "").trim();
+    linkEl.href = q ? `https://www.google.com/search?q=${encodeURIComponent(q + " stock price")}` : "#";
+  }
+
   function openNewAsset() {
     $("assetId").value = "";
     $("assetType").value = "หุ้น";
@@ -43,6 +48,7 @@ const Assets = (() => {
     $("assetNote").value = "";
     $("assetModalTitle").textContent = "เพิ่มทรัพย์สิน";
     $("assetDeleteBtn").hidden = true;
+    updatePriceCheckLink($("assetPriceCheckLink"), "");
     $("assetModal").hidden = false;
     pushNavState("asset");
   }
@@ -61,6 +67,7 @@ const Assets = (() => {
     $("assetNote").value = a.note || "";
     $("assetModalTitle").textContent = "แก้ไขทรัพย์สิน";
     $("assetDeleteBtn").hidden = false;
+    updatePriceCheckLink($("assetPriceCheckLink"), a.name);
     $("assetModal").hidden = false;
     pushNavState("asset");
   }
@@ -180,6 +187,7 @@ const Assets = (() => {
     $("quickUpdateAssetName").textContent = `${a.name} (${a.type})`;
     $("quickUpdateValueLabel").textContent = a.currency === "USD" ? "มูลค่าปัจจุบันต่อหน่วย (USD)" : "มูลค่าปัจจุบันต่อหน่วย (บาท)";
     $("quickUpdateValue").value = a.currentValuePerUnit;
+    updatePriceCheckLink($("quickUpdatePriceCheckLink"), a.name);
     $("assetQuickUpdateModal").hidden = false;
     pushNavState("assetquick");
   }
@@ -301,6 +309,7 @@ const Assets = (() => {
     $("assetSaveBtn").addEventListener("click", saveAsset);
     $("assetDeleteBtn").addEventListener("click", deleteAsset);
     $("assetCurrency").addEventListener("change", (e) => setAssetCurrency(e.target.value));
+    $("assetName").addEventListener("input", (e) => updatePriceCheckLink($("assetPriceCheckLink"), e.target.value));
     $("sendPortfolioBtn").addEventListener("click", sendPortfolioSummary);
     $("assetList").addEventListener("click", (e) => {
       const quickBtn = e.target.closest(".asset-quick-update-btn");
