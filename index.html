@@ -406,6 +406,10 @@
             <span id="entryCountText">0</span>
           </div>
           <div class="settings-row">
+            <span>แกลเลอรีไฟล์แนบ</span>
+            <button class="text-btn" id="openGalleryBtn">เปิด</button>
+          </div>
+          <div class="settings-row">
             <span>ถังขยะ</span>
             <button class="text-btn" id="openTrashBtn">เปิด (<span id="trashCountText">0</span>)</button>
           </div>
@@ -418,6 +422,18 @@
               <option value="60">60 วัน</option>
               <option value="90">90 วัน</option>
             </select>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h2>พื้นที่จัดเก็บข้อมูล</h2>
+          <div class="settings-row">
+            <span>ใช้ไปแล้ว</span>
+            <span id="storageUsageText">กำลังคำนวณ...</span>
+          </div>
+          <div class="settings-row">
+            <span>ป้องกันการล้างข้อมูลอัตโนมัติ</span>
+            <span id="storagePersistText">-</span>
           </div>
         </div>
 
@@ -497,6 +513,39 @@
         <div id="trashList"></div>
         <div class="empty-state" id="trashEmptyState" hidden>
           <p class="empty-title">ถังขยะว่าง</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- GALLERY -->
+    <section class="view" id="view-gallery" data-view="gallery">
+      <div class="view-inner">
+        <div class="page-head">
+          <button class="text-btn" id="backFromGalleryBtn">ย้อนกลับ</button>
+          <h1>แกลเลอรี</h1>
+        </div>
+        <p class="settings-note" style="margin-bottom:10px;">ไม่รวมไฟล์แนบของบันทึกส่วนตัว</p>
+
+        <div class="entry-type-filter" id="galleryFilter">
+          <button type="button" class="entry-type-filter-btn selected" data-galtype="">ทั้งหมด</button>
+          <button type="button" class="entry-type-filter-btn" data-galtype="image">🖼️ รูป</button>
+          <button type="button" class="entry-type-filter-btn" data-galtype="audio">🎙️ เสียง</button>
+          <button type="button" class="entry-type-filter-btn" data-galtype="video">🎥 วิดีโอ</button>
+          <button type="button" class="entry-type-filter-btn" data-galtype="sketch">✏️ ภาพวาด</button>
+        </div>
+
+        <div class="gallery-toolbar">
+          <span id="gallerySummaryText">0 ไฟล์</span>
+          <div class="gallery-toolbar-actions">
+            <button type="button" class="text-btn" id="gallerySelectAllBtn">เลือกทั้งหมด</button>
+            <button type="button" class="text-btn" id="galleryClearSelectionBtn">ล้างที่เลือก</button>
+          </div>
+        </div>
+        <button type="button" class="text-btn primary" id="galleryDownloadBtn" style="width:100%;margin-bottom:12px;" disabled>ดาวน์โหลดที่เลือก (0)</button>
+
+        <div class="gallery-grid" id="galleryGrid"></div>
+        <div class="empty-state" id="galleryEmptyState" hidden>
+          <p class="empty-title">ยังไม่มีไฟล์แนบ</p>
         </div>
       </div>
     </section>
@@ -970,6 +1019,7 @@
 <script src="js/exchange.js"></script>
 <script src="js/finance.js"></script>
 <script src="js/assets.js"></script>
+<script src="js/gallery.js"></script>
 <script src="js/telegram.js"></script>
 <script src="js/drive-config.js"></script>
 <script src="js/drive-sync.js"></script>
