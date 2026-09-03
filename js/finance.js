@@ -13,6 +13,8 @@ const Finance = (() => {
   const DEFAULT_WALLETS = ["เงินสด", "ธนาคาร", "Dime", "Orbix", "อื่นๆ"];
 
   let allTx = []; // cached in-memory copy of ALL transactions (including soft-deleted), kept in sync with DiaryDB
+  let walletBatchMode = false;
+  let walletBatchSelected = new Set();
 
   function activeTx() {
     return allTx.filter((t) => !t.deletedAt);
@@ -408,11 +410,18 @@ const Finance = (() => {
     walletList.innerHTML = getWallets().map((w) => {
       const g = groups[w];
       const label = g ? `${escapeHTML(w)} <span style="opacity:0.6;">(${escapeHTML(g)})</span>` : escapeHTML(w);
-      return `<span class="fin-meta-chip" data-wallet-chip="${escapeHTML(w)}" style="cursor:pointer;">${label}<button type="button" data-kind="wallet" data-name="${escapeHTML(w)}">×</button></span>`;
+      const selectedClass = walletBatchMode && walletBatchSelected.has(w) ? " batch-selected" : "";
+      const delBtn = walletBatchMode ? "" : `<button type="button" data-kind="wallet" data-name="${escapeHTML(w)}">×</button>`;
+      return `<span class="fin-meta-chip${selectedClass}" data-wallet-chip="${escapeHTML(w)}" style="cursor:pointer;">${label}${delBtn}</span>`;
     }).join("");
+    $("walletBatchCount").textContent = walletBatchSelected.size;
   }
 
   function openMetaModal() {
+    walletBatchMode = false;
+    walletBatchSelected.clear();
+    $("walletBatchToolbar").hidden = true;
+    $("walletBatchToggleBtn").textContent = "จัดกลุ่มหลายอัน";
     renderMetaModal();
     $("finMetaModal").hidden = false;
     pushNavState("finmeta");
@@ -618,7 +627,33 @@ const Finance = (() => {
         return;
       }
       const chip = e.target.closest("[data-wallet-chip]");
-      if (chip) openWalletEditModal(chip.dataset.walletChip);
+      if (!chip) return;
+      const w = chip.dataset.walletChip;
+      if (walletBatchMode) {
+        if (walletBatchSelected.has(w)) walletBatchSelected.delete(w); else walletBatchSelected.add(w);
+        renderMetaModal();
+        return;
+      }
+      openWalletEditModal(w);
+    });
+    $("walletBatchToggleBtn").addEventListener("click", () => {
+      walletBatchMode = !walletBatchMode;
+      walletBatchSelected.clear();
+      $("walletBatchToolbar").hidden = !walletBatchMode;
+      $("walletBatchToggleBtn").textContent = walletBatchMode ? "ยกเลิก" : "จัดกลุ่มหลายอัน";
+      renderMetaModal();
+    });
+    $("walletBatchApplyBtn").addEventListener("click", () => {
+      const group = $("walletBatchGroupInput").value.trim();
+      if (!group) { showToast("กรุณาใส่ชื่อกลุ่ม"); return; }
+      if (walletBatchSelected.size === 0) { showToast("กรุณาเลือกกระเป๋าอย่างน้อย 1 อัน"); return; }
+      walletBatchSelected.forEach((w) => setWalletGroup(w, group));
+      const count = walletBatchSelected.size;
+      walletBatchSelected.clear();
+      $("walletBatchGroupInput").value = "";
+      renderMetaModal();
+      renderWalletBalances();
+      showToast(`จัดกลุ่ม ${count} กระเป๋าแล้ว`);
     });
     $("walletEditCancelBtn").addEventListener("click", closeWalletEditModal);
     $("walletEditSaveBtn").addEventListener("click", saveWalletEdit);

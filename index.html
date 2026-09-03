@@ -805,9 +805,13 @@
         </div>
 
         <div class="fin-meta-section">
-          <h3>กระเป๋าเงิน</h3>
-          <p class="settings-note" style="margin:-4px 0 8px;">แตะชื่อกระเป๋าเพื่อเปลี่ยนชื่อ/จัดกลุ่ม (เช่น รวมหลายธนาคารเป็นแถบเดียว)</p>
+          <h3>กระเป๋าเงิน <button type="button" class="text-btn" id="walletBatchToggleBtn" style="font-size:12px;">จัดกลุ่มหลายอัน</button></h3>
+          <p class="settings-note" style="margin:-4px 0 8px;">แตะชื่อกระเป๋าเพื่อเปลี่ยนชื่อ/จัดกลุ่มทีละอัน หรือกด "จัดกลุ่มหลายอัน" เพื่อเลือกทีเดียวหลายกระเป๋า</p>
           <div class="fin-meta-list" id="walletMetaList"></div>
+          <div class="fin-meta-batch-toolbar" id="walletBatchToolbar" hidden>
+            <input type="text" id="walletBatchGroupInput" placeholder="ชื่อกลุ่ม เช่น ธนาคาร" list="walletGroupOptions">
+            <button type="button" class="text-btn primary" id="walletBatchApplyBtn">ใส่กลุ่ม (<span id="walletBatchCount">0</span>)</button>
+          </div>
           <div class="fin-meta-add">
             <input type="text" id="newWalletInput" placeholder="เพิ่มกระเป๋าเงินใหม่">
             <button type="button" class="text-btn" id="addWalletBtn">เพิ่ม</button>

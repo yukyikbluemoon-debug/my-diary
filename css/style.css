@@ -807,6 +807,19 @@ select {
   border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 12.5px;
 }
 .fin-meta-chip button { background: none; border: none; color: var(--paper-dim); font-size: 14px; cursor: pointer; padding: 2px; }
+.fin-meta-chip.batch-selected { border-color: var(--amber); background: var(--ink-600); }
+.fin-meta-batch-toolbar {
+  display: flex; gap: 8px; align-items: center;
+  margin: 8px 0;
+  padding: 8px;
+  background: var(--ink-800);
+  border: 1px solid var(--amber-dim);
+  border-radius: var(--radius-s);
+}
+.fin-meta-batch-toolbar input {
+  flex: 1; background: var(--ink-700); border: 1px solid var(--ink-500);
+  border-radius: var(--radius-s); padding: 8px 10px; font-size: 13px;
+}
 .fin-meta-add { display: flex; gap: 8px; }
 .fin-meta-add input {
   flex: 1; background: var(--ink-800); border: 1px solid var(--ink-500);
