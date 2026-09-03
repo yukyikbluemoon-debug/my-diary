@@ -1,4 +1,4 @@
-const CACHE_NAME = "diary-shell-v30";
+const CACHE_NAME = "diary-shell-v31";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -22,7 +22,20 @@ const SHELL_FILES = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_FILES)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // Fetch each shell file bypassing the browser's own HTTP cache —
+      // "reload" forces a real round-trip to the server/CDN instead of
+      // possibly reusing a stale response the browser cached on its own,
+      // which is a second, separate layer of caching from our Cache
+      // Storage below and was letting updates get stuck even after
+      // bumping CACHE_NAME and reloading.
+      await Promise.all(SHELL_FILES.map(async (url) => {
+        try {
+          const res = await fetch(url, { cache: "reload" });
+          if (res.ok) await cache.put(url, res);
+        } catch (e) { /* offline on first install — best effort */ }
+      }));
+    }).then(() => self.skipWaiting())
   );
 });
 
@@ -44,7 +57,7 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       const cached = await cache.match(event.request);
-      const networkFetch = fetch(event.request)
+      const networkFetch = fetch(event.request, { cache: "reload" })
         .then((res) => {
           if (res.ok) cache.put(event.request, res.clone());
           return res;
