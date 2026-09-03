@@ -12,8 +12,8 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.5.0";
-const APP_BUILD_DATE = "2026-09-03";
+const APP_VERSION = "3.5.1";
+const APP_BUILD_DATE = "2026-09-04";
 
 const state = {
   entries: [],

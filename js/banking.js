@@ -29,7 +29,7 @@ const Banking = (() => {
   }
 
   function bankLabel(a) {
-    return a.accountName ? `${a.bankName} - ${a.accountName}` : a.bankName;
+    return a.accountLast4 ? `${a.bankName} (...${a.accountLast4})` : a.bankName;
   }
 
   /** Plain, always-available (no unlock needed) list Finance.getWallets()
@@ -210,12 +210,17 @@ const Banking = (() => {
     const id = $("bankId").value;
     const existing = id ? allBankAccounts.find((x) => x.id === id) : null;
     const accountName = $("bankAccountName").value.trim();
+    const accountNumberRaw = $("bankAccountNumber").value.trim();
+    // Only the last 4 digits are kept as plaintext, purely so the money-
+    // source picker in "รายรับ-รายจ่าย" can tell same-bank accounts apart
+    // without needing an unlock. The full number stays encrypted below.
+    const accountLast4 = accountNumberRaw.replace(/\D/g, "").slice(-4) || "";
     const oldLabel = existing ? bankLabel(existing) : null;
-    const newLabel = accountName ? `${bankName} - ${accountName}` : bankName;
+    const newLabel = accountLast4 ? `${bankName} (...${accountLast4})` : bankName;
 
     const details = {
       accountType: $("bankAccountType").value.trim(),
-      accountNumber: $("bankAccountNumber").value.trim(),
+      accountNumber: accountNumberRaw,
       ownerName: $("bankOwnerName").value.trim(),
       branch: $("bankBranch").value.trim(),
       note: $("bankNote").value.trim(),
@@ -226,6 +231,7 @@ const Banking = (() => {
       kind: "bank",
       bankName,
       accountName,
+      accountLast4,
       deletedAt: null,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),

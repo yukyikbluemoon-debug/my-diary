@@ -13,10 +13,12 @@
    - "bank_accounts" / "debts" / "other_info": Banking & Liabilities module
      records (see banking.js). Debts and other_info are stored fully
      encrypted (encIv/encData via DiaryCrypto), same mechanism as private
-     diary entries. Bank accounts are a deliberate exception: bankName and
-     accountName are kept as plaintext fields (so the Finance module's
-     "แหล่งเงิน" picker works without an unlock), while everything else
-     about the account is still encrypted.
+     diary entries. Bank accounts are a deliberate exception: bankName,
+     accountName, and accountLast4 (last 4 digits of the account number
+     only) are kept as plaintext fields — this is what lets the Finance
+     module's "แหล่งเงิน" picker tell same-bank accounts apart without an
+     unlock. Everything else about the account (full number, branch, owner
+     name, note) is still encrypted.
 
    Now that the app runs on a real https:// origin (GitHub Pages) instead
    of file://, IndexedDB is reliable again and gives us a much bigger
