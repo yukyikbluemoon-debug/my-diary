@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.2.0";
+const APP_VERSION = "3.2.1";
 const APP_BUILD_DATE = "2026-09-03";
 
 const state = {
@@ -930,7 +930,7 @@ $("telegramResendAllBtn").addEventListener("click", async () => {
   try {
     for (const e of entries) {
       showToast(`กำลังส่ง ${sent + 1}/${total}...`);
-      const attachments = await loadAttachmentsForEntry(e);
+      const attachments = await loadLocalAttachmentBlobsForEntry(e);
       await TelegramNotify.sendEntry(e, e, attachments);
       sent++;
       await new Promise((r) => setTimeout(r, 700)); // stay well under Telegram's rate limit
@@ -1702,7 +1702,10 @@ $("shareEntryBtn").addEventListener("click", async () => {
   }
 });
 
-async function loadAttachmentsForEntry(rec) {
+async function loadLocalAttachmentBlobsForEntry(rec) {
+  // Telegram-forwarding only: unlike loadAttachmentsForEntry above, this
+  // does NOT auto-download from Drive (keeps bulk Telegram resends fast)
+  // and doesn't need id/url — just blob+type to hand to the Bot API.
   const result = [];
   for (const ref of rec.attachmentRefs || []) {
     const att = await DiaryDB.getAttachment(ref.id);
@@ -1720,7 +1723,7 @@ $("telegramResendBtn").addEventListener("click", async () => {
   }
   $("telegramResendBtn").disabled = true;
   try {
-    const attachments = await loadAttachmentsForEntry(rec);
+    const attachments = await loadLocalAttachmentBlobsForEntry(rec);
     await TelegramNotify.sendEntry(rec, rec, attachments);
     showToast("ส่งเข้า Telegram แล้ว");
   } finally {
