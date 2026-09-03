@@ -212,27 +212,45 @@ const DriveSync = (() => {
     const local = await DiaryDB.getAll();
     const localTx = await DiaryDB.getAllTransactions();
     const localAssets = await DiaryDB.getAllAssets();
+    const localBanks = await DiaryDB.getAllBankAccounts();
+    const localDebts = await DiaryDB.getAllDebts();
+    const localOther = await DiaryDB.getAllOtherInfo();
     toast("กำลังดาวน์โหลดข้อมูลจาก Drive...");
     let remoteObj = null;
     try { remoteObj = await downloadRemote(); } catch (e) { remoteObj = null; }
     const remoteEntries = (remoteObj && remoteObj.entries) || [];
     const remoteTx = (remoteObj && remoteObj.transactions) || [];
     const remoteAssets = (remoteObj && remoteObj.assets) || [];
+    const remoteBanks = (remoteObj && remoteObj.bankAccounts) || [];
+    const remoteDebts = (remoteObj && remoteObj.debts) || [];
+    const remoteOther = (remoteObj && remoteObj.otherInfo) || [];
     const merged = mergeEntries(local, remoteEntries);
     const mergedTx = mergeEntries(localTx, remoteTx); // same last-write-wins-by-updatedAt logic works for transactions too
     const mergedAssets = mergeEntries(localAssets, remoteAssets); // ...and for assets too
+    // ...and for the (fully encrypted) Banking & Liabilities records too — Drive
+    // only ever sees {id, kind, timestamps, encIv, encData}, same as it does
+    // today for private diary entries.
+    const mergedBanks = mergeEntries(localBanks, remoteBanks);
+    const mergedDebts = mergeEntries(localDebts, remoteDebts);
+    const mergedOther = mergeEntries(localOther, remoteOther);
     await DiaryDB.bulkPut(merged);
     await DiaryDB.bulkPutTransactions(mergedTx);
     await DiaryDB.bulkPutAssets(mergedAssets);
+    await DiaryDB.bulkPutBankAccounts(mergedBanks);
+    await DiaryDB.bulkPutDebts(mergedDebts);
+    await DiaryDB.bulkPutOtherInfo(mergedOther);
 
     await adoptRemoteAttachmentIndex(remoteObj && remoteObj.attachmentIndex);
     const { index: attachmentIndex, uploadedCount } = await syncAttachments(merged);
     if (uploadedCount > 0) toast(`อัปโหลดไฟล์แนบเสร็จ ${uploadedCount} ไฟล์`);
 
     toast("กำลังบันทึกข้อมูลขึ้น Drive...");
-    await uploadRemote({ version: 4, syncedAt: new Date().toISOString(), entries: merged, transactions: mergedTx, assets: mergedAssets, attachmentIndex });
+    await uploadRemote({
+      version: 5, syncedAt: new Date().toISOString(), entries: merged, transactions: mergedTx, assets: mergedAssets,
+      bankAccounts: mergedBanks, debts: mergedDebts, otherInfo: mergedOther, attachmentIndex,
+    });
     localStorage.setItem("diary_last_synced", new Date().toISOString());
-    return merged.length + mergedTx.length + mergedAssets.length;
+    return merged.length + mergedTx.length + mergedAssets.length + mergedBanks.length + mergedDebts.length + mergedOther.length;
   }
 
   function lastSyncedText() {

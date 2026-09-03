@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.2.1";
+const APP_VERSION = "3.3.0";
 const APP_BUILD_DATE = "2026-09-03";
 
 const state = {
@@ -142,6 +142,9 @@ function closeCurrentLayer() {
   if (!$("eventCatMetaModal").hidden) { closeEventCatMetaModalVisual(); return; }
   if (!$("assetModal").hidden && typeof Assets !== "undefined") { Assets.closeAssetModalVisual(); return; }
   if (!$("assetQuickUpdateModal").hidden && typeof Assets !== "undefined") { Assets.closeQuickUpdateVisual(); return; }
+  if (!$("bankModal").hidden && typeof Banking !== "undefined") { Banking.closeBankModalVisual(); return; }
+  if (!$("debtModal").hidden && typeof Banking !== "undefined") { Banking.closeDebtModalVisual(); return; }
+  if (!$("otherModal").hidden && typeof Banking !== "undefined") { Banking.closeOtherModalVisual(); return; }
   if (state.view === "trash") { showView("settings"); return; }
   if (state.view === "stats") { showView(state.statsReturnView || "dashboard"); return; }
   if (state.view === "write") { clearRecordingUI(); showView(state.editId ? "entry" : "home"); return; }
@@ -809,6 +812,7 @@ $("driveSyncBtn").addEventListener("click", async () => {
     renderHome();
     if (typeof Finance !== "undefined") Finance.render();
     if (typeof Assets !== "undefined") Assets.render();
+    if (typeof Banking !== "undefined") Banking.render();
     $("driveSyncStatus").textContent = `ซิงค์แล้ว (${count} รายการ) — ${DriveSync.lastSyncedText()}`;
     showToast("ซิงค์กับ Google Drive สำเร็จ");
   } catch (err) {
@@ -1201,6 +1205,7 @@ $("todaySummary").addEventListener("click", () => {
   showView("finance");
   if (typeof Finance !== "undefined") Finance.render();
   if (typeof Assets !== "undefined") Assets.render();
+  if (typeof Banking !== "undefined") Banking.render();
 });
 
 $("entryList").addEventListener("click", (e) => {
@@ -1588,7 +1593,7 @@ async function openEntry(id) {
 }
 
 $("entryDetail").addEventListener("click", (e) => {
-  if (e.target.closest("#linkedTxLink")) { showView("finance"); if (typeof Finance !== "undefined") Finance.render(); if (typeof Assets !== "undefined") Assets.render(); }
+  if (e.target.closest("#linkedTxLink")) { showView("finance"); if (typeof Finance !== "undefined") Finance.render(); if (typeof Assets !== "undefined") Assets.render(); if (typeof Banking !== "undefined") Banking.render(); }
 });
 
 $("entryDetail").addEventListener("click", async (e) => {
@@ -2161,6 +2166,7 @@ document.querySelectorAll(".nav-btn[data-nav]").forEach((btn) => {
     showView(btn.dataset.nav);
     if (btn.dataset.nav === "finance" && typeof Finance !== "undefined") Finance.render();
     if (btn.dataset.nav === "finance" && typeof Assets !== "undefined") Assets.render();
+    if (btn.dataset.nav === "finance" && typeof Banking !== "undefined") Banking.render();
     if (btn.dataset.nav === "gallery" && typeof Gallery !== "undefined") Gallery.openTab();
     if (btn.dataset.nav === "calendarPage") renderCalendarPage();
   });
@@ -2212,6 +2218,7 @@ async function init() {
     await purgeOldTrash();
     if (typeof Finance !== "undefined") await Finance.init();
     if (typeof Assets !== "undefined") await Assets.init();
+    if (typeof Banking !== "undefined") await Banking.init();
     if (typeof Gallery !== "undefined") Gallery.init();
 
     renderHome();

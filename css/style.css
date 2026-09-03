@@ -798,6 +798,29 @@ select {
 }
 .asset-send-btn:hover { opacity: 1; }
 
+/* Banking & Liabilities rows reuse .asset-row but have no quick-update/send
+   buttons, so they don't need the reserved right-hand padding. */
+#bankList .asset-row, #debtList .asset-row, #otherList .asset-row { padding-right: 14px; }
+
+.fin-subtabs {
+  display: flex; gap: 6px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+.fin-subtab-btn {
+  flex: 0 0 auto;
+  background: var(--ink-700);
+  border: 1px solid var(--ink-500);
+  color: var(--paper-dim);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fin-subtab-btn:hover { border-color: var(--amber-dim); }
+.fin-subtab-btn.active { background: var(--sage); border-color: var(--sage); color: var(--ink-900); font-weight: 600; }
+
 .fin-meta-section { margin-bottom: 16px; }
 .fin-meta-section h3 { font-family: var(--serif); font-size: 14px; color: var(--amber); margin: 0 0 8px; }
 .fin-meta-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }

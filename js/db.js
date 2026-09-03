@@ -10,6 +10,10 @@
    - "transactions": finance module records (income/expense/transfer).
      Wallet/category lists themselves live in localStorage (see finance.js)
      since they're small config lists, not growing record data.
+   - "bank_accounts" / "debts" / "other_info": Banking & Liabilities module
+     records (see banking.js). Every record is stored fully encrypted
+     (encIv/encData via DiaryCrypto), same mechanism as private diary
+     entries — there's no "public" variant of these, unlike transactions.
 
    Now that the app runs on a real https:// origin (GitHub Pages) instead
    of file://, IndexedDB is reliable again and gives us a much bigger
@@ -19,11 +23,14 @@
 
 const DiaryDB = (() => {
   const DB_NAME = "diary_db_v2";
-  const DB_VERSION = 3;
+  const DB_VERSION = 4;
   const ENTRIES_STORE = "entries";
   const ATTACH_STORE = "attachments";
   const TX_STORE = "transactions";
   const ASSET_STORE = "assets";
+  const BANK_STORE = "bank_accounts";
+  const DEBT_STORE = "debts";
+  const OTHER_STORE = "other_info";
   const OLD_LS_KEY = "diary_entries_v1";
 
   let dbPromise = null;
@@ -63,6 +70,21 @@ const DiaryDB = (() => {
         }
         if (!db.objectStoreNames.contains(ASSET_STORE)) {
           db.createObjectStore(ASSET_STORE, { keyPath: "id" });
+        }
+        // v4: Banking & Liabilities module (bank accounts, debts, other
+        // sensitive records like insurance/membership numbers). Every
+        // record here is stored fully encrypted (encIv/encData, same
+        // mechanism as private diary entries) — unlike transactions/assets,
+        // there's no "public" variant, so no extra index is needed beyond
+        // the id itself.
+        if (!db.objectStoreNames.contains(BANK_STORE)) {
+          db.createObjectStore(BANK_STORE, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(DEBT_STORE)) {
+          db.createObjectStore(DEBT_STORE, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(OTHER_STORE)) {
+          db.createObjectStore(OTHER_STORE, { keyPath: "id" });
         }
       };
       req.onblocked = () => {
@@ -267,11 +289,70 @@ const DiaryDB = (() => {
     });
   }
 
+  /* ---------- banking & liabilities (bank accounts / debts / other) ---------- */
+
+  async function putBankAccount(rec) {
+    const store = await storeTx(BANK_STORE, "readwrite");
+    await reqToPromise(store.put(rec));
+    return rec;
+  }
+  async function getAllBankAccounts() {
+    const store = await storeTx(BANK_STORE, "readonly");
+    return reqToPromise(store.getAll());
+  }
+  async function bulkPutBankAccounts(recs) {
+    const store = await storeTx(BANK_STORE, "readwrite");
+    return new Promise((resolve, reject) => {
+      recs.forEach((r) => store.put(r));
+      store.transaction.oncomplete = () => resolve(true);
+      store.transaction.onerror = () => reject(store.transaction.error);
+    });
+  }
+
+  async function putDebt(rec) {
+    const store = await storeTx(DEBT_STORE, "readwrite");
+    await reqToPromise(store.put(rec));
+    return rec;
+  }
+  async function getAllDebts() {
+    const store = await storeTx(DEBT_STORE, "readonly");
+    return reqToPromise(store.getAll());
+  }
+  async function bulkPutDebts(recs) {
+    const store = await storeTx(DEBT_STORE, "readwrite");
+    return new Promise((resolve, reject) => {
+      recs.forEach((r) => store.put(r));
+      store.transaction.oncomplete = () => resolve(true);
+      store.transaction.onerror = () => reject(store.transaction.error);
+    });
+  }
+
+  async function putOtherInfo(rec) {
+    const store = await storeTx(OTHER_STORE, "readwrite");
+    await reqToPromise(store.put(rec));
+    return rec;
+  }
+  async function getAllOtherInfo() {
+    const store = await storeTx(OTHER_STORE, "readonly");
+    return reqToPromise(store.getAll());
+  }
+  async function bulkPutOtherInfo(recs) {
+    const store = await storeTx(OTHER_STORE, "readwrite");
+    return new Promise((resolve, reject) => {
+      recs.forEach((r) => store.put(r));
+      store.transaction.oncomplete = () => resolve(true);
+      store.transaction.onerror = () => reject(store.transaction.error);
+    });
+  }
+
   return {
     put, remove, getAll, get, bulkPut,
     putAttachment, getAttachment, getAttachmentsByEntry, getAllAttachments, removeAttachment,
     putTransaction, removeTransaction, getAllTransactions, getTransaction, bulkPutTransactions,
     putAsset, getAllAssets, bulkPutAssets,
+    putBankAccount, getAllBankAccounts, bulkPutBankAccounts,
+    putDebt, getAllDebts, bulkPutDebts,
+    putOtherInfo, getAllOtherInfo, bulkPutOtherInfo,
     migrateIfNeeded,
   };
 })();

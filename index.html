@@ -595,6 +595,14 @@
           <button class="icon-btn" id="manageFinanceMetaBtn">หมวดหมู่/กระเป๋าเงิน</button>
         </div>
 
+        <div class="fin-subtabs">
+          <button type="button" class="fin-subtab-btn active" data-subtab="tx">รายรับ-รายจ่าย</button>
+          <button type="button" class="fin-subtab-btn" data-subtab="accounts">บัญชี</button>
+          <button type="button" class="fin-subtab-btn" data-subtab="debts">หนี้สิน</button>
+          <button type="button" class="fin-subtab-btn" data-subtab="other">อื่นๆ</button>
+        </div>
+
+      <div class="fin-panel" data-panel="tx">
         <div class="stats-cards">
           <div class="stats-card">
             <div class="stats-num" id="finIncomeThisMonth">฿0</div>
@@ -690,6 +698,86 @@
           </div>
         </div>
       </div>
+
+      <!-- Banking & Liabilities: bank accounts -->
+      <div class="fin-panel" data-panel="accounts" hidden>
+        <div class="stats-cards">
+          <div class="stats-card">
+            <div class="stats-num" id="finBankCount">0</div>
+            <div class="stats-label">บัญชีธนาคาร</div>
+          </div>
+        </div>
+        <div class="settings-group">
+          <div class="page-head" style="margin-bottom:10px;">
+            <h2 style="margin:0;">บัญชีธนาคาร</h2>
+            <button class="icon-btn" id="addBankBtn">+ เพิ่มบัญชี</button>
+          </div>
+          <div class="toolbar">
+            <div class="search-wrap">
+              <input type="search" id="bankSearchInput" placeholder="ค้นหาบัญชี เช่น ชื่อธนาคาร, 4 ตัวท้าย...">
+            </div>
+          </div>
+          <div id="bankList"></div>
+          <div class="empty-state" id="bankEmptyState" hidden>
+            <p class="empty-title">ยังไม่มีบัญชีธนาคาร</p>
+            <p class="empty-sub">แตะปุ่ม + เพิ่มบัญชี เพื่อเริ่มบันทึก</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Banking & Liabilities: debts -->
+      <div class="fin-panel" data-panel="debts" hidden>
+        <div class="stats-cards">
+          <div class="stats-card">
+            <div class="stats-num" id="finDebtCount">0</div>
+            <div class="stats-label">หนี้สิน</div>
+          </div>
+        </div>
+        <div class="settings-group">
+          <div class="page-head" style="margin-bottom:10px;">
+            <h2 style="margin:0;">หนี้สิน</h2>
+            <button class="icon-btn" id="addDebtBtn">+ เพิ่มหนี้สิน</button>
+          </div>
+          <div class="toolbar">
+            <div class="search-wrap">
+              <input type="search" id="debtSearchInput" placeholder="ค้นหาหนี้สิน เช่น ชื่อเจ้าหนี้...">
+            </div>
+          </div>
+          <div id="debtList"></div>
+          <div class="empty-state" id="debtEmptyState" hidden>
+            <p class="empty-title">ยังไม่มีรายการหนี้สิน</p>
+            <p class="empty-sub">แตะปุ่ม + เพิ่มหนี้สิน เพื่อเริ่มบันทึก</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Banking & Liabilities: other sensitive records -->
+      <div class="fin-panel" data-panel="other" hidden>
+        <div class="stats-cards">
+          <div class="stats-card">
+            <div class="stats-num" id="finOtherCount">0</div>
+            <div class="stats-label">ข้อมูลอื่น</div>
+          </div>
+        </div>
+        <div class="settings-group">
+          <div class="page-head" style="margin-bottom:10px;">
+            <h2 style="margin:0;">ข้อมูลอื่น</h2>
+            <button class="icon-btn" id="addOtherBtn">+ เพิ่มข้อมูล</button>
+          </div>
+          <p class="settings-note">เช่น ประกันชีวิต, บัตรเครดิต, บัญชีลงทุน, เลขสมาชิก, ทรัพย์สิน — ตั้งหมวดหมู่เองได้</p>
+          <div class="toolbar">
+            <div class="search-wrap">
+              <input type="search" id="otherSearchInput" placeholder="ค้นหา เช่น ประกัน, บัตร...">
+            </div>
+          </div>
+          <div id="otherList"></div>
+          <div class="empty-state" id="otherEmptyState" hidden>
+            <p class="empty-title">ยังไม่มีข้อมูล</p>
+            <p class="empty-sub">แตะปุ่ม + เพิ่มข้อมูล เพื่อเริ่มบันทึก</p>
+          </div>
+        </div>
+      </div><!-- /fin-panel other -->
+      </div><!-- /view-inner -->
     </section>
 
     <!-- CALENDAR PAGE -->
@@ -955,6 +1043,158 @@
       </div>
     </div>
 
+    <!-- Bank account form -->
+    <div class="modal" id="bankModal" hidden>
+      <div class="modal-card tx-card">
+        <h2 id="bankModalTitle">เพิ่มบัญชีธนาคาร</h2>
+        <input type="hidden" id="bankId">
+
+        <div class="field">
+          <label for="bankName">ธนาคาร</label>
+          <input type="text" id="bankName" placeholder="เช่น ธนาคารกสิกรไทย">
+        </div>
+        <div class="field">
+          <label for="bankAccountName">ชื่อบัญชี</label>
+          <input type="text" id="bankAccountName" placeholder="เช่น บัญชีออมทรัพย์">
+        </div>
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="bankAccountType">ประเภทบัญชี</label>
+            <input type="text" id="bankAccountType" placeholder="เช่น ออมทรัพย์">
+          </div>
+          <div class="field">
+            <label for="bankAccountNumber">เลขบัญชี</label>
+            <input type="text" id="bankAccountNumber" inputmode="numeric" placeholder="เช่น xxx-x-x1234-x">
+          </div>
+        </div>
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="bankOwnerName">ชื่อเจ้าของบัญชี</label>
+            <input type="text" id="bankOwnerName">
+          </div>
+          <div class="field">
+            <label for="bankBranch">สาขา</label>
+            <input type="text" id="bankBranch">
+          </div>
+        </div>
+        <div class="field">
+          <label for="bankNote">หมายเหตุ (ไม่บังคับ)</label>
+          <input type="text" id="bankNote" placeholder="เช่น บัญชีหลัก">
+        </div>
+        <p class="settings-note">🔒 ข้อมูลนี้เข้ารหัสด้วยรหัสผ่านของคุณเสมอ เหมือนบันทึกส่วนตัว</p>
+
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="text-btn danger" id="bankDeleteBtn" hidden>ลบ</button>
+          <div style="display:flex; gap:12px;">
+            <button class="text-btn" id="bankCancelBtn">ยกเลิก</button>
+            <button class="text-btn primary" id="bankSaveBtn">บันทึก</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Debt form -->
+    <div class="modal" id="debtModal" hidden>
+      <div class="modal-card tx-card">
+        <h2 id="debtModalTitle">เพิ่มหนี้สิน</h2>
+        <input type="hidden" id="debtId">
+
+        <div class="field">
+          <label for="debtName">ชื่อหนี้</label>
+          <input type="text" id="debtName" placeholder="เช่น สินเชื่อรถยนต์">
+        </div>
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="debtCreditor">เจ้าหนี้</label>
+            <input type="text" id="debtCreditor">
+          </div>
+          <div class="field">
+            <label for="debtContractNumber">เลขสัญญา</label>
+            <input type="text" id="debtContractNumber">
+          </div>
+        </div>
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="debtOriginalAmount">ยอดกู้</label>
+            <input type="number" id="debtOriginalAmount" inputmode="decimal" step="0.01" placeholder="0">
+          </div>
+          <div class="field">
+            <label for="debtRemainingAmount">ยอดคงเหลือ</label>
+            <input type="number" id="debtRemainingAmount" inputmode="decimal" step="0.01" placeholder="0">
+          </div>
+        </div>
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="debtInstallmentAmount">ค่างวด</label>
+            <input type="number" id="debtInstallmentAmount" inputmode="decimal" step="0.01" placeholder="0">
+          </div>
+          <div class="field">
+            <label for="debtDueDay">วันชำระ (วันที่)</label>
+            <input type="text" id="debtDueDay" placeholder="เช่น 10">
+          </div>
+        </div>
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="debtStartDate">เริ่มสัญญา</label>
+            <input type="date" id="debtStartDate">
+          </div>
+          <div class="field">
+            <label for="debtEndDate">สิ้นสุดสัญญา</label>
+            <input type="date" id="debtEndDate">
+          </div>
+        </div>
+        <div class="field">
+          <label for="debtNote">หมายเหตุ (ไม่บังคับ)</label>
+          <input type="text" id="debtNote">
+        </div>
+        <p class="settings-note">🔒 ข้อมูลนี้เข้ารหัสด้วยรหัสผ่านของคุณเสมอ เหมือนบันทึกส่วนตัว</p>
+
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="text-btn danger" id="debtDeleteBtn" hidden>ลบ</button>
+          <div style="display:flex; gap:12px;">
+            <button class="text-btn" id="debtCancelBtn">ยกเลิก</button>
+            <button class="text-btn primary" id="debtSaveBtn">บันทึก</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Other sensitive info form -->
+    <div class="modal" id="otherModal" hidden>
+      <div class="modal-card tx-card">
+        <h2 id="otherModalTitle">เพิ่มข้อมูลอื่น</h2>
+        <input type="hidden" id="otherId">
+
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="otherCategory">หมวดหมู่ (กำหนดเองได้)</label>
+            <input type="text" id="otherCategory" placeholder="เช่น ประกันชีวิต, บัตรเครดิต">
+          </div>
+          <div class="field">
+            <label for="otherTitle">หัวข้อ</label>
+            <input type="text" id="otherTitle">
+          </div>
+        </div>
+        <div class="field">
+          <label for="otherFieldsText">รายละเอียด (รูปแบบ: ชื่อฟิลด์: ค่า ต่อบรรทัด)</label>
+          <textarea id="otherFieldsText" rows="4" placeholder="เลขกรมธรรม์: xxxxxxx&#10;บริษัท: xxxxxxx&#10;วันครบกำหนด: 01/01/2027"></textarea>
+        </div>
+        <div class="field">
+          <label for="otherNote">หมายเหตุ (ไม่บังคับ)</label>
+          <input type="text" id="otherNote">
+        </div>
+        <p class="settings-note">🔒 ข้อมูลนี้เข้ารหัสด้วยรหัสผ่านของคุณเสมอ เหมือนบันทึกส่วนตัว</p>
+
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="text-btn danger" id="otherDeleteBtn" hidden>ลบ</button>
+          <div style="display:flex; gap:12px;">
+            <button class="text-btn" id="otherCancelBtn">ยกเลิก</button>
+            <button class="text-btn primary" id="otherSaveBtn">บันทึก</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <nav class="bottom-nav">
@@ -1044,6 +1284,7 @@
 <script src="js/exchange.js"></script>
 <script src="js/finance.js"></script>
 <script src="js/assets.js"></script>
+<script src="js/banking.js"></script>
 <script src="js/gallery.js"></script>
 <script src="js/telegram.js"></script>
 <script src="js/drive-config.js"></script>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "diary-shell-v40";
+const CACHE_NAME = "diary-shell-v41";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -11,6 +11,7 @@ const SHELL_FILES = [
   "./js/exchange.js",
   "./js/finance.js",
   "./js/assets.js",
+  "./js/banking.js",
   "./js/gallery.js",
   "./js/telegram.js",
   "./js/drive-config.js",
