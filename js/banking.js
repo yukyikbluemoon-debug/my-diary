@@ -10,13 +10,17 @@
    number, branch, owner name, note) stays encrypted. This is what lets the
    "การเงิน" transaction form offer "เงินสด / ธนาคาร X" as a money source
    without requiring an unlock every time someone logs an expense — see
-   getBankAccountLabels(), which Finance.getWallets() reads from directly.
-   Google Drive sync only ever sees the same shape (plaintext name fields +
-   an encrypted blob for the rest), same as it does today for private
-   diary entries. */
+   getBankAccountOptions(), which Finance.getWalletOptions() reads from
+   directly. Every transaction stores a STABLE KEY ("cash" or "bank:<id>"),
+   never a display label, so renaming a bank account or editing its last-4
+   digits can never desync it from transaction history — see finance.js for
+   the key scheme. Google Drive sync only ever sees the same shape
+   (plaintext name fields + an encrypted blob for the rest), same as it
+   does today for private diary entries. */
 
 const Banking = (() => {
-  let allBankAccounts = []; // {id, bankName, accountName, balance-less; decrypted fields added lazily on edit}
+  let allBankAccountsFull = []; // ALL bank records including soft-deleted, for label resolution by id
+  let allBankAccounts = []; // active only, for the accounts tab list + picker
   let allDebts = [];
   let allOtherInfo = [];
   let currentSubtab = "tx"; // "tx" | "accounts" | "debts" | "other"
@@ -32,12 +36,22 @@ const Banking = (() => {
     return a.accountLast4 ? `${a.bankName} (...${a.accountLast4})` : a.bankName;
   }
 
-  /** Plain, always-available (no unlock needed) list Finance.getWallets()
-   *  reads from. Refreshed whenever bank accounts are loaded/changed. */
-  function getBankAccountLabels() {
-    return allBankAccounts
-      .filter((a) => !a.deletedAt)
-      .map((a) => ({ id: a.id, label: bankLabel(a) }));
+  function bankKey(id) { return "bank:" + id; }
+
+  /** Options for the Finance module's money-source picker. Always
+   *  available without an unlock (bankName/accountLast4 are plaintext) —
+   *  only ACTIVE (non-deleted) accounts are offered here. */
+  function getBankAccountOptions() {
+    return allBankAccounts.map((a) => ({ key: bankKey(a.id), label: bankLabel(a) }));
+  }
+
+  /** Resolves a bank account's display label from its id alone, checking
+   *  soft-deleted records too — so old transactions that reference a since-
+   *  deleted account still show something meaningful instead of breaking. */
+  function resolveBankLabelById(id) {
+    const a = allBankAccountsFull.find((x) => x.id === id);
+    if (!a) return "(ไม่พบบัญชี)";
+    return a.deletedAt ? `${bankLabel(a)} (ลบแล้ว)` : bankLabel(a);
   }
 
   /* ---------------- generic encrypted-record helpers (debts / other) ---------------- */
@@ -120,7 +134,8 @@ const Banking = (() => {
   /** Bank accounts never need an unlock just to LIST them (name + computed
    *  balance are enough) — only editing reveals the encrypted fields. */
   async function loadBankAccounts() {
-    allBankAccounts = (await DiaryDB.getAllBankAccounts()).filter((a) => !a.deletedAt);
+    allBankAccountsFull = await DiaryDB.getAllBankAccounts();
+    allBankAccounts = allBankAccountsFull.filter((a) => !a.deletedAt);
     renderBankList();
     renderSummaryCounts();
   }
@@ -128,7 +143,7 @@ const Banking = (() => {
   function renderSummaryCounts() {
     if ($("finBankCount")) $("finBankCount").textContent = allBankAccounts.length;
     if ($("finBankTotalBalance") && typeof Finance !== "undefined") {
-      const total = getBankAccountLabels().reduce((sum, b) => sum + Finance.computeWalletBalance(b.label), 0);
+      const total = getBankAccountOptions().reduce((sum, o) => sum + Finance.computeWalletBalance(o.key), 0);
       $("finBankTotalBalance").textContent = Finance.formatMoney(total);
     }
     if ($("finDebtCount")) $("finDebtCount").textContent = allDebts.length;
@@ -148,7 +163,7 @@ const Banking = (() => {
     if ($("bankEmptyState")) $("bankEmptyState").hidden = items.length > 0 || !!q;
     items.slice().sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")).forEach((a) => {
       const label = bankLabel(a);
-      const bal = (typeof Finance !== "undefined") ? Finance.computeWalletBalance(label) : 0;
+      const bal = (typeof Finance !== "undefined") ? Finance.computeWalletBalance(bankKey(a.id)) : 0;
       const row = document.createElement("div");
       row.className = "asset-row";
       row.dataset.id = a.id;
@@ -215,8 +230,6 @@ const Banking = (() => {
     // source picker in "รายรับ-รายจ่าย" can tell same-bank accounts apart
     // without needing an unlock. The full number stays encrypted below.
     const accountLast4 = accountNumberRaw.replace(/\D/g, "").slice(-4) || "";
-    const oldLabel = existing ? bankLabel(existing) : null;
-    const newLabel = accountLast4 ? `${bankName} (...${accountLast4})` : bankName;
 
     const details = {
       accountType: $("bankAccountType").value.trim(),
@@ -239,10 +252,6 @@ const Banking = (() => {
       encData: enc.data,
     };
     await DiaryDB.putBankAccount(rec);
-
-    if (oldLabel && oldLabel !== newLabel && typeof Finance !== "undefined") {
-      await Finance.renameWallet(oldLabel, newLabel);
-    }
 
     closeBankModalVisual();
     popNavState();
@@ -281,7 +290,7 @@ const Banking = (() => {
     // wants a family member to know which accounts exist and roughly how
     // much is in them.
     const label = bankLabel(a);
-    const bal = (typeof Finance !== "undefined") ? Finance.computeWalletBalance(label) : 0;
+    const bal = (typeof Finance !== "undefined") ? Finance.computeWalletBalance(bankKey(a.id)) : 0;
     const lines = [`🏦 ${label}`, `ยอดคงเหลือ: ${Finance.formatMoney(bal)}`];
     try {
       await TelegramNotify.sendMessage(lines.join("\n"));
@@ -525,7 +534,7 @@ const Banking = (() => {
   }
 
   return {
-    init, render, showFinSubtab, getBankAccountLabels,
+    init, render, showFinSubtab, getBankAccountOptions, resolveBankLabelById,
     closeBankModalVisual, closeDebtModalVisual, closeOtherModalVisual,
   };
 })();

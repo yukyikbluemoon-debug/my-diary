@@ -259,7 +259,7 @@ const Assets = (() => {
       return;
     }
     const items = activeAssets().slice().sort((a, b) => assetValueTHB(b) - assetValueTHB(a));
-    const wallets = (typeof Finance !== "undefined") ? Finance.getWallets() : [];
+    const wallets = (typeof Finance !== "undefined") ? Finance.getWalletOptions() : [];
     if (items.length === 0 && wallets.length === 0) { showToast("ยังไม่มีข้อมูลให้ส่ง"); return; }
 
     const now = new Date();
@@ -269,10 +269,10 @@ const Assets = (() => {
     let walletTotal = 0;
     if (wallets.length > 0) {
       lines.push("💰 กระเป๋าเงิน");
-      wallets.forEach((w) => {
-        const bal = Finance.computeWalletBalance(w);
+      wallets.forEach((o) => {
+        const bal = Finance.computeWalletBalance(o.key);
         walletTotal += bal;
-        lines.push(`${w}: ${Finance.formatMoney(bal)}`);
+        lines.push(`${o.label}: ${Finance.formatMoney(bal)}`);
       });
       lines.push(`รวมกระเป๋าเงิน: ${Finance.formatMoney(walletTotal)}`);
     }

@@ -8,6 +8,7 @@
 const Finance = (() => {
   const CAT_KEY = "diary_fin_categories";
   const DEFAULT_CATEGORIES = ["เงินเดือน", "อาหาร", "เดินทาง", "บ้าน", "โทรศัพท์", "ของใช้", "ลงทุน", "หนี้", "สุขภาพ", "บันเทิง", "อื่นๆ"];
+  const CASH_KEY = "cash";
   const CASH_LABEL = "เงินสด";
 
   let allTx = []; // cached in-memory copy of ALL transactions (including soft-deleted), kept in sync with DiaryDB
@@ -34,31 +35,32 @@ const Finance = (() => {
     saveCategories(getCategories().filter((c) => c !== name));
   }
 
-  /* ---------- "wallets" = เงินสด + bank account labels from the Banking
-     module. There's no independent wallet list anymore — the Banking tab
-     (บัญชีธนาคาร) IS the wallet list now. getWallets() keeps returning a
-     flat array of plain strings so every existing computation, filter, and
-     display below (which all just compare wallet strings with ===)
-     continues to work unchanged. */
+  /* ---------- money sources ("wallets") ----------
+     A transaction's `wallet`/`toWallet` field stores a STABLE KEY, never a
+     display label:
+       - "cash"        → เงินสด
+       - "bank:<id>"    → a specific record in the Banking module's
+                          bank_accounts store, id = that record's id
+     Because the key is an id, renaming a bank account or changing its
+     last-4 digits never breaks the link to existing transaction history —
+     the display label is always resolved fresh, at render time, from
+     whatever the bank account currently looks like. This is the fix for
+     the "all balances went to 0" bug: the old design matched transactions
+     against bank accounts by comparing display TEXT, which silently broke
+     the moment that text changed for any reason. */
 
-  function getWallets() {
-    const bankLabels = (typeof Banking !== "undefined") ? Banking.getBankAccountLabels() : [];
-    return [CASH_LABEL, ...bankLabels.map((b) => b.label)];
+  function getWalletOptions() {
+    const bankOptions = (typeof Banking !== "undefined") ? Banking.getBankAccountOptions() : [];
+    return [{ key: CASH_KEY, label: CASH_LABEL }, ...bankOptions];
   }
 
-  // Called by Banking.saveBank() when a bank account's display label
-  // (bank name / account name) changes, so existing transaction history
-  // still points at the right label instead of silently orphaning.
-  async function renameWallet(oldName, newName) {
-    if (!newName || oldName === newName) return;
-    const changed = [];
-    allTx.forEach((t) => {
-      let touched = false;
-      if (t.wallet === oldName) { t.wallet = newName; touched = true; }
-      if (t.toWallet === oldName) { t.toWallet = newName; touched = true; }
-      if (touched) { t.updatedAt = new Date().toISOString(); changed.push(t); }
-    });
-    if (changed.length > 0) await DiaryDB.bulkPutTransactions(changed);
+  function walletLabel(key) {
+    if (!key || key === CASH_KEY) return CASH_LABEL;
+    if (key.indexOf("bank:") === 0) {
+      const id = key.slice(5);
+      return (typeof Banking !== "undefined") ? Banking.resolveBankLabelById(id) : "บัญชีธนาคาร";
+    }
+    return key; // legacy value from before this key scheme existed — show as-is rather than crash
   }
 
   /* ---------- formatting / calculation ---------- */
@@ -105,25 +107,25 @@ const Finance = (() => {
     return rows;
   }
 
-  function computeWalletBalance(wallet) {
+  function computeWalletBalance(walletKey) {
     let balance = 0;
     activeTx().forEach((t) => {
-      if (t.type === "income" && t.wallet === wallet) balance += t.amount;
-      else if (t.type === "expense" && t.wallet === wallet) balance -= t.amount;
+      if (t.type === "income" && t.wallet === walletKey) balance += t.amount;
+      else if (t.type === "expense" && t.wallet === walletKey) balance -= t.amount;
       else if (t.type === "transfer") {
-        if (t.wallet === wallet) balance -= t.amount;
-        if (t.toWallet === wallet) balance += t.amount;
+        if (t.wallet === walletKey) balance -= t.amount;
+        if (t.toWallet === walletKey) balance += t.amount;
       }
     });
     return balance;
   }
 
   function renderWalletBalances() {
-    const wallets = getWallets();
+    const options = getWalletOptions();
     const container = $("walletBalanceList");
-    container.innerHTML = wallets.map((w) => {
-      const bal = computeWalletBalance(w);
-      return `<div class="wallet-balance-row"><span>${escapeHTML(w)}</span><span class="wallet-balance-amount${bal < 0 ? " negative" : ""}">${formatMoney(bal)}</span></div>`;
+    container.innerHTML = options.map((o) => {
+      const bal = computeWalletBalance(o.key);
+      return `<div class="wallet-balance-row"><span>${escapeHTML(o.label)}</span><span class="wallet-balance-amount${bal < 0 ? " negative" : ""}">${formatMoney(bal)}</span></div>`;
     }).join("");
   }
 
@@ -137,7 +139,7 @@ const Finance = (() => {
 
     const walletSel = $("txFilterWallet");
     const currentWallet = walletSel.value;
-    walletSel.innerHTML = '<option value="">ทั้งหมด</option>' + getWallets().map((w) => `<option value="${escapeHTML(w)}">${escapeHTML(w)}</option>`).join("");
+    walletSel.innerHTML = '<option value="">ทั้งหมด</option>' + getWalletOptions().map((o) => `<option value="${escapeHTML(o.key)}">${escapeHTML(o.label)}</option>`).join("");
     walletSel.value = currentWallet;
   }
 
@@ -166,7 +168,7 @@ const Finance = (() => {
     const catSel = $("txCategory");
     const cats = getCategories();
     catSel.innerHTML = cats.map((c) => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join("");
-    const walletOpts = getWallets().map((w) => `<option value="${escapeHTML(w)}">${escapeHTML(w)}</option>`).join("");
+    const walletOpts = getWalletOptions().map((o) => `<option value="${escapeHTML(o.key)}">${escapeHTML(o.label)}</option>`).join("");
     $("txWallet").innerHTML = walletOpts;
     $("txToWallet").innerHTML = walletOpts;
   }
@@ -373,8 +375,8 @@ const Finance = (() => {
         ? `${sign}$${tx.originalAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })} (≈${formatMoney(tx.amount)})`
         : sign + formatMoney(tx.amount);
       const subParts = [formatDateHeading(tx.date)];
-      if (tx.type === "transfer") subParts.push(`${tx.wallet} → ${tx.toWallet}`);
-      else subParts.push(tx.category || "", tx.wallet || "");
+      if (tx.type === "transfer") subParts.push(`${walletLabel(tx.wallet)} → ${walletLabel(tx.toWallet)}`);
+      else subParts.push(tx.category || "", walletLabel(tx.wallet));
       if (tx.note) subParts.push(tx.note);
       row.innerHTML = `
         <span class="tx-item-icon">${txIcon(tx)}</span>
@@ -523,6 +525,6 @@ const Finance = (() => {
   return {
     init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, getTodaySummary,
     getTransactionDateSet, getTransactionsForDate, getTransactionById, formatMoney,
-    getWallets, computeWalletBalance, renameWallet,
+    getWalletOptions, walletLabel, computeWalletBalance,
   };
 })();

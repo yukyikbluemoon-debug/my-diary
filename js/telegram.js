@@ -148,14 +148,15 @@ const TelegramNotify = (() => {
   }
 
   function buildTxText(tx) {
+    const label = (typeof Finance !== "undefined") ? Finance.walletLabel : (k) => k;
     const typeLabel = tx.type === "income" ? "💰 รายรับ" : tx.type === "expense" ? "💸 รายจ่าย" : "🔁 โอนเงิน";
     const lines = [`${typeLabel} — ${tx.date}`, tx.title];
     if (tx.type === "transfer") {
-      lines.push(`${tx.wallet} → ${tx.toWallet}`);
+      lines.push(`${label(tx.wallet)} → ${label(tx.toWallet)}`);
       lines.push(formatMoneyPlain(tx.amount));
     } else {
       const sign = tx.type === "income" ? "+" : "-";
-      lines.push(`${sign}${formatMoneyPlain(tx.amount)} [${tx.wallet}]`);
+      lines.push(`${sign}${formatMoneyPlain(tx.amount)} [${label(tx.wallet)}]`);
       if (tx.category) lines.push("หมวด: " + tx.category);
     }
     if (tx.note) lines.push("หมายเหตุ: " + tx.note);
