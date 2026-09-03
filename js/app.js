@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.1.2";
+const APP_VERSION = "3.2.0";
 const APP_BUILD_DATE = "2026-09-03";
 
 const state = {
@@ -930,7 +930,8 @@ $("telegramResendAllBtn").addEventListener("click", async () => {
   try {
     for (const e of entries) {
       showToast(`กำลังส่ง ${sent + 1}/${total}...`);
-      await TelegramNotify.sendEntry(e, e);
+      const attachments = await loadAttachmentsForEntry(e);
+      await TelegramNotify.sendEntry(e, e, attachments);
       sent++;
       await new Promise((r) => setTimeout(r, 700)); // stay well under Telegram's rate limit
     }
@@ -1503,7 +1504,7 @@ $("saveEntryBtn").addEventListener("click", async () => {
     if (idx >= 0) state.entries[idx] = rec; else state.entries.push(rec);
 
     if (!existing && !isPrivate && typeof TelegramNotify !== "undefined") {
-      TelegramNotify.sendEntry(rec, rec); // fire-and-forget; never blocks the save, never sent if private
+      TelegramNotify.sendEntry(rec, rec, state.pendingAttachments); // fire-and-forget; never blocks the save, never sent if private
     }
 
     clearDraft();
@@ -1701,6 +1702,15 @@ $("shareEntryBtn").addEventListener("click", async () => {
   }
 });
 
+async function loadAttachmentsForEntry(rec) {
+  const result = [];
+  for (const ref of rec.attachmentRefs || []) {
+    const att = await DiaryDB.getAttachment(ref.id);
+    if (att && att.blob) result.push({ type: att.type, blob: att.blob });
+  }
+  return result;
+}
+
 $("telegramResendBtn").addEventListener("click", async () => {
   const rec = state.entries.find((e) => e.id === state.viewId);
   if (!rec || rec.private) return;
@@ -1710,7 +1720,8 @@ $("telegramResendBtn").addEventListener("click", async () => {
   }
   $("telegramResendBtn").disabled = true;
   try {
-    await TelegramNotify.sendEntry(rec, rec);
+    const attachments = await loadAttachmentsForEntry(rec);
+    await TelegramNotify.sendEntry(rec, rec, attachments);
     showToast("ส่งเข้า Telegram แล้ว");
   } finally {
     $("telegramResendBtn").disabled = false;

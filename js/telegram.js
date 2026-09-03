@@ -63,7 +63,65 @@ const TelegramNotify = (() => {
     return lines.join("\n");
   }
 
-  async function sendEntry(rec, data) {
+  async function sendPhotoBlob(blob, filename) {
+    const { token, chatId } = getConfig();
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    form.append("photo", blob, filename);
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: "POST", body: form });
+    if (!res.ok) {
+      let detail = "";
+      try { detail = (await res.json()).description || ""; } catch (e) {}
+      throw new Error(detail || `Telegram API error ${res.status}`);
+    }
+  }
+
+  async function sendDocumentBlob(blob, filename) {
+    const { token, chatId } = getConfig();
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    form.append("document", blob, filename);
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, { method: "POST", body: form });
+    if (!res.ok) {
+      let detail = "";
+      try { detail = (await res.json()).description || ""; } catch (e) {}
+      throw new Error(detail || `Telegram API error ${res.status}`);
+    }
+  }
+
+  function extFor(mimeType) {
+    if (!mimeType) return "bin";
+    const map = { "image/jpeg": "jpg", "image/png": "png", "audio/webm": "webm", "audio/mp4": "m4a", "video/webm": "webm", "video/mp4": "mp4" };
+    return map[mimeType] || mimeType.split("/")[1] || "bin";
+  }
+
+  // Photos/sketches go through sendPhoto (renders inline). Audio/video go
+  // through sendDocument rather than sendVoice/sendVideo — those enforce
+  // specific codecs (e.g. sendVoice wants OGG/OPUS) and our recordings
+  // don't reliably match, so sendDocument (which accepts anything) is the
+  // safe choice — still playable/downloadable on the receiving end.
+  async function sendAttachments(attachments) {
+    if (!attachments || attachments.length === 0) return;
+    for (const att of attachments) {
+      if (!att.blob) continue;
+      const filename = `${att.type}.${extFor(att.blob.type)}`;
+      try {
+        if (att.type === "image" || att.type === "sketch") {
+          await sendPhotoBlob(att.blob, filename);
+        } else {
+          await sendDocumentBlob(att.blob, filename);
+        }
+      } catch (err) {
+        console.error("Telegram attachment send failed:", err);
+        if (typeof showToast === "function") {
+          showToast("ส่งไฟล์แนบเข้า Telegram ไม่สำเร็จ: " + (err && err.message ? err.message : ""));
+        }
+      }
+      await new Promise((r) => setTimeout(r, 500)); // stay comfortably under Telegram's rate limit
+    }
+  }
+
+  async function sendEntry(rec, data, attachments) {
     if (rec.private) return; // hard rule — no exceptions, no config can override this
     if (!isConfigured()) return;
     try {
@@ -73,7 +131,9 @@ const TelegramNotify = (() => {
       if (typeof showToast === "function") {
         showToast("ส่งเข้า Telegram ไม่สำเร็จ: " + (err && err.message ? err.message : ""));
       }
+      return; // don't try attachments if the text itself failed to send
     }
+    await sendAttachments(attachments);
   }
 
   function isFinanceForwardingEnabled() {
@@ -116,6 +176,6 @@ const TelegramNotify = (() => {
 
   return {
     getConfig, setConfig, clearConfig, isConfigured, sendMessage, sendTestMessage, sendEntry,
-    sendTransaction, isFinanceForwardingEnabled, setFinanceForwardingEnabled,
+    sendTransaction, isFinanceForwardingEnabled, setFinanceForwardingEnabled, sendAttachments,
   };
 })();
