@@ -201,20 +201,26 @@ const Assets = (() => {
     showToast("อัปเดตมูลค่าแล้ว");
   }
 
-  function buildAssetText(a) {
+  function assetDetailLines(a, includeHeader) {
     const value = assetValueTHB(a);
     const cost = assetCostTHB(a);
     const gain = value - cost;
     const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
     const unitLabel = a.currency === "USD" ? `$${a.currentValuePerUnit}` : Finance.formatMoney(a.currentValuePerUnit);
+    const updatedLabel = formatFullThaiDate((a.updatedAt || a.createdAt).slice(0, 10));
     const lines = [
-      `📊 ทรัพย์สิน — ${a.name} (${a.type})`,
+      includeHeader ? `📊 ทรัพย์สิน — ${a.name} (${a.type})` : `${a.name} (${a.type})`,
       `${a.quantity} หน่วย @ ${unitLabel}`,
       `มูลค่า: ${Finance.formatMoney(value)}`,
       `${gain >= 0 ? "+" : ""}${Finance.formatMoney(gain)} (${gainPct >= 0 ? "+" : ""}${gainPct.toFixed(1)}%)`,
+      `อัปเดตราคาล่าสุด: ${updatedLabel}`,
     ];
     if (a.note) lines.push("หมายเหตุ: " + a.note);
-    return lines.join("\n");
+    return lines;
+  }
+
+  function buildAssetText(a) {
+    return assetDetailLines(a, true).join("\n");
   }
 
   async function sendAssetToTelegram(id) {
@@ -241,7 +247,9 @@ const Assets = (() => {
     const wallets = (typeof Finance !== "undefined") ? Finance.getWallets() : [];
     if (items.length === 0 && wallets.length === 0) { showToast("ยังไม่มีข้อมูลให้ส่ง"); return; }
 
-    const lines = ["📊 สรุปการเงินทั้งหมด", ""];
+    const now = new Date();
+    const nowLabel = `${formatFullThaiDate(todayISO())} ${now.toTimeString().slice(0, 5)} น.`;
+    const lines = [`📊 สรุปการเงินทั้งหมด — ${nowLabel}`, ""];
 
     let walletTotal = 0;
     if (wallets.length > 0) {
@@ -251,25 +259,25 @@ const Assets = (() => {
         walletTotal += bal;
         lines.push(`${w}: ${Finance.formatMoney(bal)}`);
       });
-      lines.push(`รวมกระเป๋าเงิน: ${Finance.formatMoney(walletTotal)}`, "");
+      lines.push(`รวมกระเป๋าเงิน: ${Finance.formatMoney(walletTotal)}`);
     }
 
     let assetTotal = 0, assetCost = 0;
     if (items.length > 0) {
-      lines.push("📈 ทรัพย์สิน");
+      lines.push("---------------", "📈 ทรัพย์สิน");
       items.forEach((a) => {
-        const value = assetValueTHB(a);
-        const cost = assetCostTHB(a);
-        assetTotal += value;
-        assetCost += cost;
-        const gain = value - cost;
-        lines.push(`${a.name} (${a.type}): ${Finance.formatMoney(value)} (${gain >= 0 ? "+" : ""}${Finance.formatMoney(gain)})`);
+        assetTotal += assetValueTHB(a);
+        assetCost += assetCostTHB(a);
+        lines.push(...assetDetailLines(a, false), "");
       });
       const assetGain = assetTotal - assetCost;
-      lines.push(`รวมทรัพย์สิน: ${Finance.formatMoney(assetTotal)} (${assetGain >= 0 ? "+" : ""}${Finance.formatMoney(assetGain)})`, "");
+      lines.push(`รวมทรัพย์สิน: ${Finance.formatMoney(assetTotal)} (${assetGain >= 0 ? "+" : ""}${Finance.formatMoney(assetGain)})`);
     }
 
-    lines.push(`💵 มูลค่าสุทธิรวมทั้งหมด: ${Finance.formatMoney(walletTotal + assetTotal)}`);
+    lines.push("---------------", `💵 มูลค่าสุทธิรวมทั้งหมด: ${Finance.formatMoney(walletTotal + assetTotal)}`);
+    if (items.length > 0) {
+      lines.push("", "ℹ️ ราคาหุ้น/ETF เป็นค่าที่อัปเดตด้วยมือเป็นระยะ ไม่ใช่ราคาตลาดเรียลไทม์");
+    }
 
     $("sendPortfolioBtn").disabled = true;
     try {
