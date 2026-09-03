@@ -513,6 +513,54 @@ button, input, textarea, select {
   cursor: pointer;
 }
 .date-picker-btn:hover { border-color: var(--amber); }
+
+.wallet-picker-btn {
+  width: 100%;
+  text-align: left;
+  background: var(--ink-700);
+  border: 1px solid var(--ink-500);
+  border-radius: var(--radius-s);
+  padding: 8px 12px;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 42px;
+  justify-content: center;
+}
+.wallet-picker-btn:hover { border-color: var(--amber); }
+.wallet-picker-btn .wpb-line2 { font-size: 12px; color: var(--paper-dim); }
+
+.wallet-picker-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  margin-top: 10px;
+  border: 1px solid var(--ink-600);
+  border-radius: var(--radius-s);
+}
+.wallet-picker-row {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--ink-700);
+}
+.wallet-picker-row:last-child { border-bottom: none; }
+.wallet-picker-row:hover, .wallet-picker-row:active { background: var(--ink-700); }
+.wallet-picker-row.selected { background: var(--ink-700); border-left: 3px solid var(--sage); }
+.wallet-picker-row-line1 { font-size: 14.5px; }
+.wallet-picker-row-line2 { font-size: 12px; color: var(--paper-dim); margin-top: 2px; }
+.wallet-picker-empty { padding: 16px 12px; text-align: center; color: var(--paper-dim); font-size: 13px; }
+#walletPickerSearch {
+  width: 100%;
+  background: var(--ink-700);
+  color: var(--paper);
+  border: 1px solid var(--ink-500);
+  border-radius: var(--radius-s);
+  padding: 10px 12px;
+  font-size: 15px;
+}
+#walletPickerSearch:focus { outline: 2px solid var(--amber); outline-offset: 1px; }
+
 .field input[type="text"],
 .field input[type="date"],
 .field input[type="time"],

@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.7.1";
+const APP_VERSION = "3.9.0";
 const APP_BUILD_DATE = "2026-09-04";
 
 const state = {
@@ -137,6 +137,7 @@ function closeCurrentLayer() {
   if (!$("setPwModal").hidden) { closeSetPwModalVisual(); return; }
   if (!$("unlockModal").hidden) { closeUnlockModalVisual(false); return; }
   if (!$("txModal").hidden && typeof Finance !== "undefined") { Finance.closeTxModalVisual(); return; }
+  if (!$("walletPickerModal").hidden && typeof Finance !== "undefined") { Finance.closeWalletPickerModalVisual(); return; }
   if (!$("finMetaModal").hidden && typeof Finance !== "undefined") { Finance.closeFinMetaModalVisual(); return; }
   if (!$("eventCatMetaModal").hidden) { closeEventCatMetaModalVisual(); return; }
   if (!$("assetModal").hidden && typeof Assets !== "undefined") { Assets.closeAssetModalVisual(); return; }
@@ -1997,8 +1998,15 @@ $("backupBtn").addEventListener("click", async () => {
     }
     entries.push(copy);
   }
+  // Finance/Banking data never needs decrypting for a backup file — for
+  // private diary entries and everything from the Banking module, the raw
+  // encIv/encData fields are copied through as-is, same as they already
+  // are inside the app's own IndexedDB. This was previously diary-only;
+  // Google Drive sync was the only backup that covered transactions,
+  // assets, and Banking data, so a Drive outage meant no fallback at all
+  // for that data.
   const backup = {
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     settings: hasPw ? {
       salt: localStorage.getItem("diary_pw_salt"),
@@ -2006,6 +2014,11 @@ $("backupBtn").addEventListener("click", async () => {
       verifier: localStorage.getItem("diary_pw_verifier"),
     } : null,
     entries,
+    transactions: await DiaryDB.getAllTransactions(),
+    assets: await DiaryDB.getAllAssets(),
+    bankAccounts: await DiaryDB.getAllBankAccounts(),
+    debts: await DiaryDB.getAllDebts(),
+    otherInfo: await DiaryDB.getAllOtherInfo(),
   };
   const stamp = todayISO().replace(/-/g, "");
   downloadJSON(backup, `diary-backup-${stamp}.json`);
@@ -2041,8 +2054,38 @@ $("restoreFile").addEventListener("change", async (e) => {
       await DiaryDB.put(rec);
     }
     state.entries = await DiaryDB.getAll();
+
+    // Older backup files (version 2 and before) simply won't have these
+    // fields — Array.isArray guards each one so restoring an old file
+    // still works, it just won't bring back finance/banking data that was
+    // never in it to begin with.
+    let restoredCount = backup.entries.length;
+    if (Array.isArray(backup.transactions) && backup.transactions.length) {
+      await DiaryDB.bulkPutTransactions(backup.transactions);
+      restoredCount += backup.transactions.length;
+    }
+    if (Array.isArray(backup.assets) && backup.assets.length) {
+      await DiaryDB.bulkPutAssets(backup.assets);
+      restoredCount += backup.assets.length;
+    }
+    if (Array.isArray(backup.bankAccounts) && backup.bankAccounts.length) {
+      await DiaryDB.bulkPutBankAccounts(backup.bankAccounts);
+      restoredCount += backup.bankAccounts.length;
+    }
+    if (Array.isArray(backup.debts) && backup.debts.length) {
+      await DiaryDB.bulkPutDebts(backup.debts);
+      restoredCount += backup.debts.length;
+    }
+    if (Array.isArray(backup.otherInfo) && backup.otherInfo.length) {
+      await DiaryDB.bulkPutOtherInfo(backup.otherInfo);
+      restoredCount += backup.otherInfo.length;
+    }
+
     renderHome();
-    showToast(`กู้คืนข้อมูลแล้ว (${backup.entries.length} รายการ)`);
+    if (typeof Finance !== "undefined") await Finance.render();
+    if (typeof Banking !== "undefined") await Banking.render();
+    if (typeof Assets !== "undefined") await Assets.render();
+    showToast(`กู้คืนข้อมูลแล้ว (${restoredCount} รายการ)`);
   } catch (err) {
     console.error(err);
     showToast("ไฟล์ไม่ถูกต้อง กู้คืนไม่สำเร็จ");

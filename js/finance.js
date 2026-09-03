@@ -163,14 +163,53 @@ const Finance = (() => {
   /* ---------- transaction form ---------- */
 
   let txType = "expense";
+  let walletPickerTarget = null; // "txWallet" | "txToWallet" — which field the open picker is filling in
+
+  function getWalletPickerRows() {
+    const bankRows = (typeof Banking !== "undefined") ? Banking.getBankAccountPickerRows() : [];
+    return [{ key: CASH_KEY, line1: CASH_LABEL, line2: "" }, ...bankRows];
+  }
+
+  function setWalletFieldValue(fieldId, key) {
+    $(fieldId).value = key;
+    const btn = $(fieldId + "Btn");
+    const row = getWalletPickerRows().find((r) => r.key === key);
+    if (!btn) return;
+    if (!row) { btn.innerHTML = "<span>เลือกแหล่งเงิน</span>"; return; }
+    btn.innerHTML = row.line2
+      ? `<span>${escapeHTML(row.line1)}</span><span class="wpb-line2">${escapeHTML(row.line2)}</span>`
+      : `<span>${escapeHTML(row.line1)}</span>`;
+  }
+
+  function renderWalletPickerList(query) {
+    const q = (query || "").trim().toLowerCase();
+    const rows = getWalletPickerRows().filter((r) => !q || (r.line1 + " " + r.line2).toLowerCase().includes(q));
+    const currentKey = walletPickerTarget ? $(walletPickerTarget).value : "";
+    const list = $("walletPickerList");
+    if (rows.length === 0) { list.innerHTML = '<div class="wallet-picker-empty">ไม่พบรายการที่ตรงกับการค้นหา</div>'; return; }
+    list.innerHTML = rows.map((r) => `
+      <div class="wallet-picker-row${r.key === currentKey ? " selected" : ""}" data-key="${escapeHTML(r.key)}">
+        <div class="wallet-picker-row-line1">${escapeHTML(r.line1)}</div>
+        ${r.line2 ? `<div class="wallet-picker-row-line2">${escapeHTML(r.line2)}</div>` : ""}
+      </div>`).join("");
+  }
+
+  function openWalletPicker(fieldId) {
+    walletPickerTarget = fieldId;
+    $("walletPickerSearch").value = "";
+    renderWalletPickerList("");
+    $("walletPickerModal").hidden = false;
+    pushNavState("walletpicker");
+  }
+  function closeWalletPickerModalVisual() { $("walletPickerModal").hidden = true; }
+  function closeWalletPickerModal() { closeWalletPickerModalVisual(); popNavState(); }
 
   function populateSelects() {
     const catSel = $("txCategory");
     const cats = getCategories();
     catSel.innerHTML = cats.map((c) => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join("");
-    const walletOpts = getWalletOptions().map((o) => `<option value="${escapeHTML(o.key)}">${escapeHTML(o.label)}</option>`).join("");
-    $("txWallet").innerHTML = walletOpts;
-    $("txToWallet").innerHTML = walletOpts;
+    setWalletFieldValue("txWallet", CASH_KEY);
+    setWalletFieldValue("txToWallet", CASH_KEY);
   }
 
   function setTxType(type) {
@@ -239,8 +278,8 @@ const Finance = (() => {
     setTxDate(tx.date);
     $("txTitle").value = tx.title || "";
     $("txCategory").value = tx.category || "";
-    $("txWallet").value = tx.wallet || "";
-    if (tx.type === "transfer") $("txToWallet").value = tx.toWallet || "";
+    setWalletFieldValue("txWallet", tx.wallet || CASH_KEY);
+    if (tx.type === "transfer") setWalletFieldValue("txToWallet", tx.toWallet || CASH_KEY);
     if (tx.currency === "USD") {
       $("txExchangeRate").value = tx.exchangeRate || "";
       $("txAmount").value = tx.originalAmount != null ? tx.originalAmount : tx.amount;
@@ -478,6 +517,18 @@ const Finance = (() => {
       if (row) openEditTx(row.dataset.id);
     });
 
+    $("txWalletBtn").addEventListener("click", () => openWalletPicker("txWallet"));
+    $("txToWalletBtn").addEventListener("click", () => openWalletPicker("txToWallet"));
+    $("walletPickerCancelBtn").addEventListener("click", closeWalletPickerModal);
+    $("walletPickerSearch").addEventListener("input", (e) => renderWalletPickerList(e.target.value));
+    $("walletPickerList").addEventListener("click", (e) => {
+      const row = e.target.closest(".wallet-picker-row");
+      if (!row || !walletPickerTarget) return;
+      setWalletFieldValue(walletPickerTarget, row.dataset.key);
+      closeWalletPickerModalVisual();
+      popNavState();
+    });
+
     $("manageFinanceMetaBtn").addEventListener("click", openMetaModal);
     $("finMetaCloseBtn").addEventListener("click", closeFinMetaModal);
     $("addCategoryBtn").addEventListener("click", () => {
@@ -523,7 +574,7 @@ const Finance = (() => {
   }
 
   return {
-    init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, getTodaySummary,
+    init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, closeWalletPickerModalVisual, getTodaySummary,
     getTransactionDateSet, getTransactionsForDate, getTransactionById, formatMoney,
     getWalletOptions, walletLabel, computeWalletBalance,
   };

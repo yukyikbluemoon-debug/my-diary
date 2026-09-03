@@ -716,7 +716,7 @@
             <h2 style="margin:0;">บัญชีธนาคาร</h2>
             <button class="icon-btn" id="addBankBtn">+ เพิ่มบัญชี</button>
           </div>
-          <p class="settings-note">บัญชีที่เพิ่มไว้ที่นี่จะเป็นตัวเลือก "แหล่งเงิน" ในหน้ารายรับ-รายจ่ายด้วย ยอดคงเหลือคำนวณจากธุรกรรมที่เลือกบัญชีนั้นโดยอัตโนมัติ ไม่ต้องปลดล็อกเพื่อดูรายชื่อ/ยอด แต่ต้องปลดล็อกเพื่อดูเลขบัญชี/สาขา</p>
+          <p class="settings-note">บัญชีที่เพิ่มไว้ที่นี่จะเป็นตัวเลือก "แหล่งเงิน" ในหน้ารายรับ-รายจ่ายด้วย ยอดคงเหลือคำนวณจากธุรกรรมที่เลือกบัญชีนั้นโดยอัตโนมัติ ไม่ต้องปลดล็อกเพื่อดูรายชื่อ/ยอด/เลขบัญชี/เจ้าของบัญชี (ใช้เลือกตอนบันทึกธุรกรรมได้เลย) แต่ต้องปลดล็อกเพื่อดูประเภทบัญชี/สาขา/หมายเหตุ</p>
           <div class="toolbar">
             <div class="search-wrap">
               <input type="search" id="bankSearchInput" placeholder="ค้นหาบัญชี เช่น ชื่อธนาคาร...">
@@ -838,12 +838,14 @@
 
         <div class="field-row two-col">
           <div class="field">
-            <label for="txWallet" id="txWalletLabel">แหล่งเงิน</label>
-            <select id="txWallet"></select>
+            <label for="txWalletBtn" id="txWalletLabel">แหล่งเงิน</label>
+            <button type="button" class="wallet-picker-btn" id="txWalletBtn"></button>
+            <input type="hidden" id="txWallet">
           </div>
           <div class="field" id="txToWalletField" hidden>
-            <label for="txToWallet">ไปยัง</label>
-            <select id="txToWallet"></select>
+            <label for="txToWalletBtn">ไปยัง</label>
+            <button type="button" class="wallet-picker-btn" id="txToWalletBtn"></button>
+            <input type="hidden" id="txToWallet">
           </div>
         </div>
 
@@ -884,6 +886,21 @@
     </div>
 
     <!-- Category / wallet manager -->
+    <!-- Money-source picker: custom 2-line list (native <select> can't do
+         multi-line/small-font options), used for the "แหล่งเงิน" fields in
+         the transaction form. Search box included since accounts can run
+         into the dozens. -->
+    <div class="modal" id="walletPickerModal" hidden>
+      <div class="modal-card">
+        <h2>เลือกแหล่งเงิน</h2>
+        <input type="search" id="walletPickerSearch" placeholder="ค้นหา เช่น ชื่อธนาคาร, เลขบัญชี...">
+        <div class="wallet-picker-list" id="walletPickerList"></div>
+        <div class="modal-actions">
+          <button class="text-btn" id="walletPickerCancelBtn">ปิด</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal" id="finMetaModal" hidden>
       <div class="modal-card">
         <h2>หมวดหมู่</h2>
@@ -1052,7 +1069,7 @@
           <label for="bankNote">หมายเหตุ (ไม่บังคับ)</label>
           <input type="text" id="bankNote" placeholder="เช่น บัญชีหลัก">
         </div>
-        <p class="settings-note">🔒 ชื่อธนาคารและเลข 4 ตัวท้ายของบัญชีไม่เข้ารหัส (ใช้แยกบัญชีในหน้ารายรับ-รายจ่ายได้โดยไม่ต้องปลดล็อก) ส่วนเลขบัญชีเต็ม/สาขา/เจ้าของบัญชี/หมายเหตุเข้ารหัสไว้เสมอ — ยอดคงเหลือคำนวณจากธุรกรรมที่เลือกบัญชีนี้โดยอัตโนมัติ</p>
+        <p class="settings-note">⚠️ ชื่อธนาคาร เลขบัญชีเต็ม และชื่อเจ้าของบัญชี ไม่เข้ารหัส (ใช้เลือกตอนบันทึกรายรับ-รายจ่ายได้โดยไม่ต้องปลดล็อก — ใครก็ตามที่เปิดแอปได้จะเห็นข้อมูลนี้) ส่วนประเภทบัญชี/สาขา/หมายเหตุยังเข้ารหัสอยู่ — ยอดคงเหลือคำนวณจากธุรกรรมที่เลือกบัญชีนี้โดยอัตโนมัติ</p>
 
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="text-btn danger" id="bankDeleteBtn" hidden>ลบ</button>

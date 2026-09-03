@@ -5,18 +5,20 @@
    mechanism as private diary entries (DiaryCrypto.encryptJSON/decryptJSON)
    — nothing about them is readable without unlocking first.
 
-   Bank accounts are a deliberate exception: bankName and accountName are
-   kept as PLAINTEXT fields on the record, while everything else (account
-   number, branch, owner name, note) stays encrypted. This is what lets the
-   "การเงิน" transaction form offer "เงินสด / ธนาคาร X" as a money source
-   without requiring an unlock every time someone logs an expense — see
-   getBankAccountOptions(), which Finance.getWalletOptions() reads from
-   directly. Every transaction stores a STABLE KEY ("cash" or "bank:<id>"),
-   never a display label, so renaming a bank account or editing its last-4
-   digits can never desync it from transaction history — see finance.js for
-   the key scheme. Google Drive sync only ever sees the same shape
-   (plaintext name fields + an encrypted blob for the rest), same as it
-   does today for private diary entries. */
+   Bank accounts are a deliberate exception: bankName, accountName,
+   accountNumber, and ownerName are kept as PLAINTEXT fields on the record
+   (by explicit request — visible to anyone with the device unlocked at the
+   OS level, no in-app unlock needed). Only accountType, branch, and note
+   stay encrypted. This is what lets the "การเงิน" transaction form offer a
+   full "เงินสด / ธนาคาร X เลขบัญชี..." picker without requiring an app
+   unlock every time someone logs an expense — see getBankAccountPickerRows(),
+   which the transaction form's custom picker reads from directly. Every
+   transaction stores a STABLE KEY ("cash" or "bank:<id>"), never a display
+   label, so renaming a bank account or editing its account number can
+   never desync it from transaction history — see finance.js for the key
+   scheme. Google Drive sync only ever sees the same shape (plaintext
+   fields + an encrypted blob for the rest), same as it does today for
+   private diary entries. */
 
 const Banking = (() => {
   let allBankAccountsFull = []; // ALL bank records including soft-deleted, for label resolution by id
@@ -203,8 +205,8 @@ const Banking = (() => {
     $("bankName").value = a.bankName || "";
     $("bankAccountName").value = a.accountName || "";
     $("bankAccountType").value = details.accountType || "";
-    $("bankAccountNumber").value = details.accountNumber || "";
-    $("bankOwnerName").value = details.ownerName || "";
+    $("bankAccountNumber").value = a.accountNumber || "";
+    $("bankOwnerName").value = a.ownerName || "";
     $("bankBranch").value = details.branch || "";
     $("bankNote").value = details.note || "";
     $("bankModalTitle").textContent = "แก้ไขบัญชีธนาคาร";
@@ -225,16 +227,16 @@ const Banking = (() => {
     const id = $("bankId").value;
     const existing = id ? allBankAccounts.find((x) => x.id === id) : null;
     const accountName = $("bankAccountName").value.trim();
-    const accountNumberRaw = $("bankAccountNumber").value.trim();
-    // Only the last 4 digits are kept as plaintext, purely so the money-
-    // source picker in "รายรับ-รายจ่าย" can tell same-bank accounts apart
-    // without needing an unlock. The full number stays encrypted below.
-    const accountLast4 = accountNumberRaw.replace(/\D/g, "").slice(-4) || "";
+    const accountNumber = $("bankAccountNumber").value.trim();
+    const ownerName = $("bankOwnerName").value.trim();
+    // accountNumber and ownerName are kept as PLAINTEXT (by explicit
+    // request) so the "แหล่งเงิน" picker in รายรับ-รายจ่าย can show them
+    // without an unlock — anyone with the device open can see these two
+    // fields. accountType/branch/note stay encrypted below.
+    const accountLast4 = accountNumber.replace(/\D/g, "").slice(-4) || "";
 
     const details = {
       accountType: $("bankAccountType").value.trim(),
-      accountNumber: accountNumberRaw,
-      ownerName: $("bankOwnerName").value.trim(),
       branch: $("bankBranch").value.trim(),
       note: $("bankNote").value.trim(),
     };
@@ -244,6 +246,8 @@ const Banking = (() => {
       kind: "bank",
       bankName,
       accountName,
+      accountNumber,
+      ownerName,
       accountLast4,
       deletedAt: null,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
@@ -263,7 +267,11 @@ const Banking = (() => {
   async function deleteBank() {
     const id = $("bankId").value;
     if (!id) return;
-    if (!confirm("ลบบัญชีธนาคารนี้หรือไม่? (ประวัติธุรกรรมเดิมที่ผูกกับบัญชีนี้จะยังอยู่ แต่จะไม่มีให้เลือกอีกในธุรกรรมใหม่)")) return;
+    const bal = (typeof Finance !== "undefined") ? Finance.computeWalletBalance(bankKey(id)) : 0;
+    const balWarning = bal !== 0
+      ? `\n\n⚠️ บัญชีนี้ยังมียอดคงเหลือ ${Finance.formatMoney(bal)} อยู่ — แน่ใจนะ?`
+      : "";
+    if (!confirm(`ลบบัญชีธนาคารนี้หรือไม่? (ประวัติธุรกรรมเดิมที่ผูกกับบัญชีนี้จะยังอยู่ แต่จะไม่มีให้เลือกอีกในธุรกรรมใหม่)${balWarning}`)) return;
     const raw = (await DiaryDB.getAllBankAccounts()).find((x) => x.id === id);
     if (!raw) return;
     raw.deletedAt = new Date().toISOString();
@@ -300,16 +308,44 @@ const Banking = (() => {
     }
   }
 
-  /** Decrypts and returns one bank account's sensitive fields by id, for
-   *  the rare places that deliberately need the full account number (e.g.
-   *  the "send full summary" Telegram button, when the user explicitly
-   *  wants it for a real bank transfer). Requires an unlock — returns null
-   *  if that's not possible or the record can't be found/decrypted. */
+  /** Sync lookup by id (including soft-deleted), for places that just need
+   *  the plaintext fields (accountNumber, ownerName, bankName) without a
+   *  decrypt round-trip. */
+  function findBankAccountById(id) {
+    return allBankAccountsFull.find((x) => x.id === id) || null;
+  }
+
+  /** Rows for the custom 2-line "แหล่งเงิน" picker in the transaction form:
+   *  line1 = bank + owner name, line2 = full account number. Both are
+   *  plaintext fields, so this needs no unlock. */
+  function getBankAccountPickerRows() {
+    return allBankAccounts.map((a) => ({
+      key: bankKey(a.id),
+      line1: [a.bankName, a.ownerName].filter(Boolean).join("  "),
+      line2: a.accountNumber || "",
+    }));
+  }
+
+  /** Decrypts and returns one bank account's remaining sensitive fields by
+   *  id (accountType/branch/note), merged with its plaintext accountNumber/
+   *  ownerName — for the rare places that deliberately want the fuller
+   *  picture (e.g. the "send full summary" Telegram button). Requires an
+   *  unlock — returns null if that's not possible or decryption fails. */
   async function getFullDetails(id) {
     const a = allBankAccountsFull.find((x) => x.id === id);
     if (!a) return null;
-    try { return await DiaryCrypto.decryptJSON({ iv: a.encIv, data: a.encData }); }
-    catch (e) { return null; }
+    try {
+      const encrypted = await DiaryCrypto.decryptJSON({ iv: a.encIv, data: a.encData });
+      return { accountNumber: a.accountNumber, ownerName: a.ownerName, ...encrypted };
+    } catch (e) { return null; }
+  }
+
+  /** Decrypted list of every active debt — used by the full portfolio
+   *  summary send. Independent of whatever sub-tab the user has actually
+   *  visited this session. */
+  async function getDecryptedDebtsList() {
+    const raw = await DiaryDB.getAllDebts();
+    return decryptAll(raw);
   }
 
   /* ---------------- debts ---------------- */
@@ -546,7 +582,9 @@ const Banking = (() => {
   }
 
   return {
-    init, render, showFinSubtab, getBankAccountOptions, resolveBankLabelById, getFullDetails,
+    init, render, showFinSubtab,
+    getBankAccountOptions, resolveBankLabelById, findBankAccountById,
+    getBankAccountPickerRows, getFullDetails, getDecryptedDebtsList,
     closeBankModalVisual, closeDebtModalVisual, closeOtherModalVisual,
   };
 })();

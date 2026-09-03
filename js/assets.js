@@ -260,19 +260,23 @@ const Assets = (() => {
     }
     const items = activeAssets().slice().sort((a, b) => assetValueTHB(b) - assetValueTHB(a));
     const wallets = (typeof Finance !== "undefined") ? Finance.getWalletOptions() : [];
-    if (items.length === 0 && wallets.length === 0) { showToast("ยังไม่มีข้อมูลให้ส่ง"); return; }
 
-    // This summary includes full account numbers for bank wallets (by
-    // request — so the number is on hand when a bank employee asks for it
-    // during a real transfer), so it needs an unlock every time, even
-    // though the individual wallet-balance list elsewhere in the app does
-    // not.
-    const hasBankWallet = wallets.some((o) => o.key.indexOf("bank:") === 0);
-    if (hasBankWallet) {
-      if (!DiaryCrypto.hasPassword()) { showToast("กรุณาตั้งรหัสผ่านก่อน"); openSetPwModal("create"); return; }
-      const ok = await ensureUnlocked("เพื่อส่งสรุปพร้อมเลขบัญชีเต็ม");
-      if (!ok) return;
+    // Bank account numbers/owner names are plaintext now, no unlock needed
+    // for those. Debts are still fully encrypted though, so only gate on
+    // unlock when there's actually a debt to include.
+    let debts = [];
+    if (typeof Banking !== "undefined") {
+      const rawDebts = await DiaryDB.getAllDebts();
+      const hasDebts = rawDebts.some((d) => !d.deletedAt);
+      if (hasDebts) {
+        if (!DiaryCrypto.hasPassword()) { showToast("กรุณาตั้งรหัสผ่านก่อน"); openSetPwModal("create"); return; }
+        const ok = await ensureUnlocked("เพื่อรวมข้อมูลหนี้สินในสรุป");
+        if (!ok) return;
+        debts = await Banking.getDecryptedDebtsList();
+      }
     }
+
+    if (items.length === 0 && wallets.length === 0 && debts.length === 0) { showToast("ยังไม่มีข้อมูลให้ส่ง"); return; }
 
     const now = new Date();
     const nowLabel = `${formatFullThaiDate(todayISO())} ${now.toTimeString().slice(0, 5)} น.`;
@@ -281,21 +285,32 @@ const Assets = (() => {
     let walletTotal = 0;
     if (wallets.length > 0) {
       lines.push("💰 กระเป๋าเงิน");
-      for (const o of wallets) {
+      wallets.forEach((o) => {
         const bal = Finance.computeWalletBalance(o.key);
         walletTotal += bal;
         lines.push(`${o.label}: ${Finance.formatMoney(bal)}`);
         // Deliberate exception to "encrypted data never leaves the
-        // device" — only in this explicit full-summary send, and only
-        // the account number + owner name (not branch/note).
+        // device" — the account number + owner name (not branch/note).
         if (o.key.indexOf("bank:") === 0 && typeof Banking !== "undefined") {
-          const details = await Banking.getFullDetails(o.key.slice(5));
-          if (details && details.accountNumber) lines.push(`  เลขบัญชี: ${details.accountNumber}`);
-          if (details && details.ownerName) lines.push(`  ชื่อบัญชี: ${details.ownerName}`);
+          const acc = Banking.findBankAccountById(o.key.slice(5));
+          if (acc && acc.accountNumber) lines.push(`  เลขบัญชี: ${acc.accountNumber}`);
+          if (acc && acc.ownerName) lines.push(`  ชื่อบัญชี: ${acc.ownerName}`);
         }
         lines.push(""); // blank line between each account — with 20+ accounts, no gap makes them run together
-      }
+      });
       lines.push(`รวมกระเป๋าเงิน: ${Finance.formatMoney(walletTotal)}`);
+    }
+
+    if (debts.length > 0) {
+      lines.push("---------------", "💳 หนี้สิน");
+      debts.forEach((d) => {
+        lines.push(d.debtName || "(ไม่มีชื่อ)");
+        lines.push(`  เจ้าหนี้: ${d.creditor || "-"}`);
+        lines.push(`  ยอดกู้: ${Finance.formatMoney(parseFloat(d.originalAmount) || 0)}`);
+        lines.push(`  ค่างวด: ${Finance.formatMoney(parseFloat(d.installmentAmount) || 0)}`);
+        lines.push(`  วันชำระ: ${d.dueDay || "-"}`);
+        lines.push("");
+      });
     }
 
     let assetTotal = 0, assetCost = 0;
