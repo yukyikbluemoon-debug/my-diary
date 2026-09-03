@@ -238,23 +238,43 @@ const Assets = (() => {
       return;
     }
     const items = activeAssets().slice().sort((a, b) => assetValueTHB(b) - assetValueTHB(a));
-    if (items.length === 0) { showToast("ยังไม่มีทรัพย์สิน"); return; }
-    let totalValue = 0, totalCost = 0;
-    const lines = ["📊 สรุปพอร์ตทรัพย์สิน", ""];
-    items.forEach((a) => {
-      const value = assetValueTHB(a);
-      const cost = assetCostTHB(a);
-      totalValue += value;
-      totalCost += cost;
-      const gain = value - cost;
-      lines.push(`${a.name} (${a.type}): ${Finance.formatMoney(value)} (${gain >= 0 ? "+" : ""}${Finance.formatMoney(gain)})`);
-    });
-    const totalGain = totalValue - totalCost;
-    lines.push("", `มูลค่ารวม: ${Finance.formatMoney(totalValue)}`, `กำไร/ขาดทุนรวม: ${totalGain >= 0 ? "+" : ""}${Finance.formatMoney(totalGain)}`);
+    const wallets = (typeof Finance !== "undefined") ? Finance.getWallets() : [];
+    if (items.length === 0 && wallets.length === 0) { showToast("ยังไม่มีข้อมูลให้ส่ง"); return; }
+
+    const lines = ["📊 สรุปการเงินทั้งหมด", ""];
+
+    let walletTotal = 0;
+    if (wallets.length > 0) {
+      lines.push("💰 กระเป๋าเงิน");
+      wallets.forEach((w) => {
+        const bal = Finance.computeWalletBalance(w);
+        walletTotal += bal;
+        lines.push(`${w}: ${Finance.formatMoney(bal)}`);
+      });
+      lines.push(`รวมกระเป๋าเงิน: ${Finance.formatMoney(walletTotal)}`, "");
+    }
+
+    let assetTotal = 0, assetCost = 0;
+    if (items.length > 0) {
+      lines.push("📈 ทรัพย์สิน");
+      items.forEach((a) => {
+        const value = assetValueTHB(a);
+        const cost = assetCostTHB(a);
+        assetTotal += value;
+        assetCost += cost;
+        const gain = value - cost;
+        lines.push(`${a.name} (${a.type}): ${Finance.formatMoney(value)} (${gain >= 0 ? "+" : ""}${Finance.formatMoney(gain)})`);
+      });
+      const assetGain = assetTotal - assetCost;
+      lines.push(`รวมทรัพย์สิน: ${Finance.formatMoney(assetTotal)} (${assetGain >= 0 ? "+" : ""}${Finance.formatMoney(assetGain)})`, "");
+    }
+
+    lines.push(`💵 มูลค่าสุทธิรวมทั้งหมด: ${Finance.formatMoney(walletTotal + assetTotal)}`);
+
     $("sendPortfolioBtn").disabled = true;
     try {
       await TelegramNotify.sendMessage(lines.join("\n"));
-      showToast("ส่งสรุปพอร์ตเข้า Telegram แล้ว");
+      showToast("ส่งสรุปการเงินเข้า Telegram แล้ว");
     } catch (err) {
       showToast("ส่งไม่สำเร็จ: " + (err && err.message ? err.message : ""));
     } finally {

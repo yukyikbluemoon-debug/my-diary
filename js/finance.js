@@ -522,5 +522,9 @@ const Finance = (() => {
     allTx = await DiaryDB.getAllTransactions();
   }
 
-  return { init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, getTodaySummary, getTransactionDateSet, getTransactionsForDate, getTransactionById, formatMoney };
+  return {
+    init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, getTodaySummary,
+    getTransactionDateSet, getTransactionsForDate, getTransactionById, formatMoney,
+    getWallets, computeWalletBalance,
+  };
 })();
