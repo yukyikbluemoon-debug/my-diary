@@ -31,23 +31,40 @@ const ExchangeRate = (() => {
   }
 
   async function fetchLatest() {
-    const attempt = () => fetch("https://api.frankfurter.app/latest?from=USD&to=THB");
-    let res;
-    try {
-      res = await attempt();
-    } catch (e) {
-      // one retry after a short delay — smooths over a transient blip
-      // (e.g. wifi connected but momentarily no internet route) instead
-      // of failing on the very first flaky attempt
-      await new Promise((r) => setTimeout(r, 1500));
-      res = await attempt();
+    // Two independent, keyless, CORS-friendly providers on completely
+    // different domains — if one is blocked or down on a given network
+    // (DNS filtering, a flaky mobile carrier, etc.) the other has a good
+    // chance of still working. Frankfurter first (existing default), then
+    // open.er-api.com as a fallback if that fails outright.
+    const providers = [
+      {
+        url: "https://api.frankfurter.app/latest?from=USD&to=THB",
+        extract: (data) => data.rates && data.rates.THB,
+      },
+      {
+        url: "https://open.er-api.com/v6/latest/USD",
+        extract: (data) => data.rates && data.rates.THB,
+      },
+    ];
+
+    let lastErr = null;
+    for (const provider of providers) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetch(provider.url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const rate = provider.extract(data);
+          if (!rate) throw new Error("ไม่พบอัตราแลกเปลี่ยนในผลลัพธ์");
+          setRate(rate);
+          return rate;
+        } catch (err) {
+          lastErr = err;
+          if (attempt === 0) await new Promise((r) => setTimeout(r, 1500)); // one retry per provider before giving up on it
+        }
+      }
     }
-    if (!res.ok) throw new Error("ดึงอัตราแลกเปลี่ยนไม่สำเร็จ");
-    const data = await res.json();
-    const rate = data.rates && data.rates.THB;
-    if (!rate) throw new Error("ไม่พบอัตราแลกเปลี่ยนในผลลัพธ์");
-    setRate(rate);
-    return rate;
+    throw lastErr || new Error("ดึงอัตราแลกเปลี่ยนไม่สำเร็จ");
   }
 
   async function refreshIfStale() {
