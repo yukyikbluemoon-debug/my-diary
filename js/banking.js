@@ -300,6 +300,18 @@ const Banking = (() => {
     }
   }
 
+  /** Decrypts and returns one bank account's sensitive fields by id, for
+   *  the rare places that deliberately need the full account number (e.g.
+   *  the "send full summary" Telegram button, when the user explicitly
+   *  wants it for a real bank transfer). Requires an unlock — returns null
+   *  if that's not possible or the record can't be found/decrypted. */
+  async function getFullDetails(id) {
+    const a = allBankAccountsFull.find((x) => x.id === id);
+    if (!a) return null;
+    try { return await DiaryCrypto.decryptJSON({ iv: a.encIv, data: a.encData }); }
+    catch (e) { return null; }
+  }
+
   /* ---------------- debts ---------------- */
 
   function renderDebtList() {
@@ -534,7 +546,7 @@ const Banking = (() => {
   }
 
   return {
-    init, render, showFinSubtab, getBankAccountOptions, resolveBankLabelById,
+    init, render, showFinSubtab, getBankAccountOptions, resolveBankLabelById, getFullDetails,
     closeBankModalVisual, closeDebtModalVisual, closeOtherModalVisual,
   };
 })();

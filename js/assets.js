@@ -262,6 +262,18 @@ const Assets = (() => {
     const wallets = (typeof Finance !== "undefined") ? Finance.getWalletOptions() : [];
     if (items.length === 0 && wallets.length === 0) { showToast("ยังไม่มีข้อมูลให้ส่ง"); return; }
 
+    // This summary includes full account numbers for bank wallets (by
+    // request — so the number is on hand when a bank employee asks for it
+    // during a real transfer), so it needs an unlock every time, even
+    // though the individual wallet-balance list elsewhere in the app does
+    // not.
+    const hasBankWallet = wallets.some((o) => o.key.indexOf("bank:") === 0);
+    if (hasBankWallet) {
+      if (!DiaryCrypto.hasPassword()) { showToast("กรุณาตั้งรหัสผ่านก่อน"); openSetPwModal("create"); return; }
+      const ok = await ensureUnlocked("เพื่อส่งสรุปพร้อมเลขบัญชีเต็ม");
+      if (!ok) return;
+    }
+
     const now = new Date();
     const nowLabel = `${formatFullThaiDate(todayISO())} ${now.toTimeString().slice(0, 5)} น.`;
     const lines = [`📊 สรุปการเงินทั้งหมด — ${nowLabel}`, ""];
@@ -269,11 +281,19 @@ const Assets = (() => {
     let walletTotal = 0;
     if (wallets.length > 0) {
       lines.push("💰 กระเป๋าเงิน");
-      wallets.forEach((o) => {
+      for (const o of wallets) {
         const bal = Finance.computeWalletBalance(o.key);
         walletTotal += bal;
         lines.push(`${o.label}: ${Finance.formatMoney(bal)}`);
-      });
+        // Deliberate exception to "encrypted data never leaves the
+        // device" — only in this explicit full-summary send, and only
+        // the account number + owner name (not branch/note).
+        if (o.key.indexOf("bank:") === 0 && typeof Banking !== "undefined") {
+          const details = await Banking.getFullDetails(o.key.slice(5));
+          if (details && details.accountNumber) lines.push(`  เลขบัญชี: ${details.accountNumber}`);
+          if (details && details.ownerName) lines.push(`  ชื่อบัญชี: ${details.ownerName}`);
+        }
+      }
       lines.push(`รวมกระเป๋าเงิน: ${Finance.formatMoney(walletTotal)}`);
     }
 
