@@ -293,6 +293,7 @@ const Assets = (() => {
           if (details && details.accountNumber) lines.push(`  เลขบัญชี: ${details.accountNumber}`);
           if (details && details.ownerName) lines.push(`  ชื่อบัญชี: ${details.ownerName}`);
         }
+        lines.push(""); // blank line between each account — with 20+ accounts, no gap makes them run together
       }
       lines.push(`รวมกระเป๋าเงิน: ${Finance.formatMoney(walletTotal)}`);
     }
