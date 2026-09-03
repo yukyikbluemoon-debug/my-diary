@@ -183,6 +183,10 @@ const Finance = (() => {
       const lastRate = localStorage.getItem("diary_last_exchange_rate");
       if (lastRate) $("txExchangeRate").value = lastRate;
     }
+    if (isUSD && typeof ExchangeRate !== "undefined") {
+      const rate = ExchangeRate.getRate();
+      $("txRateInfo").textContent = rate ? `อัตราในระบบ: ${rate.toFixed(2)} บาท (ปรับแก้ได้)` : "";
+    }
     updateTxAmountPreview();
   }
 

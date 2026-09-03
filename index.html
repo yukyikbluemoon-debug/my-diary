@@ -32,7 +32,7 @@
 
   <header class="topbar">
     <div class="topbar-inner">
-      <span class="brand">สมุดบันทึก</span>
+      <span class="brand" id="brandText">สมุดบันทึก</span>
       <button type="button" class="today-pill" id="todayPill" aria-label="ดูปฏิทิน"></button>
       <div class="header-icons">
         <button type="button" class="header-icon-btn" id="headerStatsBtn" aria-label="สถิติ">📊</button>
@@ -422,6 +422,22 @@
         </div>
 
         <div class="settings-group">
+          <h2>อัตราแลกเปลี่ยน USD/THB</h2>
+          <div class="settings-row">
+            <span>อัตราปัจจุบัน</span>
+            <span id="exchangeRateText">ยังไม่มีข้อมูล</span>
+          </div>
+          <div class="settings-row">
+            <span>อัปเดตล่าสุด</span>
+            <span id="exchangeRateUpdatedText">-</span>
+          </div>
+          <div class="settings-row">
+            <span>ดึงอัตราใหม่อัตโนมัติทุกครั้งที่เปิดแอป (ถ้าข้อมูลเก่าเกิน 8 ชม.)</span>
+            <button class="text-btn" id="refreshExchangeRateBtn">รีเฟรชตอนนี้</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
           <h2>Google Drive</h2>
           <div class="settings-row">
             <span>สถานะ</span>
@@ -702,6 +718,7 @@
         <div class="field" id="txExchangeRateField" hidden>
           <label for="txExchangeRate">อัตราแลกเปลี่ยน (บาทต่อ 1 ดอลลาร์)</label>
           <input type="number" id="txExchangeRate" inputmode="decimal" placeholder="เช่น 36.50" min="0" step="0.01">
+          <span class="field-hint" id="txRateInfo"></span>
           <a href="https://www.google.com/search?q=usd+to+thb" target="_blank" rel="noopener" class="field-hint" style="display:inline-block;color:var(--sage);">🔍 เช็คอัตราวันนี้ (เปิดแท็บใหม่)</a>
         </div>
 
@@ -814,6 +831,7 @@
         <div class="field" id="assetExchangeRateField" hidden>
           <label for="assetExchangeRate">อัตราแลกเปลี่ยน (บาทต่อ 1 ดอลลาร์)</label>
           <input type="number" id="assetExchangeRate" inputmode="decimal" step="0.01" placeholder="เช่น 36.50">
+          <span class="field-hint" id="assetRateInfo"></span>
           <a href="https://www.google.com/search?q=usd+to+thb" target="_blank" rel="noopener" class="field-hint" style="display:inline-block;color:var(--sage);">🔍 เช็คอัตราวันนี้ (เปิดแท็บใหม่)</a>
         </div>
 
@@ -944,6 +962,7 @@
 <script src="js/db.js"></script>
 <script src="js/markdown.js"></script>
 <script src="js/theme.js"></script>
+<script src="js/exchange.js"></script>
 <script src="js/finance.js"></script>
 <script src="js/assets.js"></script>
 <script src="js/telegram.js"></script>

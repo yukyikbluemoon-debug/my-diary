@@ -25,6 +25,10 @@ const Assets = (() => {
       const lastRate = localStorage.getItem("diary_last_exchange_rate");
       if (lastRate) $("assetExchangeRate").value = lastRate;
     }
+    if (currency === "USD" && typeof ExchangeRate !== "undefined") {
+      const rate = ExchangeRate.getRate();
+      $("assetRateInfo").textContent = rate ? `อัตราในระบบ: ${rate.toFixed(2)} บาท (ปรับแก้ได้)` : "";
+    }
   }
 
   function openNewAsset() {

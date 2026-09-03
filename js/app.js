@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "2.8.0";
+const APP_VERSION = "2.9.0";
 const APP_BUILD_DATE = "2026-09-03";
 
 const state = {
@@ -821,6 +821,26 @@ $("driveSyncBtn").addEventListener("click", async () => {
 
 /* ---------------- Telegram settings ---------------- */
 
+function refreshExchangeRateDisplay() {
+  if (typeof ExchangeRate === "undefined") return;
+  const rate = ExchangeRate.getRate();
+  $("exchangeRateText").textContent = rate ? `1 USD = ${rate.toFixed(2)} บาท` : "ยังไม่มีข้อมูล";
+  const updated = ExchangeRate.getUpdatedAt();
+  $("exchangeRateUpdatedText").textContent = updated ? new Date(updated).toLocaleString("th-TH") : "-";
+}
+$("refreshExchangeRateBtn").addEventListener("click", async () => {
+  $("refreshExchangeRateBtn").disabled = true;
+  try {
+    await ExchangeRate.fetchLatest();
+    refreshExchangeRateDisplay();
+    showToast("อัปเดตอัตราแลกเปลี่ยนแล้ว");
+  } catch (err) {
+    showToast("ดึงอัตราแลกเปลี่ยนไม่สำเร็จ: " + (err && err.message ? err.message : ""));
+  } finally {
+    $("refreshExchangeRateBtn").disabled = false;
+  }
+});
+
 function refreshTelegramStatus() {
   if (typeof TelegramNotify === "undefined") return;
   const cfg = TelegramNotify.getConfig();
@@ -893,6 +913,7 @@ function refreshSettingsView() {
   $("trashRetentionSelect").value = String(getTrashRetentionDays());
   $("autoLockSelect").value = String(getAutoLockMinutes());
   refreshTelegramStatus();
+  refreshExchangeRateDisplay();
   $("pwStatusText").textContent = has ? "ตั้งรหัสผ่านแล้ว" : "ยังไม่ได้ตั้งรหัสผ่าน";
   $("setPasswordBtn").hidden = has;
   $("changePwRow").hidden = !has;
@@ -2126,6 +2147,7 @@ async function init() {
     const today = new Date();
     $("todayPill").textContent = `${today.getDate()} ${THAI_MONTHS[today.getMonth()]} ${today.getFullYear() + 543}`;
     $("appVersionText").textContent = `เวอร์ชัน ${APP_VERSION} · อัปเดตล่าสุด ${formatFullThaiDate(APP_BUILD_DATE)}`;
+    $("brandText").textContent = `สมุดบันทึก v.${APP_VERSION}`;
     state.cal.year = today.getFullYear();
     state.cal.month = today.getMonth();
     state.calPage.year = today.getFullYear();
@@ -2142,6 +2164,9 @@ async function init() {
     showView("dashboard");
     handleShareTarget();
     checkTrashExpiryWarning();
+    if (typeof ExchangeRate !== "undefined") {
+      ExchangeRate.refreshIfStale().then(refreshExchangeRateDisplay);
+    }
     resetAutoLockTimer();
 
     if ("serviceWorker" in navigator) {
