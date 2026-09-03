@@ -31,9 +31,16 @@ const Assets = (() => {
     }
   }
 
-  function updatePriceCheckLink(linkEl, name) {
+  function updatePriceCheckLink(linkEl, name, type) {
     const q = (name || "").trim();
-    linkEl.href = q ? `https://www.google.com/search?q=${encodeURIComponent(q + " stock price")}` : "#";
+    if (!q) { linkEl.href = "#"; return; }
+    if (type === "หุ้น" || type === "ETF") {
+      linkEl.href = `https://finance.yahoo.com/quote/${encodeURIComponent(q)}`;
+      linkEl.textContent = "🔍 เช็คราคาที่ Yahoo Finance";
+    } else {
+      linkEl.href = `https://www.google.com/search?q=${encodeURIComponent(q + " price")}`;
+      linkEl.textContent = "🔍 เช็คราคาปัจจุบัน";
+    }
   }
 
   function openNewAsset() {
@@ -48,7 +55,7 @@ const Assets = (() => {
     $("assetNote").value = "";
     $("assetModalTitle").textContent = "เพิ่มทรัพย์สิน";
     $("assetDeleteBtn").hidden = true;
-    updatePriceCheckLink($("assetPriceCheckLink"), "");
+    updatePriceCheckLink($("assetPriceCheckLink"), "", "หุ้น");
     $("assetModal").hidden = false;
     pushNavState("asset");
   }
@@ -67,7 +74,7 @@ const Assets = (() => {
     $("assetNote").value = a.note || "";
     $("assetModalTitle").textContent = "แก้ไขทรัพย์สิน";
     $("assetDeleteBtn").hidden = false;
-    updatePriceCheckLink($("assetPriceCheckLink"), a.name);
+    updatePriceCheckLink($("assetPriceCheckLink"), a.name, a.type);
     $("assetModal").hidden = false;
     pushNavState("asset");
   }
@@ -187,7 +194,7 @@ const Assets = (() => {
     $("quickUpdateAssetName").textContent = `${a.name} (${a.type})`;
     $("quickUpdateValueLabel").textContent = a.currency === "USD" ? "มูลค่าปัจจุบันต่อหน่วย (USD)" : "มูลค่าปัจจุบันต่อหน่วย (บาท)";
     $("quickUpdateValue").value = a.currentValuePerUnit;
-    updatePriceCheckLink($("quickUpdatePriceCheckLink"), a.name);
+    updatePriceCheckLink($("quickUpdatePriceCheckLink"), a.name, a.type);
     $("assetQuickUpdateModal").hidden = false;
     pushNavState("assetquick");
   }
@@ -309,7 +316,8 @@ const Assets = (() => {
     $("assetSaveBtn").addEventListener("click", saveAsset);
     $("assetDeleteBtn").addEventListener("click", deleteAsset);
     $("assetCurrency").addEventListener("change", (e) => setAssetCurrency(e.target.value));
-    $("assetName").addEventListener("input", (e) => updatePriceCheckLink($("assetPriceCheckLink"), e.target.value));
+    $("assetName").addEventListener("input", (e) => updatePriceCheckLink($("assetPriceCheckLink"), e.target.value, $("assetType").value));
+    $("assetType").addEventListener("change", () => updatePriceCheckLink($("assetPriceCheckLink"), $("assetName").value, $("assetType").value));
     $("sendPortfolioBtn").addEventListener("click", sendPortfolioSummary);
     $("assetList").addEventListener("click", (e) => {
       const quickBtn = e.target.closest(".asset-quick-update-btn");
