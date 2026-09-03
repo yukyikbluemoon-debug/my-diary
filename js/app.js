@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.0.0";
+const APP_VERSION = "3.0.1";
 const APP_BUILD_DATE = "2026-09-03";
 
 const state = {
@@ -142,7 +142,6 @@ function closeCurrentLayer() {
   if (!$("assetModal").hidden && typeof Assets !== "undefined") { Assets.closeAssetModalVisual(); return; }
   if (!$("assetQuickUpdateModal").hidden && typeof Assets !== "undefined") { Assets.closeQuickUpdateVisual(); return; }
   if (state.view === "trash") { showView("settings"); return; }
-  if (state.view === "gallery") { showView("settings"); return; }
   if (state.view === "stats") { showView(state.statsReturnView || "dashboard"); return; }
   if (state.view === "write") { clearRecordingUI(); showView(state.editId ? "entry" : "home"); return; }
   if (state.view === "entry") { showView("home"); return; }
@@ -2147,6 +2146,7 @@ document.querySelectorAll(".nav-btn[data-nav]").forEach((btn) => {
     showView(btn.dataset.nav);
     if (btn.dataset.nav === "finance" && typeof Finance !== "undefined") Finance.render();
     if (btn.dataset.nav === "finance" && typeof Assets !== "undefined") Assets.render();
+    if (btn.dataset.nav === "gallery" && typeof Gallery !== "undefined") Gallery.openTab();
     if (btn.dataset.nav === "calendarPage") renderCalendarPage();
   });
 });

@@ -31,7 +31,17 @@ const ExchangeRate = (() => {
   }
 
   async function fetchLatest() {
-    const res = await fetch("https://api.frankfurter.app/latest?from=USD&to=THB");
+    const attempt = () => fetch("https://api.frankfurter.app/latest?from=USD&to=THB");
+    let res;
+    try {
+      res = await attempt();
+    } catch (e) {
+      // one retry after a short delay — smooths over a transient blip
+      // (e.g. wifi connected but momentarily no internet route) instead
+      // of failing on the very first flaky attempt
+      await new Promise((r) => setTimeout(r, 1500));
+      res = await attempt();
+    }
     if (!res.ok) throw new Error("ดึงอัตราแลกเปลี่ยนไม่สำเร็จ");
     const data = await res.json();
     const rate = data.rates && data.rates.THB;

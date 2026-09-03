@@ -127,6 +127,12 @@ const Gallery = (() => {
     $("galleryDownloadBtn").disabled = selected.size === 0;
   }
 
+  async function openTab() {
+    selected.clear();
+    await loadItems();
+    render();
+  }
+
   function wireEvents() {
     $("galleryFilter").addEventListener("click", (e) => {
       const btn = e.target.closest(".entry-type-filter-btn");
@@ -151,19 +157,11 @@ const Gallery = (() => {
       render();
     });
     $("galleryDownloadBtn").addEventListener("click", downloadSelected);
-    $("openGalleryBtn").addEventListener("click", async () => {
-      selected.clear();
-      await loadItems();
-      render();
-      showView("gallery");
-      pushNavState("gallery");
-    });
-    $("backFromGalleryBtn").addEventListener("click", () => { showView("settings"); popNavState(); });
   }
 
   function init() {
     wireEvents();
   }
 
-  return { init };
+  return { init, openTab };
 })();
