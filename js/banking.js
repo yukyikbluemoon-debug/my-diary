@@ -110,6 +110,10 @@ const Banking = (() => {
 
   function renderSummaryCounts() {
     if ($("finBankCount")) $("finBankCount").textContent = allBankAccounts.length;
+    if ($("finBankTotalBalance")) {
+      const total = allBankAccounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0);
+      $("finBankTotalBalance").textContent = Finance.formatMoney(total);
+    }
     if ($("finDebtCount")) $("finDebtCount").textContent = allDebts.length;
     if ($("finOtherCount")) $("finOtherCount").textContent = allOtherInfo.length;
   }
@@ -130,9 +134,13 @@ const Banking = (() => {
       row.className = "asset-row";
       row.dataset.id = a.id;
       row.innerHTML = `
+        <button type="button" class="bank-send-btn" data-id="${a.id}" aria-label="ส่งเข้า Telegram">📨</button>
         <div class="asset-row-body">
           <div class="asset-row-title">🏦 ${escapeHTML(a.bankName)} · ${escapeHTML(a.accountName)}</div>
           <div class="asset-row-sub">${escapeHTML(maskTail(a.accountNumber))}${a.ownerName ? " · " + escapeHTML(a.ownerName) : ""}</div>
+        </div>
+        <div class="asset-row-value">
+          <div class="asset-row-total">${Finance.formatMoney(parseFloat(a.balance) || 0)}</div>
         </div>`;
       list.appendChild(row);
     });
@@ -140,7 +148,7 @@ const Banking = (() => {
 
   function openNewBank() {
     $("bankId").value = "";
-    ["bankName", "bankAccountName", "bankAccountType", "bankAccountNumber", "bankOwnerName", "bankBranch", "bankNote"].forEach((id) => $(id).value = "");
+    ["bankName", "bankAccountName", "bankAccountType", "bankAccountNumber", "bankOwnerName", "bankBranch", "bankBalance", "bankNote"].forEach((id) => $(id).value = "");
     $("bankModalTitle").textContent = "เพิ่มบัญชีธนาคาร";
     $("bankDeleteBtn").hidden = true;
     $("bankModal").hidden = false;
@@ -156,6 +164,7 @@ const Banking = (() => {
     $("bankAccountNumber").value = a.accountNumber || "";
     $("bankOwnerName").value = a.ownerName || "";
     $("bankBranch").value = a.branch || "";
+    $("bankBalance").value = a.balance || "";
     $("bankNote").value = a.note || "";
     $("bankModalTitle").textContent = "แก้ไขบัญชีธนาคาร";
     $("bankDeleteBtn").hidden = false;
@@ -177,6 +186,7 @@ const Banking = (() => {
       accountNumber: $("bankAccountNumber").value.trim(),
       ownerName: $("bankOwnerName").value.trim(),
       branch: $("bankBranch").value.trim(),
+      balance: parseFloat($("bankBalance").value) || 0,
       note: $("bankNote").value.trim(),
     };
     const rec = await encryptRecord("bank", existing, payload);
@@ -200,6 +210,30 @@ const Banking = (() => {
     popNavState();
     await loadAndRenderAll();
     showToast("ลบแล้ว");
+  }
+
+  async function sendBankToTelegram(id) {
+    const a = allBankAccounts.find((x) => x.id === id);
+    if (!a) return;
+    if (typeof TelegramNotify === "undefined" || !TelegramNotify.isConfigured()) {
+      showToast("ยังไม่ได้ตั้งค่า Telegram (ตั้งค่า → Telegram)");
+      return;
+    }
+    // Deliberately sends ONLY the bank name and balance — never the account
+    // number, branch, owner name, or note. Those stay encrypted and local;
+    // this is the one narrow, explicit exception to "encrypted data never
+    // leaves the device", made because the user wants a family member to
+    // know which accounts exist and roughly how much is in them.
+    const lines = [
+      `🏦 ${a.bankName}${a.accountName ? " · " + a.accountName : ""}`,
+      `ยอดคงเหลือ: ${Finance.formatMoney(parseFloat(a.balance) || 0)}`,
+    ];
+    try {
+      await TelegramNotify.sendMessage(lines.join("\n"));
+      showToast("ส่งเข้า Telegram แล้ว");
+    } catch (err) {
+      showToast("ส่งไม่สำเร็จ: " + (err && err.message ? err.message : ""));
+    }
   }
 
   /* ---------------- debts ---------------- */
@@ -402,6 +436,8 @@ const Banking = (() => {
     $("bankSaveBtn").addEventListener("click", saveBank);
     $("bankDeleteBtn").addEventListener("click", deleteBank);
     $("bankList").addEventListener("click", (e) => {
+      const sendBtn = e.target.closest(".bank-send-btn");
+      if (sendBtn) { sendBankToTelegram(sendBtn.dataset.id); return; }
       const row = e.target.closest(".asset-row");
       if (row) openEditBank(row.dataset.id);
     });

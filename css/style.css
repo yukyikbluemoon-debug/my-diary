@@ -798,9 +798,18 @@ select {
 }
 .asset-send-btn:hover { opacity: 1; }
 
-/* Banking & Liabilities rows reuse .asset-row but have no quick-update/send
-   buttons, so they don't need the reserved right-hand padding. */
-#bankList .asset-row, #debtList .asset-row, #otherList .asset-row { padding-right: 14px; }
+/* Banking & Liabilities rows reuse .asset-row but have no quick-update
+   button (debts/other have no send button either), so they don't need the
+   reserved right-hand padding for two buttons. Bank rows keep space for
+   one send-to-Telegram button. */
+#debtList .asset-row, #otherList .asset-row { padding-right: 14px; }
+#bankList .asset-row { padding-right: 44px; }
+.bank-send-btn {
+  position: absolute; top: 10px; right: 10px;
+  background: none; border: none;
+  font-size: 15px; opacity: 0.6; cursor: pointer; padding: 4px;
+}
+.bank-send-btn:hover { opacity: 1; }
 
 .fin-subtabs {
   display: flex; gap: 6px;

@@ -706,6 +706,10 @@
             <div class="stats-num" id="finBankCount">0</div>
             <div class="stats-label">บัญชีธนาคาร</div>
           </div>
+          <div class="stats-card">
+            <div class="stats-num" id="finBankTotalBalance">฿0</div>
+            <div class="stats-label">ยอดคงเหลือรวม</div>
+          </div>
         </div>
         <div class="settings-group">
           <div class="page-head" style="margin-bottom:10px;">
@@ -1076,6 +1080,10 @@
             <label for="bankBranch">สาขา</label>
             <input type="text" id="bankBranch">
           </div>
+        </div>
+        <div class="field">
+          <label for="bankBalance">ยอดคงเหลือ (อัปเดตเองเป็นระยะ)</label>
+          <input type="number" id="bankBalance" inputmode="decimal" step="0.01" placeholder="0">
         </div>
         <div class="field">
           <label for="bankNote">หมายเหตุ (ไม่บังคับ)</label>
