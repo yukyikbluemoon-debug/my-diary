@@ -142,6 +142,7 @@ const Assets = (() => {
       const updatedLabel = typeof formatDateHeading === "function" ? formatDateHeading((a.updatedAt || a.createdAt).slice(0, 10)) : (a.updatedAt || "").slice(0, 10);
       row.innerHTML = `
         <button type="button" class="asset-quick-update-btn" data-id="${a.id}" aria-label="อัปเดตมูลค่า">🔄</button>
+        <button type="button" class="asset-send-btn" data-id="${a.id}" aria-label="ส่งเข้า Telegram">📨</button>
         <div class="asset-row-body">
           <div class="asset-row-title">${escapeHTML(a.name)}</div>
           <div class="asset-row-sub">${escapeHTML(a.type)} · ${a.quantity} หน่วย @ ${unitLabel}</div>
@@ -200,6 +201,67 @@ const Assets = (() => {
     showToast("อัปเดตมูลค่าแล้ว");
   }
 
+  function buildAssetText(a) {
+    const value = assetValueTHB(a);
+    const cost = assetCostTHB(a);
+    const gain = value - cost;
+    const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
+    const unitLabel = a.currency === "USD" ? `$${a.currentValuePerUnit}` : Finance.formatMoney(a.currentValuePerUnit);
+    const lines = [
+      `📊 ทรัพย์สิน — ${a.name} (${a.type})`,
+      `${a.quantity} หน่วย @ ${unitLabel}`,
+      `มูลค่า: ${Finance.formatMoney(value)}`,
+      `${gain >= 0 ? "+" : ""}${Finance.formatMoney(gain)} (${gainPct >= 0 ? "+" : ""}${gainPct.toFixed(1)}%)`,
+    ];
+    if (a.note) lines.push("หมายเหตุ: " + a.note);
+    return lines.join("\n");
+  }
+
+  async function sendAssetToTelegram(id) {
+    const a = allAssets.find((x) => x.id === id);
+    if (!a) return;
+    if (typeof TelegramNotify === "undefined" || !TelegramNotify.isConfigured()) {
+      showToast("ยังไม่ได้ตั้งค่า Telegram (ตั้งค่า → Telegram)");
+      return;
+    }
+    try {
+      await TelegramNotify.sendMessage(buildAssetText(a));
+      showToast("ส่งเข้า Telegram แล้ว");
+    } catch (err) {
+      showToast("ส่งไม่สำเร็จ: " + (err && err.message ? err.message : ""));
+    }
+  }
+
+  async function sendPortfolioSummary() {
+    if (typeof TelegramNotify === "undefined" || !TelegramNotify.isConfigured()) {
+      showToast("ยังไม่ได้ตั้งค่า Telegram (ตั้งค่า → Telegram)");
+      return;
+    }
+    const items = activeAssets().slice().sort((a, b) => assetValueTHB(b) - assetValueTHB(a));
+    if (items.length === 0) { showToast("ยังไม่มีทรัพย์สิน"); return; }
+    let totalValue = 0, totalCost = 0;
+    const lines = ["📊 สรุปพอร์ตทรัพย์สิน", ""];
+    items.forEach((a) => {
+      const value = assetValueTHB(a);
+      const cost = assetCostTHB(a);
+      totalValue += value;
+      totalCost += cost;
+      const gain = value - cost;
+      lines.push(`${a.name} (${a.type}): ${Finance.formatMoney(value)} (${gain >= 0 ? "+" : ""}${Finance.formatMoney(gain)})`);
+    });
+    const totalGain = totalValue - totalCost;
+    lines.push("", `มูลค่ารวม: ${Finance.formatMoney(totalValue)}`, `กำไร/ขาดทุนรวม: ${totalGain >= 0 ? "+" : ""}${Finance.formatMoney(totalGain)}`);
+    $("sendPortfolioBtn").disabled = true;
+    try {
+      await TelegramNotify.sendMessage(lines.join("\n"));
+      showToast("ส่งสรุปพอร์ตเข้า Telegram แล้ว");
+    } catch (err) {
+      showToast("ส่งไม่สำเร็จ: " + (err && err.message ? err.message : ""));
+    } finally {
+      $("sendPortfolioBtn").disabled = false;
+    }
+  }
+
   async function render() {
     allAssets = await DiaryDB.getAllAssets();
     renderAssetList();
@@ -211,9 +273,12 @@ const Assets = (() => {
     $("assetSaveBtn").addEventListener("click", saveAsset);
     $("assetDeleteBtn").addEventListener("click", deleteAsset);
     $("assetCurrency").addEventListener("change", (e) => setAssetCurrency(e.target.value));
+    $("sendPortfolioBtn").addEventListener("click", sendPortfolioSummary);
     $("assetList").addEventListener("click", (e) => {
       const quickBtn = e.target.closest(".asset-quick-update-btn");
       if (quickBtn) { openQuickUpdate(quickBtn.dataset.id); return; }
+      const sendBtn = e.target.closest(".asset-send-btn");
+      if (sendBtn) { sendAssetToTelegram(sendBtn.dataset.id); return; }
       const row = e.target.closest(".asset-row");
       if (row) openEditAsset(row.dataset.id);
     });
