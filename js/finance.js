@@ -78,6 +78,24 @@ const Finance = (() => {
     if (changed.length > 0) await DiaryDB.bulkPutTransactions(changed);
   }
 
+  // Moves all of oldName's transaction history into an EXISTING wallet
+  // (targetName), then removes oldName from the wallet list entirely —
+  // for when a wallet was set up as a placeholder/duplicate and the real
+  // money actually belongs under a wallet that already exists.
+  async function mergeWallet(oldName, targetName) {
+    if (!targetName || oldName === targetName) return;
+    const changed = [];
+    allTx.forEach((t) => {
+      let touched = false;
+      if (t.wallet === oldName) { t.wallet = targetName; touched = true; }
+      if (t.toWallet === oldName) { t.toWallet = targetName; touched = true; }
+      if (touched) { t.updatedAt = new Date().toISOString(); changed.push(t); }
+    });
+    if (changed.length > 0) await DiaryDB.bulkPutTransactions(changed);
+    saveWallets(getWallets().filter((w) => w !== oldName));
+    setWalletGroup(oldName, null);
+  }
+
   /* ---------- formatting / calculation ---------- */
 
   function formatMoney(n) {
@@ -419,8 +437,14 @@ const Finance = (() => {
     const newName = $("walletEditName").value.trim();
     const group = $("walletEditGroup").value.trim();
     if (!newName) { showToast("กรุณาใส่ชื่อกระเป๋า"); return; }
-    if (newName !== oldName && getWallets().includes(newName)) { showToast("มีกระเป๋าชื่อนี้อยู่แล้ว"); return; }
-    await renameWallet(oldName, newName);
+
+    if (newName !== oldName && getWallets().includes(newName)) {
+      const ok = confirm(`มีกระเป๋าชื่อ "${newName}" อยู่แล้ว\n\nต้องการรวมยอด/ประวัติทั้งหมดของ "${oldName}" เข้ากับ "${newName}" หรือไม่? "${oldName}" จะถูกลบออกจากลิสต์หลังรวมเสร็จ (ยอดเงินไม่หาย แค่ย้ายไปอยู่ใน "${newName}")`);
+      if (!ok) return;
+      await mergeWallet(oldName, newName);
+    } else {
+      await renameWallet(oldName, newName);
+    }
     setWalletGroup(newName, group);
     closeWalletEditModalVisual();
     popNavState();
