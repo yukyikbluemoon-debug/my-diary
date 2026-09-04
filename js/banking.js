@@ -55,19 +55,85 @@ const Banking = (() => {
     if (name === "debts" || name === "other") loadDebtsAndOther();
   }
 
+  /** One-time migration: records created before encryption was removed
+   *  still have their real content locked inside encIv/encData, with
+   *  nothing readable at the top level. Decrypts and re-saves them as
+   *  plain records so they show up normally from here on — needs a single
+   *  unlock if not already unlocked this session. Records that are
+   *  already plain (no encIv) pass through untouched. */
+  async function migrateIfEncrypted(rec, kind) {
+    if (!rec.encIv || !rec.encData) return rec;
+    try {
+      const payload = await DiaryCrypto.decryptJSON({ iv: rec.encIv, data: rec.encData });
+      const migrated = { ...rec, ...payload };
+      delete migrated.encIv;
+      delete migrated.encData;
+      if (kind === "debt") await DiaryDB.putDebt(migrated);
+      else if (kind === "other") await DiaryDB.putOtherInfo(migrated);
+      else if (kind === "bank") await DiaryDB.putBankAccount(migrated);
+      return migrated;
+    } catch (e) {
+      console.error("Banking: migration failed for", rec.id, e);
+      return rec; // leave encrypted — will render blank rather than crash
+    }
+  }
+
   async function loadDebtsAndOther() {
     const [debtRaw, otherRaw] = await Promise.all([DiaryDB.getAllDebts(), DiaryDB.getAllOtherInfo()]);
-    allDebts = debtRaw.filter((d) => !d.deletedAt);
-    allOtherInfo = otherRaw.filter((o) => !o.deletedAt);
+    const needsMigration = [...debtRaw, ...otherRaw].some((r) => !r.deletedAt && r.encIv);
+    if (needsMigration && !DiaryCrypto.isUnlocked()) {
+      if (!DiaryCrypto.hasPassword()) {
+        renderMigrationStuck();
+        return;
+      }
+      const ok = await ensureUnlocked("เพื่อกู้คืนข้อมูลหนี้สิน/อื่นๆ ที่ยังเข้ารหัสแบบเก่าอยู่ (ทำครั้งเดียวเท่านั้น)");
+      if (!ok) { renderMigrationStuck(true); return; }
+    }
+
+    const migratedDebts = [];
+    for (const r of debtRaw) migratedDebts.push(r.deletedAt ? r : await migrateIfEncrypted(r, "debt"));
+    const migratedOther = [];
+    for (const r of otherRaw) migratedOther.push(r.deletedAt ? r : await migrateIfEncrypted(r, "other"));
+
+    allDebts = migratedDebts.filter((d) => !d.deletedAt);
+    allOtherInfo = migratedOther.filter((o) => !o.deletedAt);
     renderDebtList();
     renderOtherList();
     renderSummaryCounts();
   }
 
+  function renderMigrationStuck(retry) {
+    const msg = retry
+      ? "ปลดล็อกไม่สำเร็จ — แตะเพื่อลองใหม่"
+      : "พบข้อมูลเก่าที่ยังเข้ารหัสอยู่ แต่ยังไม่เคยตั้งรหัสผ่านไว้บนเครื่องนี้ ลองเข้าจากเครื่อง/เบราว์เซอร์ที่เคยตั้งรหัสผ่านไว้แทน";
+    ["debtList", "otherList"].forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      el.innerHTML = `<div class="empty-state"><p class="empty-title">🔒 ${escapeHTML(msg)}</p></div>`;
+    });
+    if (retry) {
+      document.querySelectorAll(".empty-title").forEach((el) => {
+        el.style.cursor = "pointer";
+        el.addEventListener("click", loadDebtsAndOther, { once: true });
+      });
+    }
+  }
+
   /** Bank accounts never need an unlock just to LIST them — this is also
    *  what keeps Finance's "แหล่งเงิน" dropdown current. */
   async function loadBankAccounts() {
-    allBankAccountsFull = await DiaryDB.getAllBankAccounts();
+    let raw = await DiaryDB.getAllBankAccounts();
+    // Opportunistic migration only (no forced unlock prompt here — unlike
+    // debts, only 3 minor fields (accountType/branch/note) are at stake
+    // for pre-existing accounts, not the whole record): migrates silently
+    // if already unlocked this session, otherwise those 3 fields just show
+    // blank until the account is edited and re-saved.
+    if (DiaryCrypto.isUnlocked() && raw.some((r) => !r.deletedAt && r.encIv)) {
+      const migrated = [];
+      for (const r of raw) migrated.push(r.deletedAt ? r : await migrateIfEncrypted(r, "bank"));
+      raw = migrated;
+    }
+    allBankAccountsFull = raw;
     allBankAccounts = allBankAccountsFull.filter((a) => !a.deletedAt);
     renderBankList();
     renderSummaryCounts();
