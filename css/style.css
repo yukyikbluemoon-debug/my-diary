@@ -856,13 +856,22 @@ select {
    reserved right-hand padding for two buttons. Bank rows keep space for
    one send-to-Telegram button. */
 #debtList .asset-row, #otherList .asset-row { padding-right: 14px; }
-#bankList .asset-row { padding-right: 44px; }
+#bankList .asset-row { padding-right: 78px; }
 .bank-send-btn {
   position: absolute; top: 10px; right: 10px;
   background: none; border: none;
   font-size: 15px; opacity: 0.6; cursor: pointer; padding: 4px;
 }
 .bank-send-btn:hover { opacity: 1; }
+.bank-pin-btn {
+  position: absolute; top: 10px; right: 44px;
+  background: none; border: none;
+  font-size: 15px; opacity: 0.35; cursor: pointer; padding: 4px;
+  transform: rotate(45deg);
+}
+.bank-pin-btn:hover { opacity: 0.7; }
+.bank-pin-btn.pinned { opacity: 1; color: var(--amber); transform: rotate(0deg); }
+.bank-row-pinned { border-color: var(--amber-dim); }
 
 .fin-subtabs {
   display: flex; gap: 6px;

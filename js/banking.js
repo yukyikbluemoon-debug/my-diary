@@ -157,29 +157,43 @@ const Banking = (() => {
   function renderBankList() {
     const q = ($("bankSearchInput") && $("bankSearchInput").value || "").trim().toLowerCase();
     const items = q
-      ? allBankAccounts.filter((a) => [a.bankName, a.accountName].join(" ").toLowerCase().includes(q))
+      ? allBankAccounts.filter((a) => [a.bankName, a.accountName, a.accountNumber, a.ownerName].join(" ").toLowerCase().includes(q))
       : allBankAccounts;
     const list = $("bankList");
     if (!list) return;
     list.innerHTML = "";
     if ($("bankEmptyState")) $("bankEmptyState").hidden = items.length > 0 || !!q;
-    items.slice().sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")).forEach((a) => {
+    items.slice().sort((a, b) => {
+      const pinDiff = (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0);
+      if (pinDiff !== 0) return pinDiff;
+      return (b.updatedAt || "").localeCompare(a.updatedAt || "");
+    }).forEach((a) => {
       const label = bankLabel(a);
       const bal = (typeof Finance !== "undefined") ? Finance.computeWalletBalance(bankKey(a.id)) : 0;
       const row = document.createElement("div");
-      row.className = "asset-row";
+      row.className = "asset-row" + (a.isPinned ? " bank-row-pinned" : "");
       row.dataset.id = a.id;
       row.innerHTML = `
+        <button type="button" class="bank-pin-btn${a.isPinned ? " pinned" : ""}" data-id="${a.id}" aria-label="${a.isPinned ? "เลิกปักหมุด" : "ปักหมุด"}">📌</button>
         <button type="button" class="bank-send-btn" data-id="${a.id}" aria-label="ส่งเข้า Telegram">📨</button>
         <div class="asset-row-body">
           <div class="asset-row-title">🏦 ${escapeHTML(label)}</div>
-          <div class="asset-row-sub">แตะเพื่อดูรายละเอียด (เลขบัญชี/สาขา เข้ารหัสไว้)</div>
+          <div class="asset-row-sub">แตะเพื่อดูรายละเอียด (ประเภทบัญชี/สาขา เข้ารหัสไว้)</div>
         </div>
         <div class="asset-row-value">
           <div class="asset-row-total">${Finance.formatMoney(bal)}</div>
         </div>`;
       list.appendChild(row);
     });
+  }
+
+  async function togglePinBank(id) {
+    const raw = allBankAccountsFull.find((x) => x.id === id);
+    if (!raw) return;
+    raw.isPinned = !raw.isPinned;
+    raw.updatedAt = new Date().toISOString();
+    await DiaryDB.putBankAccount(raw);
+    await loadBankAccounts();
   }
 
   function openNewBank() {
@@ -558,6 +572,8 @@ const Banking = (() => {
     $("bankSaveBtn").addEventListener("click", saveBank);
     $("bankDeleteBtn").addEventListener("click", deleteBank);
     $("bankList").addEventListener("click", (e) => {
+      const pinBtn = e.target.closest(".bank-pin-btn");
+      if (pinBtn) { togglePinBank(pinBtn.dataset.id); return; }
       const sendBtn = e.target.closest(".bank-send-btn");
       if (sendBtn) { sendBankToTelegram(sendBtn.dataset.id); return; }
       const row = e.target.closest(".asset-row");
