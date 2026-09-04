@@ -592,7 +592,10 @@
       <div class="view-inner">
         <div class="page-head">
           <h1>การเงิน</h1>
-          <button class="icon-btn" id="manageFinanceMetaBtn">หมวดหมู่/กระเป๋าเงิน</button>
+          <div style="display:flex; gap:8px;">
+            <button class="icon-btn" id="openStatementBtn">📄 Statement</button>
+            <button class="icon-btn" id="manageFinanceMetaBtn">หมวดหมู่/กระเป๋าเงิน</button>
+          </div>
         </div>
 
         <div class="fin-subtabs">
@@ -898,6 +901,47 @@
          multi-line/small-font options), used for the "แหล่งเงิน" fields in
          the transaction form. Search box included since accounts can run
          into the dozens. -->
+    <!-- Statement: combined chronological export across every wallet -->
+    <div class="modal" id="statementModal" hidden>
+      <div class="modal-card">
+        <h2>📄 Statement</h2>
+        <p class="settings-note">รวมธุรกรรมทุกบัญชี+เงินสด เรียงตามเวลา สำหรับช่วงวันที่ที่เลือก</p>
+
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="stmtFromDateBtn">จากวันที่</label>
+            <button type="button" class="date-picker-btn" id="stmtFromDateBtn"></button>
+            <input type="hidden" id="stmtFromDateValue">
+          </div>
+          <div class="field">
+            <label for="stmtToDateBtn">ถึงวันที่</label>
+            <button type="button" class="date-picker-btn" id="stmtToDateBtn"></button>
+            <input type="hidden" id="stmtToDateValue">
+          </div>
+        </div>
+
+        <div class="fin-meta-section">
+          <h3 style="margin-bottom:8px;">ดาวน์โหลด</h3>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="text-btn" id="stmtDownloadCsvBtn">📥 ดาวน์โหลด CSV</button>
+            <button class="text-btn" id="stmtDownloadPdfBtn">📥 ดาวน์โหลด PDF (หน้าต่างพิมพ์)</button>
+          </div>
+        </div>
+
+        <div class="fin-meta-section">
+          <h3 style="margin-bottom:8px;">ส่งเข้า Telegram</h3>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="text-btn" id="stmtSendCsvBtn">📨 ส่ง CSV</button>
+            <button class="text-btn" id="stmtSendPdfBtn">📨 ส่ง PDF (สร้างครั้งแรกอาจใช้เวลาสักครู่ — โหลดฟอนต์ไทย)</button>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="text-btn primary" id="statementCloseBtn">ปิด</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal" id="walletPickerModal" hidden>
       <div class="modal-card">
         <h2>เลือกแหล่งเงิน</h2>
@@ -1283,8 +1327,14 @@
 <script src="js/banking.js"></script>
 <script src="js/gallery.js"></script>
 <script src="js/telegram.js"></script>
+<script src="js/statement.js"></script>
 <script src="js/drive-config.js"></script>
 <script src="js/drive-sync.js"></script>
 <script src="js/app.js"></script>
+
+<!-- Hidden until window.print() is triggered from the Statement modal — a
+     dedicated @media print rule (css/style.css) hides everything else and
+     shows only this. -->
+<div id="printStatementArea" class="print-only"></div>
 </body>
 </html>

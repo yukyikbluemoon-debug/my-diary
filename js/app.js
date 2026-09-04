@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.12.0";
+const APP_VERSION = "3.13.0";
 const APP_BUILD_DATE = "2026-09-04";
 
 const state = {
@@ -138,6 +138,7 @@ function closeCurrentLayer() {
   if (!$("unlockModal").hidden) { closeUnlockModalVisual(false); return; }
   if (!$("txModal").hidden && typeof Finance !== "undefined") { Finance.closeTxModalVisual(); return; }
   if (!$("walletPickerModal").hidden && typeof Finance !== "undefined") { Finance.closeWalletPickerModalVisual(); return; }
+  if (!$("statementModal").hidden && typeof Statement !== "undefined") { Statement.closeStatementModalVisual(); return; }
   if (!$("finMetaModal").hidden && typeof Finance !== "undefined") { Finance.closeFinMetaModalVisual(); return; }
   if (!$("eventCatMetaModal").hidden) { closeEventCatMetaModalVisual(); return; }
   if (!$("assetModal").hidden && typeof Assets !== "undefined") { Assets.closeAssetModalVisual(); return; }
@@ -2261,6 +2262,7 @@ async function init() {
     if (typeof Banking !== "undefined") await Banking.init();
     if (typeof Finance !== "undefined") await Finance.init();
     if (typeof Assets !== "undefined") await Assets.init();
+    if (typeof Statement !== "undefined") await Statement.init();
     if (typeof Gallery !== "undefined") Gallery.init();
 
     renderHome();

@@ -585,6 +585,16 @@ const Finance = (() => {
     return allTx.find((t) => t.id === id) || null;
   }
 
+  /** All active transactions with date in [fromDate, toDate] (inclusive,
+   *  ISO yyyy-mm-dd strings), sorted chronologically ascending — for the
+   *  statement export, which reads oldest-to-newest like a real bank
+   *  statement rather than the newest-first order the on-screen list uses. */
+  function getTransactionsInRange(fromDate, toDate) {
+    return activeTx()
+      .filter((t) => t.date >= fromDate && t.date <= toDate)
+      .sort((a, b) => (a.date + (a.createdAt || "")).localeCompare(b.date + (b.createdAt || "")));
+  }
+
   async function init() {
     wireEvents();
     allTx = await DiaryDB.getAllTransactions();
@@ -592,7 +602,7 @@ const Finance = (() => {
 
   return {
     init, render, openNewTx, closeTxModalVisual, closeFinMetaModalVisual, closeWalletPickerModalVisual, getTodaySummary,
-    getTransactionDateSet, getTransactionsForDate, getTransactionById, formatMoney,
+    getTransactionDateSet, getTransactionsForDate, getTransactionsInRange, getTransactionById, formatMoney,
     getWalletOptions, walletLabel, computeWalletBalance,
   };
 })();

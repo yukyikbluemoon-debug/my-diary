@@ -50,6 +50,25 @@ const TelegramNotify = (() => {
     await sendMessage("✅ เชื่อมต่อสมุดบันทึกกับ Telegram สำเร็จแล้ว");
   }
 
+  /** Sends a Blob as a Telegram document attachment (Bot API sendDocument,
+   *  multipart/form-data — same CORS-from-browser support as sendMessage). */
+  async function sendDocument(blob, filename, caption) {
+    const { token, chatId } = getConfig();
+    if (!token || !chatId) throw new Error("ยังไม่ได้ตั้งค่า Telegram");
+    const url = `https://api.telegram.org/bot${token}/sendDocument`;
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    if (caption) form.append("caption", caption);
+    form.append("document", blob, filename);
+    const res = await fetch(url, { method: "POST", body: form });
+    if (!res.ok) {
+      let detail = "";
+      try { detail = (await res.json()).description || ""; } catch (e) {}
+      throw new Error(detail || `Telegram API error ${res.status}`);
+    }
+    return true;
+  }
+
   function buildEntryText(rec, data) {
     const lines = [];
     const typeLabel = rec.entryType === "event"
@@ -176,7 +195,7 @@ const TelegramNotify = (() => {
   }
 
   return {
-    getConfig, setConfig, clearConfig, isConfigured, sendMessage, sendTestMessage, sendEntry,
+    getConfig, setConfig, clearConfig, isConfigured, sendMessage, sendDocument, sendTestMessage, sendEntry,
     sendTransaction, isFinanceForwardingEnabled, setFinanceForwardingEnabled, sendAttachments,
   };
 })();
