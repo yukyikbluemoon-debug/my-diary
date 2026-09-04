@@ -438,6 +438,7 @@ const Banking = (() => {
           <div class="asset-row-title">💳 ${escapeHTML(d.debtName)}</div>
           <div class="asset-row-sub">คงเหลือ ${Finance.formatMoney(remaining)}${original > 0 ? " · วงเงินคงเหลือ " + Finance.formatMoney(available) : ""}${d.dueDay ? " · ชำระวันที่ " + escapeHTML(d.dueDay) : ""}</div>
           ${isDueSoon ? `<div class="debt-due-warning">⚠️ ${dueSoonText}</div>` : ""}
+          ${d.note ? `<div class="debt-note-badge">📝 ${escapeHTML(d.note)}</div>` : ""}
           ${paidPercent !== null ? `
           <div class="debt-progress-row">
             <div class="debt-progress-track">

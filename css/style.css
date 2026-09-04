@@ -871,7 +871,7 @@ select {
 .debt-progress-percent.mid { color: var(--amber); }
 .debt-progress-percent.high { color: var(--sage); }
 .debt-progress-label { font-size: 11px; color: var(--paper-dim); margin-top: 4px; }
-.debt-due-warning, .debt-paid-off {
+.debt-due-warning, .debt-paid-off, .debt-note-badge {
   font-size: 13px;
   font-weight: 700;
   border-radius: 999px;
@@ -881,6 +881,7 @@ select {
 }
 .debt-due-warning { color: var(--danger); background: var(--ink-600); }
 .debt-paid-off { color: var(--sage); background: var(--ink-600); }
+.debt-note-badge { color: var(--amber); background: var(--ink-600); }
 .asset-row-updated { font-size: 11px; color: var(--paper-dim); margin-top: 2px; font-style: italic; }
 .asset-row-value { text-align: right; flex-shrink: 0; }
 .asset-row-total { font-weight: 600; font-size: 14.5px; }
