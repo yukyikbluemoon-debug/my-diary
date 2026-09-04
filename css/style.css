@@ -899,6 +899,17 @@ select {
 .bank-pin-btn.pinned { opacity: 1; color: var(--amber); transform: rotate(0deg); }
 .bank-row-pinned { border-color: var(--amber-dim); }
 
+.fin-action-row {
+  display: flex; gap: 8px;
+  overflow-x: auto;
+  margin: 8px 0 12px;
+  padding-bottom: 2px; /* room so a horizontal scrollbar (if shown) doesn't clip the buttons */
+}
+.fin-action-row .icon-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .fin-subtabs {
   display: flex; gap: 6px;
   margin-bottom: 16px;
