@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.15.1";
+const APP_VERSION = "3.17.0";
 const APP_BUILD_DATE = "2026-09-04";
 
 const state = {
@@ -167,6 +167,7 @@ function closeCurrentLayer() {
   if (!$("txModal").hidden && typeof Finance !== "undefined") { Finance.closeTxModalVisual(); return; }
   if (!$("walletPickerModal").hidden && typeof Finance !== "undefined") { Finance.closeWalletPickerModalVisual(); return; }
   if (!$("statementModal").hidden && typeof Statement !== "undefined") { Statement.closeStatementModalVisual(); return; }
+  if (!$("netTrendModal").hidden && typeof NetTrend !== "undefined") { NetTrend.closeModalVisual(); return; }
   if (!$("finMetaModal").hidden && typeof Finance !== "undefined") { Finance.closeFinMetaModalVisual(); return; }
   if (!$("eventCatMetaModal").hidden) { closeEventCatMetaModalVisual(); return; }
   if (!$("assetModal").hidden && typeof Assets !== "undefined") { Assets.closeAssetModalVisual(); return; }
@@ -175,6 +176,7 @@ function closeCurrentLayer() {
   if (!$("debtModal").hidden && typeof Banking !== "undefined") { Banking.closeDebtModalVisual(); return; }
   if (!$("otherModal").hidden && typeof Banking !== "undefined") { Banking.closeOtherModalVisual(); return; }
   if (state.view === "trash") { showView("settings"); return; }
+  if (state.view === "timeline") { showView("home"); return; }
   if (state.view === "stats") { showView(state.statsReturnView || "dashboard"); return; }
   if (state.view === "write") { clearRecordingUI(); showView(state.editId ? "entry" : "home"); return; }
   if (state.view === "entry") { showView("home"); return; }
@@ -1176,6 +1178,55 @@ $("onThisDayList").addEventListener("click", (e) => {
   if (item) openEntry(item.dataset.id);
 });
 
+function renderTimeline() {
+  const track = $("timelineTrack");
+  track.innerHTML = "";
+  const entries = activeEntries().slice().sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  $("timelineEmptyState").hidden = entries.length > 0;
+
+  let currentMonth = null;
+  entries.forEach((e) => {
+    const monthKey = e.date.slice(0, 7);
+    if (monthKey !== currentMonth) {
+      currentMonth = monthKey;
+      const [y, m] = monthKey.split("-").map(Number);
+      const monthLabel = document.createElement("div");
+      monthLabel.className = "timeline-month-heading";
+      monthLabel.textContent = `${THAI_MONTHS_FULL[m - 1]} ${y + 543}`;
+      track.appendChild(monthLabel);
+    }
+
+    const node = document.createElement("div");
+    node.className = "timeline-node" + (e.pinned ? " milestone" : "");
+    node.dataset.id = e.id;
+    const titleText = e.private ? "🔒 บันทึกส่วนตัว" : escapeHTML(e.title || "(ไม่มีชื่อเรื่อง)");
+    const mood = e.private ? "" : (e.mood || "");
+    const preview = e.private ? "" : escapeHTML((e.content || "").replace(/[#*_\[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 80));
+    node.innerHTML = `
+      <div class="timeline-dot">${e.pinned ? "⭐" : ""}</div>
+      <div class="timeline-content">
+        <div class="timeline-date">${formatFullThaiDate(e.date)} · ${e.time}</div>
+        <div class="timeline-title">${titleText}${mood ? ` ${mood}` : ""}</div>
+        ${preview ? `<div class="timeline-preview">${preview}</div>` : ""}
+      </div>`;
+    track.appendChild(node);
+  });
+}
+
+$("timelineTrack").addEventListener("click", (e) => {
+  const node = e.target.closest(".timeline-node");
+  if (node) openEntry(node.dataset.id);
+});
+$("openTimelineBtn").addEventListener("click", () => {
+  renderTimeline();
+  showView("timeline");
+  pushNavState("timeline");
+});
+$("backFromTimelineBtn").addEventListener("click", () => {
+  showView("home");
+  popNavState();
+});
+
 function buildEntryCard(e) {
   const card = document.createElement("div");
   card.className = "entry-card" + (e.color ? ` color-${e.color}` : "");
@@ -1391,6 +1442,7 @@ function resetWriteForm() {
   $("entryContent").value = "";
   $("entryTags").value = "";
   $("entryPrivate").checked = false;
+  $("entryPinnedCheckbox").checked = false;
   $("entryLocationToggle").checked = false;
   state.entryLocation = null;
   $("locationSubText").textContent = "ไม่บังคับ — ใช้ตำแหน่งคร่าวๆ จาก GPS";
@@ -1455,6 +1507,7 @@ async function openWriteForEdit(id) {
   $("entryContent").value = data.content || "";
   $("entryTags").value = (data.tags || []).join(", ");
   $("entryPrivate").checked = !!rec.private;
+  $("entryPinnedCheckbox").checked = !!rec.pinned;
   if (rec.entryType === "event") {
     populateEventCategorySelect(rec.eventCategory || "อื่นๆ");
     populateEventLinkTxSelect(rec.date, rec.linkedTxId || "");
@@ -1535,7 +1588,7 @@ $("saveEntryBtn").addEventListener("click", async () => {
       id, date, time, private: isPrivate,
       hasMedia: state.pendingAttachments.length > 0,
       color: state.entryColor === "none" ? null : state.entryColor,
-      pinned: existing ? !!existing.pinned : false,
+      pinned: $("entryPinnedCheckbox").checked,
       entryType: state.entryType,
       eventCategory: state.entryType === "event" ? $("eventCategory").value : null,
       linkedTxId: state.entryType === "event" ? ($("eventLinkTx").value || null) : null,
@@ -2358,6 +2411,7 @@ async function init() {
     if (typeof Finance !== "undefined") await Finance.init();
     if (typeof Assets !== "undefined") await Assets.init();
     if (typeof Statement !== "undefined") await Statement.init();
+    if (typeof NetTrend !== "undefined") await NetTrend.init();
     if (typeof Gallery !== "undefined") Gallery.init();
 
     renderHome();

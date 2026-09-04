@@ -89,6 +89,7 @@
           <div class="search-wrap">
             <input type="search" id="searchInput" placeholder="ค้นหาไดอารี่..." aria-label="ค้นหา">
           </div>
+          <button class="icon-btn" id="openTimelineBtn" aria-label="Timeline">🕰️</button>
           <button class="icon-btn" id="filterToggleBtn" aria-label="กรอง" aria-expanded="false">ตัวกรอง</button>
         </div>
 
@@ -129,6 +130,22 @@
         <div class="empty-state" id="emptyState" hidden>
           <p class="empty-title">ยังไม่มีบันทึก</p>
           <p class="empty-sub">แตะปุ่ม + ด้านล่างเพื่อเริ่มเขียนวันนี้</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TIMELINE VIEW -->
+    <section class="view" id="view-timeline" data-view="timeline">
+      <div class="view-inner">
+        <div class="page-head">
+          <button class="text-btn" id="backFromTimelineBtn">ย้อนกลับ</button>
+          <h1>🕰️ Timeline</h1>
+          <span style="width:60px;"></span>
+        </div>
+        <p class="settings-note">รายการที่ปักหมุด (📌) จะไฮไลต์เด่นกว่ารายการทั่วไป</p>
+        <div class="timeline-track" id="timelineTrack"></div>
+        <div class="empty-state" id="timelineEmptyState" hidden>
+          <p class="empty-title">ยังไม่มีบันทึก</p>
         </div>
       </div>
     </section>
@@ -272,6 +289,17 @@
               </span>
               <span class="switch">
                 <input type="checkbox" id="entryPrivate">
+                <span class="switch-track"></span>
+              </span>
+            </label>
+
+            <label class="switch-row" for="entryPinnedCheckbox">
+              <span>
+                <span class="switch-label">📌 เหตุการณ์สำคัญ</span>
+                <span class="switch-sub">ปักหมุดไว้บนสุด และไฮไลต์ใน Timeline View</span>
+              </span>
+              <span class="switch">
+                <input type="checkbox" id="entryPinnedCheckbox">
                 <span class="switch-track"></span>
               </span>
             </label>
@@ -593,6 +621,7 @@
         <div class="page-head">
           <h1>การเงิน</h1>
           <div style="display:flex; gap:8px;">
+            <button class="icon-btn" id="openNetTrendBtn">📈 แนวโน้ม</button>
             <button class="icon-btn" id="openStatementBtn">📄 Statement</button>
             <button class="icon-btn" id="manageFinanceMetaBtn">หมวดหมู่/กระเป๋าเงิน</button>
           </div>
@@ -910,6 +939,40 @@
          multi-line/small-font options), used for the "แหล่งเงิน" fields in
          the transaction form. Search box included since accounts can run
          into the dozens. -->
+    <!-- Net Worth Timeline: cash + bank balance trend chart -->
+    <div class="modal" id="netTrendModal" hidden>
+      <div class="modal-card">
+        <h2>📈 แนวโน้มมูลค่าสุทธิ</h2>
+        <p class="settings-note">รวมเงินสด+บัญชีธนาคารทั้งหมด ไม่รวมทรัพย์สิน (ไม่มีประวัติราคาย้อนหลังให้คำนวณแม่นได้)</p>
+
+        <div style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
+          <button type="button" class="text-btn nettrend-preset-btn" data-days="7">7 วัน</button>
+          <button type="button" class="text-btn nettrend-preset-btn" data-days="30">30 วัน</button>
+          <button type="button" class="text-btn nettrend-preset-btn" data-days="90">90 วัน</button>
+          <button type="button" class="text-btn nettrend-preset-btn" data-days="365">1 ปี</button>
+        </div>
+
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="netTrendFromDateBtn">จากวันที่</label>
+            <button type="button" class="date-picker-btn" id="netTrendFromDateBtn"></button>
+            <input type="hidden" id="netTrendFromDateValue">
+          </div>
+          <div class="field">
+            <label for="netTrendToDateBtn">ถึงวันที่</label>
+            <button type="button" class="date-picker-btn" id="netTrendToDateBtn"></button>
+            <input type="hidden" id="netTrendToDateValue">
+          </div>
+        </div>
+
+        <div id="netTrendChartWrap"></div>
+
+        <div class="modal-actions">
+          <button class="text-btn primary" id="netTrendCloseBtn">ปิด</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Statement: combined chronological export across every wallet -->
     <div class="modal" id="statementModal" hidden>
       <div class="modal-card">
@@ -1337,6 +1400,7 @@
 <script src="js/gallery.js"></script>
 <script src="js/telegram.js"></script>
 <script src="js/statement.js"></script>
+<script src="js/nettrend.js"></script>
 <script src="js/drive-config.js"></script>
 <script src="js/drive-sync.js"></script>
 <script src="js/app.js"></script>
