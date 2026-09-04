@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.14.1";
+const APP_VERSION = "3.14.2";
 const APP_BUILD_DATE = "2026-09-04";
 
 const state = {
@@ -65,6 +65,34 @@ function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/** Shrinks every .stats-num currently in the DOM to whatever font-size
+ *  actually fits its card, instead of letting a long formatted amount
+ *  (e.g. ฿108,327.58) wrap mid-number or get cut off with "...". Called
+ *  after every render that touches these cards (Finance/Assets/Banking)
+ *  and on resize/orientation change, since what fits depends on the
+ *  viewport width and how many cards are in the row. */
+function fitStatsNums() {
+  document.querySelectorAll(".stats-num").forEach((el) => {
+    let size = 18;
+    el.style.fontSize = size + "px";
+    while (el.scrollWidth > el.clientWidth && size > 10) {
+      size -= 1;
+      el.style.fontSize = size + "px";
+    }
+  });
+}
+let fitStatsNumsTimer = null;
+function scheduleFitStatsNums() {
+  clearTimeout(fitStatsNumsTimer);
+  fitStatsNumsTimer = setTimeout(fitStatsNums, 30);
+}
+window.addEventListener("resize", scheduleFitStatsNums);
+// Finance/Assets/Banking.render() are async and called from several places
+// without always being awaited — rather than chase every call site, just
+// watch for the .stats-num text actually changing and re-fit right after,
+// regardless of what triggered the update or its timing.
+new MutationObserver(scheduleFitStatsNums).observe(document.body, { childList: true, subtree: true, characterData: true });
 
 function formatDateHeading(dateStr) {
   const [y, m, d] = dateStr.split("-").map(Number);
