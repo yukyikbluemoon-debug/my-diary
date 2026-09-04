@@ -444,7 +444,7 @@ const Banking = (() => {
               <div class="debt-progress-fill ${barTier}" style="width:${paidPercent}%;"></div>
             </div>
             <div class="debt-progress-percent ${barTier}">${paidPercent}%${paidPercent >= 100 ? " 🎉" : ""}</div>
-          </div>${paidPercent >= 100 ? '<div class="debt-progress-label">หมดแล้ว!</div>' : ""}` : ""}
+          </div>${paidPercent >= 100 ? '<div class="debt-paid-off">🎉 ผ่อนหมดแล้ว!</div>' : ""}` : ""}
         </div>`;
       list.appendChild(row);
     });
