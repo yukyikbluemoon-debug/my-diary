@@ -23,18 +23,41 @@ const Statement = (() => {
       const s = document.createElement("script");
       s.src = src;
       s.onload = () => resolve();
-      s.onerror = () => reject(new Error("โหลดไลบรารีไม่สำเร็จ: " + src));
+      s.onerror = () => reject(new Error("โหลดไม่สำเร็จ: " + src));
       document.head.appendChild(s);
     });
+  }
+
+  // Tries each URL in order until one actually loads — a single CDN being
+  // blocked/down/slow on someone's network (ad-blocker, carrier proxy,
+  // outage) shouldn't be a hard failure when a mirror would work fine.
+  async function loadScriptWithFallback(urls) {
+    let lastErr = null;
+    for (const url of urls) {
+      try { await loadScriptOnce(url); return; }
+      catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error("โหลดไลบรารีไม่สำเร็จ");
   }
 
   function ensurePdfLibsLoaded() {
     if (!pdfLibsPromise) {
       pdfLibsPromise = (async () => {
-        await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js");
-        await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js");
+        await loadScriptWithFallback([
+          "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js",
+          "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js",
+          "https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js",
+        ]);
+        await loadScriptWithFallback([
+          "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js",
+          "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js",
+          "https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js",
+        ]);
         await loadScriptOnce("js/thai-font.js");
-      })();
+      })().catch((err) => {
+        pdfLibsPromise = null; // let the next attempt retry from scratch instead of staying permanently broken
+        throw err;
+      });
     }
     return pdfLibsPromise;
   }
