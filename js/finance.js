@@ -164,6 +164,8 @@ const Finance = (() => {
 
   let txType = "expense";
   let walletPickerTarget = null; // "txWallet" | "txToWallet" — which field the open picker is filling in
+  let pendingTxAttachments = []; // [{id, type:"image", blob, url, existing}] — receipt photos for the open tx form
+  let removedTxAttachmentIds = [];
 
   function getWalletPickerRows() {
     const bankRows = (typeof Banking !== "undefined") ? Banking.getBankAccountPickerRows() : [];
@@ -255,6 +257,35 @@ const Finance = (() => {
     hint.textContent = (amount > 0 && rate > 0) ? `≈ ${formatMoney(amount * rate)}` : "";
   }
 
+  function addPendingTxAttachment(blob) {
+    const url = URL.createObjectURL(blob);
+    pendingTxAttachments.push({ id: uid(), type: "image", blob, url, existing: false });
+    renderTxAttachStrip();
+  }
+
+  function renderTxAttachStrip() {
+    const strip = $("txAttachStrip");
+    if (!strip) return;
+    strip.innerHTML = "";
+    pendingTxAttachments.forEach((a) => {
+      const chip = document.createElement("div");
+      chip.className = "attach-chip";
+      chip.innerHTML = `<img src="${a.url}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;">`;
+      const label = document.createElement("span");
+      label.textContent = a.blob ? formatBytes(a.blob.size) : "รูป";
+      chip.appendChild(label);
+      const rm = document.createElement("button");
+      rm.type = "button"; rm.className = "remove-img"; rm.textContent = "×";
+      rm.addEventListener("click", () => {
+        if (a.existing) removedTxAttachmentIds.push(a.id);
+        pendingTxAttachments = pendingTxAttachments.filter((x) => x.id !== a.id);
+        renderTxAttachStrip();
+      });
+      chip.appendChild(rm);
+      strip.appendChild(chip);
+    });
+  }
+
   function openNewTx(prefill, onCreated) {
     populateSelects();
     $("txId").value = "";
@@ -265,6 +296,9 @@ const Finance = (() => {
     $("txExchangeRate").value = "";
     $("txAmount").value = "";
     $("txNote").value = "";
+    pendingTxAttachments = [];
+    removedTxAttachmentIds = [];
+    renderTxAttachStrip();
     $("txModalTitle").textContent = "เพิ่มรายการเงิน";
     $("txDeleteBtn").hidden = true;
     txCreatedCallback = onCreated || null;
@@ -272,7 +306,7 @@ const Finance = (() => {
     pushNavState("tx");
   }
 
-  function openEditTx(id) {
+  async function openEditTx(id) {
     const tx = allTx.find((t) => t.id === id);
     if (!tx) return;
     populateSelects();
@@ -292,6 +326,11 @@ const Finance = (() => {
       setTxCurrency("THB");
     }
     $("txNote").value = tx.note || "";
+    pendingTxAttachments = (await DiaryDB.getAttachmentsByEntry(tx.id)).map((a) => ({
+      id: a.id, type: a.type, blob: a.blob, url: a.blob ? URL.createObjectURL(a.blob) : "", existing: true,
+    }));
+    removedTxAttachmentIds = [];
+    renderTxAttachStrip();
     $("txModalTitle").textContent = "แก้ไขรายการเงิน";
     $("txDeleteBtn").hidden = false;
     $("txModal").hidden = false;
@@ -336,12 +375,22 @@ const Finance = (() => {
       originalAmount: currency === "USD" ? enteredAmount : null,
       exchangeRate,
       note: $("txNote").value.trim(),
+      hasAttachments: pendingTxAttachments.filter((a) => !removedTxAttachmentIds.includes(a.id)).length > 0,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     await DiaryDB.putTransaction(tx);
     const idx = allTx.findIndex((t) => t.id === id);
     if (idx >= 0) allTx[idx] = tx; else allTx.push(tx);
+
+    for (const attId of removedTxAttachmentIds) await DiaryDB.removeAttachment(attId);
+    for (const a of pendingTxAttachments) {
+      if (a.existing) continue;
+      await DiaryDB.putAttachment({
+        id: a.id, entryId: tx.id, type: "image", blob: a.blob, mimeType: a.blob.type,
+        size: a.blob.size, createdAt: new Date().toISOString(), driveFileId: null,
+      });
+    }
 
     if (!existing && typeof TelegramNotify !== "undefined") {
       TelegramNotify.sendTransaction(tx); // fire-and-forget, only on create (not edits)
@@ -434,6 +483,7 @@ const Finance = (() => {
       if (tx.type === "transfer") subParts.push(`${walletLabel(tx.wallet)} → ${walletLabel(tx.toWallet)}`);
       else subParts.push(tx.category || "", walletLabel(tx.wallet));
       if (tx.note) subParts.push(tx.note);
+      if (tx.hasAttachments) subParts.push("📎");
       row.innerHTML = `
         <span class="tx-item-icon">${txIcon(tx)}</span>
         <div class="tx-item-body">
@@ -529,6 +579,13 @@ const Finance = (() => {
     $("txCancelBtn").addEventListener("click", closeTxModal);
     $("txSaveBtn").addEventListener("click", saveTx);
     $("txDeleteBtn").addEventListener("click", deleteTx);
+    $("txImages").addEventListener("change", async (e) => {
+      const files = Array.from(e.target.files || []);
+      for (const f of files) {
+        try { addPendingTxAttachment(await compressImageToBlob(f)); } catch (err) { /* skip bad file */ }
+      }
+      e.target.value = "";
+    });
     $("txList").addEventListener("click", (e) => {
       const row = e.target.closest(".tx-item");
       if (row) openEditTx(row.dataset.id);

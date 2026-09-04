@@ -886,6 +886,15 @@
           <input type="text" id="txNote" placeholder="เช่น ชื่อร้าน, รายละเอียดเพิ่มเติม">
         </div>
 
+        <div class="field">
+          <label>แนบรูปใบเสร็จ (ไม่บังคับ)</label>
+          <div class="capture-row">
+            <label class="capture-btn" for="txImages">📷 แนบรูป</label>
+            <input type="file" id="txImages" accept="image/*" multiple hidden>
+          </div>
+          <div class="attach-strip" id="txAttachStrip"></div>
+        </div>
+
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="text-btn danger" id="txDeleteBtn" hidden>ลบ</button>
           <div style="display:flex; gap:12px;">

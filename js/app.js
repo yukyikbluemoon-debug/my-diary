@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.13.1";
+const APP_VERSION = "3.14.0";
 const APP_BUILD_DATE = "2026-09-04";
 
 const state = {
@@ -2006,6 +2006,16 @@ $("backupBtn").addEventListener("click", async () => {
   // Google Drive sync was the only backup that covered transactions,
   // assets, and Banking data, so a Drive outage meant no fallback at all
   // for that data.
+  const transactions = await DiaryDB.getAllTransactions();
+  for (const t of transactions) {
+    if (!t.hasAttachments) continue;
+    const atts = await DiaryDB.getAttachmentsByEntry(t.id);
+    const withBlob = [];
+    for (const att of atts) {
+      if (att.blob) withBlob.push({ id: att.id, type: att.type, mimeType: att.mimeType, dataURL: await blobToDataURL(att.blob) });
+    }
+    if (withBlob.length) t.attachmentBlobs = withBlob;
+  }
   const backup = {
     version: 3,
     exportedAt: new Date().toISOString(),
@@ -2015,7 +2025,7 @@ $("backupBtn").addEventListener("click", async () => {
       verifier: localStorage.getItem("diary_pw_verifier"),
     } : null,
     entries,
-    transactions: await DiaryDB.getAllTransactions(),
+    transactions,
     assets: await DiaryDB.getAllAssets(),
     bankAccounts: await DiaryDB.getAllBankAccounts(),
     debts: await DiaryDB.getAllDebts(),
@@ -2062,6 +2072,15 @@ $("restoreFile").addEventListener("change", async (e) => {
     // never in it to begin with.
     let restoredCount = backup.entries.length;
     if (Array.isArray(backup.transactions) && backup.transactions.length) {
+      for (const t of backup.transactions) {
+        if (Array.isArray(t.attachmentBlobs)) {
+          for (const a of t.attachmentBlobs) {
+            const blob = dataURLToBlob(a.dataURL);
+            await DiaryDB.putAttachment({ id: a.id, entryId: t.id, type: a.type, blob, mimeType: a.mimeType, size: blob.size, createdAt: t.createdAt, driveFileId: null });
+          }
+          delete t.attachmentBlobs;
+        }
+      }
       await DiaryDB.bulkPutTransactions(backup.transactions);
       restoredCount += backup.transactions.length;
     }
