@@ -315,6 +315,11 @@ const DiaryDB = (() => {
     await reqToPromise(store.put(rec));
     return rec;
   }
+  async function removeDebt(id) {
+    const store = await storeTx(DEBT_STORE, "readwrite");
+    await reqToPromise(store.delete(id));
+    return true;
+  }
   async function getAllDebts() {
     const store = await storeTx(DEBT_STORE, "readonly");
     return reqToPromise(store.getAll());
@@ -332,6 +337,11 @@ const DiaryDB = (() => {
     const store = await storeTx(OTHER_STORE, "readwrite");
     await reqToPromise(store.put(rec));
     return rec;
+  }
+  async function removeOtherInfo(id) {
+    const store = await storeTx(OTHER_STORE, "readwrite");
+    await reqToPromise(store.delete(id));
+    return true;
   }
   async function getAllOtherInfo() {
     const store = await storeTx(OTHER_STORE, "readonly");
@@ -352,8 +362,8 @@ const DiaryDB = (() => {
     putTransaction, removeTransaction, getAllTransactions, getTransaction, bulkPutTransactions,
     putAsset, getAllAssets, bulkPutAssets,
     putBankAccount, getAllBankAccounts, bulkPutBankAccounts,
-    putDebt, getAllDebts, bulkPutDebts,
-    putOtherInfo, getAllOtherInfo, bulkPutOtherInfo,
+    putDebt, getAllDebts, bulkPutDebts, removeDebt,
+    putOtherInfo, getAllOtherInfo, bulkPutOtherInfo, removeOtherInfo,
     migrateIfNeeded,
   };
 })();

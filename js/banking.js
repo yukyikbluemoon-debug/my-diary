@@ -128,26 +128,26 @@ const Banking = (() => {
     const bad = allDebts.filter((d) => d.encIv);
     if (bad.length === 0) return;
     if (!confirm(`พบหนี้สิน ${bad.length} รายการที่ถอดรหัสไม่ได้ (ข้อมูลเสียมาตั้งแต่ก่อนหน้านี้ กู้คืนไม่ได้แล้ว) ต้องการลบทิ้งหรือไม่?`)) return;
+    let failCount = 0;
     for (const d of bad) {
-      d.deletedAt = new Date().toISOString();
-      d.updatedAt = new Date().toISOString();
-      await DiaryDB.putDebt(d);
+      try { await DiaryDB.removeDebt(d.id); }
+      catch (e) { console.error("Banking: hard-delete failed for debt", d.id, e); failCount++; }
     }
     await loadDebtsAndOther();
-    showToast(`ลบแล้ว ${bad.length} รายการ`);
+    showToast(failCount > 0 ? `ลบได้ ${bad.length - failCount}/${bad.length} รายการ` : `ลบแล้ว ${bad.length} รายการ`);
   }
 
   async function cleanupCorruptedOther() {
     const bad = allOtherInfo.filter((o) => o.encIv);
     if (bad.length === 0) return;
     if (!confirm(`พบข้อมูลอื่น ${bad.length} รายการที่ถอดรหัสไม่ได้ (ข้อมูลเสียมาตั้งแต่ก่อนหน้านี้ กู้คืนไม่ได้แล้ว) ต้องการลบทิ้งหรือไม่?`)) return;
+    let failCount = 0;
     for (const o of bad) {
-      o.deletedAt = new Date().toISOString();
-      o.updatedAt = new Date().toISOString();
-      await DiaryDB.putOtherInfo(o);
+      try { await DiaryDB.removeOtherInfo(o.id); }
+      catch (e) { console.error("Banking: hard-delete failed for other-info", o.id, e); failCount++; }
     }
     await loadDebtsAndOther();
-    showToast(`ลบแล้ว ${bad.length} รายการ`);
+    showToast(failCount > 0 ? `ลบได้ ${bad.length - failCount}/${bad.length} รายการ` : `ลบแล้ว ${bad.length} รายการ`);
   }
 
   function renderMigrationStuck(retry) {
