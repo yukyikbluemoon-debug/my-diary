@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.14.2";
+const APP_VERSION = "3.15.0";
 const APP_BUILD_DATE = "2026-09-04";
 
 const state = {
@@ -594,17 +594,64 @@ $("colorPicker").addEventListener("click", (e) => {
 
 async function reverseGeocode(lat, lng) {
   try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`);
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
     if (!res.ok) return null;
     const data = await res.json();
     const a = data.address || {};
-    const place = a.suburb || a.neighbourhood || a.village || a.town || a.city_district || a.city || a.county || null;
+    // At zoom=18 (building level), prefer a named venue (shop/amenity/building
+    // tag in OpenStreetMap) or house number + road when available — falls
+    // back to the coarser suburb/district chain when the exact building
+    // isn't individually tagged, which is common for small Thai businesses.
+    const venue = a.shop || a.amenity || a.tourism || a.office || a.building || null;
+    const streetAddress = a.house_number && a.road ? `${a.house_number} ${a.road}` : (a.road || null);
+    const place = venue || streetAddress || a.suburb || a.neighbourhood || a.village || a.town || a.city_district || a.city || a.county || null;
     const region = a.city || a.state || a.province || null;
     const parts = [place, region && region !== place ? region : null].filter(Boolean);
     return parts.length ? parts.join(", ") : (data.display_name || null);
   } catch (e) {
     return null; // best-effort only — coordinates still work fine without a name
   }
+}
+
+/* ---------------- weather (Open-Meteo, no API key needed) ---------------- */
+
+const WEATHER_CODE_MAP = {
+  0: "☀️ ท้องฟ้าแจ่มใส", 1: "🌤️ แจ่มใสเป็นส่วนใหญ่", 2: "⛅ มีเมฆบางส่วน", 3: "☁️ มีเมฆมาก",
+  45: "🌫️ หมอก", 48: "🌫️ หมอกน้ำแข็ง",
+  51: "🌦️ ฝนตกปรอยเบา", 53: "🌦️ ฝนตกปรอย", 55: "🌧️ ฝนตกปรอยหนัก",
+  56: "🌧️ ฝนตกปรอยเย็นจัด", 57: "🌧️ ฝนตกปรอยเย็นจัดหนัก",
+  61: "🌦️ ฝนตกเบา", 63: "🌧️ ฝนตก", 65: "🌧️ ฝนตกหนัก",
+  66: "🌧️ ฝนเย็นจัดเบา", 67: "🌧️ ฝนเย็นจัดหนัก",
+  71: "🌨️ หิมะตกเบา", 73: "🌨️ หิมะตก", 75: "❄️ หิมะตกหนัก", 77: "❄️ เกล็ดหิมะ",
+  80: "🌦️ ฝนตกเป็นช่วง ๆ เบา", 81: "🌧️ ฝนตกเป็นช่วง ๆ", 82: "⛈️ ฝนตกเป็นช่วง ๆ หนัก",
+  85: "🌨️ หิมะตกเป็นช่วง ๆ เบา", 86: "🌨️ หิมะตกเป็นช่วง ๆ หนัก",
+  95: "⛈️ พายุฝนฟ้าคะนอง", 96: "⛈️ พายุฝนฟ้าคะนองมีลูกเห็บเบา", 99: "⛈️ พายุฝนฟ้าคะนองมีลูกเห็บหนัก",
+};
+
+async function fetchWeather(lat, lng) {
+  try {
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=auto`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const c = data.current;
+    if (!c || typeof c.temperature_2m !== "number") return null;
+    return {
+      temp: Math.round(c.temperature_2m),
+      humidity: typeof c.relative_humidity_2m === "number" ? Math.round(c.relative_humidity_2m) : null,
+      code: c.weather_code,
+      description: WEATHER_CODE_MAP[c.weather_code] || "",
+    };
+  } catch (e) {
+    return null; // best-effort only — entry still saves fine without weather
+  }
+}
+
+function formatWeatherText(w) {
+  if (!w) return "";
+  const parts = [`${w.temp}°C`];
+  if (w.description) parts.push(w.description.replace(/^\S+\s/, "")); // drop the leading emoji for inline text, keep it in the icon-only spot
+  if (w.humidity !== null) parts.push(`ความชื้น ${w.humidity}%`);
+  return parts.join(" · ");
 }
 
 $("entryLocationToggle").addEventListener("change", (e) => {
@@ -618,14 +665,15 @@ $("entryLocationToggle").addEventListener("change", (e) => {
   navigator.geolocation.getCurrentPosition(
     async (pos) => {
       const lat = pos.coords.latitude, lng = pos.coords.longitude;
-      state.entryLocation = { lat, lng, placeName: null };
-      $("locationSubText").textContent = "กำลังค้นหาชื่อสถานที่...";
-      const placeName = await reverseGeocode(lat, lng);
+      state.entryLocation = { lat, lng, placeName: null, weather: null };
+      $("locationSubText").textContent = "กำลังค้นหาชื่อสถานที่และสภาพอากาศ...";
+      const [placeName, weather] = await Promise.all([reverseGeocode(lat, lng), fetchWeather(lat, lng)]);
       if (state.entryLocation) { // still toggled on
         state.entryLocation.placeName = placeName;
-        $("locationSubText").textContent = placeName
-          ? `📍 ${placeName}`
-          : `ตำแหน่ง: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        state.entryLocation.weather = weather;
+        const placeText = placeName || `ตำแหน่ง: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        const weatherText = weather ? ` · ${formatWeatherText(weather)}` : "";
+        $("locationSubText").textContent = `📍 ${placeText}${weatherText}`;
       }
     },
     (err) => {
@@ -1420,7 +1468,8 @@ async function openWriteForEdit(id) {
   if (loc) {
     state.entryLocation = loc;
     $("entryLocationToggle").checked = true;
-    $("locationSubText").textContent = loc.placeName ? `📍 ${loc.placeName}` : `ตำแหน่ง: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`;
+    const placeText = loc.placeName ? `📍 ${loc.placeName}` : `ตำแหน่ง: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`;
+    $("locationSubText").textContent = loc.weather ? `${placeText} · ${formatWeatherText(loc.weather)}` : placeText;
   }
 
   if (rec.private) {
@@ -1613,7 +1662,7 @@ async function openEntry(id) {
         ${audios.map((m) => `<div><audio controls src="${m.url}"></audio>${m.blob ? `<div class="attach-size-label">${formatBytes(m.blob.size)}</div>` : ""}</div>`).join("")}
         ${videos.map((m) => `<div><video controls src="${m.url}"></video>${m.blob ? `<div class="attach-size-label">${formatBytes(m.blob.size)}</div>` : ""}</div>`).join("")}
       </div>` : ""}
-    ${loc ? `<div class="detail-location"><a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener">📍 ${loc.placeName ? escapeHTML(loc.placeName) : "ดูตำแหน่งใน Google Maps"}</a></div>` : ""}
+    ${loc ? `<div class="detail-location"><a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener">📍 ${loc.placeName ? escapeHTML(loc.placeName) : "ดูตำแหน่งใน Google Maps"}</a>${loc.weather ? ` · ${escapeHTML(formatWeatherText(loc.weather))}` : ""}</div>` : ""}
     ${linkedTx ? `<div class="detail-location" id="linkedTxLink" style="cursor:pointer;">🔗 ผูกกับรายการเงิน: ${escapeHTML(linkedTx.title)} (${Finance.formatMoney(linkedTx.type === "expense" ? -linkedTx.amount : linkedTx.amount)})</div>` : ""}
     ${(data.tags && data.tags.length) ? `<div class="detail-tags">${data.tags.map((t) => `<span class="entry-tag">${escapeHTML(t)}</span>`).join("")}</div>` : ""}
   `;
