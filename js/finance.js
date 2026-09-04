@@ -404,7 +404,21 @@ const Finance = (() => {
     const list = $("txList");
     list.innerHTML = "";
     $("txEmptyState").hidden = active.length > 0;
+
+    // Grouped by date (same pattern as the diary entry list) instead of one
+    // long flat list — on busy days with many transactions, everything
+    // used to blend together with no visual break between days.
+    let currentDate = null;
+    let groupDiv = null;
     active.forEach((tx) => {
+      if (tx.date !== currentDate) {
+        currentDate = tx.date;
+        groupDiv = document.createElement("div");
+        groupDiv.className = "date-group";
+        groupDiv.innerHTML = `<div class="date-heading">${formatDateHeading(tx.date)}</div>`;
+        list.appendChild(groupDiv);
+      }
+
       const row = document.createElement("div");
       row.className = "tx-item";
       row.dataset.id = tx.id;
@@ -413,7 +427,7 @@ const Finance = (() => {
       const amountText = tx.currency === "USD"
         ? `${sign}$${tx.originalAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })} (≈${formatMoney(tx.amount)})`
         : sign + formatMoney(tx.amount);
-      const subParts = [formatDateHeading(tx.date)];
+      const subParts = [];
       if (tx.type === "transfer") subParts.push(`${walletLabel(tx.wallet)} → ${walletLabel(tx.toWallet)}`);
       else subParts.push(tx.category || "", walletLabel(tx.wallet));
       if (tx.note) subParts.push(tx.note);
@@ -424,7 +438,7 @@ const Finance = (() => {
           <div class="tx-item-sub">${subParts.filter(Boolean).map(escapeHTML).join(" · ")}</div>
         </div>
         <span class="tx-item-amount ${amountClass}">${amountText}</span>`;
-      list.appendChild(row);
+      groupDiv.appendChild(row);
     });
   }
 
