@@ -149,6 +149,14 @@ const Banking = (() => {
       $("finBankTotalBalance").textContent = Finance.formatMoney(total);
     }
     if ($("finDebtCount")) $("finDebtCount").textContent = allDebts.length;
+    if ($("finDebtTotalRemaining") && typeof Finance !== "undefined") {
+      const totalRemaining = allDebts.reduce((sum, d) => sum + (parseFloat(d.remainingAmount) || 0), 0);
+      $("finDebtTotalRemaining").textContent = Finance.formatMoney(totalRemaining);
+    }
+    if ($("finDebtTotalInstallment") && typeof Finance !== "undefined") {
+      const totalInstallment = allDebts.reduce((sum, d) => sum + (parseFloat(d.installmentAmount) || 0), 0);
+      $("finDebtTotalInstallment").textContent = Finance.formatMoney(totalInstallment);
+    }
     if ($("finOtherCount")) $("finOtherCount").textContent = allOtherInfo.length;
   }
 
@@ -384,14 +392,21 @@ const Banking = (() => {
     list.innerHTML = "";
     if ($("debtEmptyState")) $("debtEmptyState").hidden = items.length > 0 || !!q;
     items.slice().sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")).forEach((d) => {
+      const original = parseFloat(d.originalAmount) || 0;
       const remaining = parseFloat(d.remainingAmount) || 0;
+      const paidPercent = original > 0 ? Math.max(0, Math.min(100, Math.round(((original - remaining) / original) * 100))) : null;
       const row = document.createElement("div");
-      row.className = "asset-row";
+      row.className = "asset-row debt-row";
       row.dataset.id = d.id;
       row.innerHTML = `
         <div class="asset-row-body">
           <div class="asset-row-title">💳 ${escapeHTML(d.debtName)}</div>
           <div class="asset-row-sub">คงเหลือ ${Finance.formatMoney(remaining)}${d.dueDay ? " · ชำระวันที่ " + escapeHTML(d.dueDay) : ""}</div>
+          ${paidPercent !== null ? `
+          <div class="debt-progress-track">
+            <div class="debt-progress-fill" style="width:${paidPercent}%;"></div>
+          </div>
+          <div class="debt-progress-label">ผ่อนไปแล้ว ${paidPercent}%</div>` : ""}
         </div>`;
       list.appendChild(row);
     });
@@ -479,13 +494,15 @@ const Banking = (() => {
     list.innerHTML = "";
     if ($("otherEmptyState")) $("otherEmptyState").hidden = items.length > 0 || !!q;
     items.slice().sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")).forEach((o) => {
+      const firstFieldLine = (o.fieldsText || "").split("\n").map((l) => l.trim()).find(Boolean);
+      const subText = firstFieldLine || o.note || "แตะเพื่อดูรายละเอียด";
       const row = document.createElement("div");
       row.className = "asset-row";
       row.dataset.id = o.id;
       row.innerHTML = `
         <div class="asset-row-body">
           <div class="asset-row-title">📄 ${escapeHTML(o.category)} · ${escapeHTML(o.title)}</div>
-          <div class="asset-row-sub">${o.note ? escapeHTML(o.note) : "แตะเพื่อดูรายละเอียด"}</div>
+          <div class="asset-row-sub">${escapeHTML(subText)}</div>
         </div>`;
       list.appendChild(row);
     });

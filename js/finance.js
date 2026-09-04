@@ -189,8 +189,11 @@ const Finance = (() => {
     if (rows.length === 0) { list.innerHTML = '<div class="wallet-picker-empty">ไม่พบรายการที่ตรงกับการค้นหา</div>'; return; }
     list.innerHTML = rows.map((r) => `
       <div class="wallet-picker-row${r.key === currentKey ? " selected" : ""}" data-key="${escapeHTML(r.key)}">
-        <div class="wallet-picker-row-line1">${escapeHTML(r.line1)}</div>
-        ${r.line2 ? `<div class="wallet-picker-row-line2">${escapeHTML(r.line2)}</div>` : ""}
+        <div class="wallet-picker-row-body">
+          <div class="wallet-picker-row-line1">${escapeHTML(r.line1)}</div>
+          ${r.line2 ? `<div class="wallet-picker-row-line2">${escapeHTML(r.line2)}</div>` : ""}
+        </div>
+        <span class="wallet-picker-row-check">✓</span>
       </div>`).join("");
   }
 
