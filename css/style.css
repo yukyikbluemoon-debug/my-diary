@@ -871,6 +871,16 @@ select {
 .debt-progress-percent.mid { color: var(--amber); }
 .debt-progress-percent.high { color: var(--sage); }
 .debt-progress-label { font-size: 11px; color: var(--paper-dim); margin-top: 4px; }
+.debt-due-warning {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--danger);
+  background: var(--ink-600);
+  border-radius: 999px;
+  padding: 4px 10px;
+  display: inline-block;
+  margin-top: 8px;
+}
 .asset-row-updated { font-size: 11px; color: var(--paper-dim); margin-top: 2px; font-style: italic; }
 .asset-row-value { text-align: right; flex-shrink: 0; }
 .asset-row-total { font-weight: 600; font-size: 14.5px; }
@@ -1298,6 +1308,7 @@ select {
 }
 .reminder-actions { display: flex; gap: 6px; }
 .reminder-banner.debt-reminder { border-color: var(--danger); }
+.reminder-banner.update-reminder { border-color: var(--sage); }
 
 .dashboard-shortcuts { display: flex; gap: 12px; margin-bottom: 20px; }
 .dashboard-shortcut {

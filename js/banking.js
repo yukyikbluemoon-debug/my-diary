@@ -384,6 +384,20 @@ const Banking = (() => {
 
   /* ---------------- debts ---------------- */
 
+  /** Days until this debt's next due day (day-of-month only, wraps to next
+   *  month if already passed this month) — same logic as the dashboard's
+   *  due-date reminder banner, reused here for a per-row warning. */
+  function computeDaysUntilDue(dueDay) {
+    const dueDayNum = parseInt(dueDay, 10);
+    if (!dueDayNum || dueDayNum < 1 || dueDayNum > 31) return null;
+    const today = new Date();
+    const todayDay = today.getDate();
+    const daysInThisMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    let daysUntil = dueDayNum - todayDay;
+    if (daysUntil < 0) daysUntil += daysInThisMonth;
+    return daysUntil;
+  }
+
   function renderDebtList() {
     const q = ($("debtSearchInput") && $("debtSearchInput").value || "").trim().toLowerCase();
     const items = q
@@ -415,18 +429,22 @@ const Banking = (() => {
       const available = original - remaining;
       const paidPercent = original > 0 ? Math.max(0, Math.min(100, Math.round(((original - remaining) / original) * 100))) : null;
       const barTier = paidPercent === null ? "" : paidPercent >= 75 ? "high" : paidPercent >= 40 ? "mid" : "low";
+      const daysUntilDue = computeDaysUntilDue(d.dueDay);
+      const threshold = (typeof getDebtReminderDays === "function") ? getDebtReminderDays() : 5;
+      const isDueSoon = daysUntilDue !== null && daysUntilDue <= threshold;
+      const dueSoonText = daysUntilDue === 0 ? "ครบกำหนดชำระวันนี้!" : `ใกล้ครบกำหนดชำระ (อีก ${daysUntilDue} วัน)`;
       row.innerHTML = `
         <div class="asset-row-body">
           <div class="asset-row-title">💳 ${escapeHTML(d.debtName)}</div>
           <div class="asset-row-sub">คงเหลือ ${Finance.formatMoney(remaining)}${original > 0 ? " · วงเงินคงเหลือ " + Finance.formatMoney(available) : ""}${d.dueDay ? " · ชำระวันที่ " + escapeHTML(d.dueDay) : ""}</div>
+          ${isDueSoon ? `<div class="debt-due-warning">⚠️ ${dueSoonText}</div>` : ""}
           ${paidPercent !== null ? `
           <div class="debt-progress-row">
             <div class="debt-progress-track">
               <div class="debt-progress-fill ${barTier}" style="width:${paidPercent}%;"></div>
             </div>
             <div class="debt-progress-percent ${barTier}">${paidPercent}%${paidPercent >= 100 ? " 🎉" : ""}</div>
-          </div>
-          <div class="debt-progress-label">ผ่อนไปแล้ว${paidPercent >= 100 ? " — หมดแล้ว!" : ""}</div>` : ""}
+          </div>${paidPercent >= 100 ? '<div class="debt-progress-label">หมดแล้ว!</div>' : ""}` : ""}
         </div>`;
       list.appendChild(row);
     });

@@ -16,8 +16,8 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.19.4";
-const APP_BUILD_DATE = "2026-09-04";
+const APP_VERSION = "3.19.6";
+const APP_BUILD_DATE = "2026-09-05";
 
 const state = {
   entries: [],
@@ -2473,6 +2473,31 @@ function handleShareTarget() {
 
 /* ---------------- init ---------------- */
 
+function registerServiceWorkerWithUpdateCheck() {
+  navigator.serviceWorker.register("sw.js").then((reg) => {
+    // Don't just wait for the browser's own update-check heuristic (up to
+    // 24h, and can get stuck if sw.js itself was cached by the browser's
+    // own HTTP layer) — actively ask for a fresh check every time the app
+    // opens instead.
+    reg.update().catch(() => {});
+
+    reg.addEventListener("updatefound", () => {
+      const newWorker = reg.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener("statechange", () => {
+        // navigator.serviceWorker.controller already existing means this
+        // is a genuine update (not the very first install ever) — show
+        // the banner rather than reloading out from under the user.
+        if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+          $("updateAvailableBanner").hidden = false;
+        }
+      });
+    });
+  }).catch(() => {});
+}
+$("updateReloadBtn").addEventListener("click", () => window.location.reload());
+$("updateDismissBtn").addEventListener("click", () => { $("updateAvailableBanner").hidden = true; });
+
 async function init() {
   try {
     ThemeSettings.apply();
@@ -2511,7 +2536,7 @@ async function init() {
     resetAutoLockTimer();
 
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("sw.js").catch(() => {});
+      registerServiceWorkerWithUpdateCheck();
     }
   } catch (err) {
     console.error("Init failed:", err);
