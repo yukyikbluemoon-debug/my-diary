@@ -97,9 +97,57 @@ const Banking = (() => {
 
     allDebts = migratedDebts.filter((d) => !d.deletedAt);
     allOtherInfo = migratedOther.filter((o) => !o.deletedAt);
+    renderCleanupButtons();
     renderDebtList();
     renderOtherList();
     renderSummaryCounts();
+  }
+
+  /** Shows/hides the "ล้างรายการที่เสีย" buttons based on how many records
+   *  still have encIv after a migration attempt — these failed to decrypt
+   *  (usually because they predate the current password/session in some
+   *  way) and are permanently unreadable junk. The normal per-row edit/
+   *  delete flow doesn't reliably work on them (blank id-dependent fields),
+   *  so this is a dedicated, guaranteed bulk-delete path instead. */
+  function renderCleanupButtons() {
+    const corruptedDebts = allDebts.filter((d) => d.encIv).length;
+    const corruptedOther = allOtherInfo.filter((o) => o.encIv).length;
+    const debtBtn = $("cleanupCorruptedDebtsBtn");
+    if (debtBtn) {
+      debtBtn.hidden = corruptedDebts === 0;
+      debtBtn.textContent = `🗑️ ล้างรายการที่เสีย (${corruptedDebts})`;
+    }
+    const otherBtn = $("cleanupCorruptedOtherBtn");
+    if (otherBtn) {
+      otherBtn.hidden = corruptedOther === 0;
+      otherBtn.textContent = `🗑️ ล้างรายการที่เสีย (${corruptedOther})`;
+    }
+  }
+
+  async function cleanupCorruptedDebts() {
+    const bad = allDebts.filter((d) => d.encIv);
+    if (bad.length === 0) return;
+    if (!confirm(`พบหนี้สิน ${bad.length} รายการที่ถอดรหัสไม่ได้ (ข้อมูลเสียมาตั้งแต่ก่อนหน้านี้ กู้คืนไม่ได้แล้ว) ต้องการลบทิ้งหรือไม่?`)) return;
+    for (const d of bad) {
+      d.deletedAt = new Date().toISOString();
+      d.updatedAt = new Date().toISOString();
+      await DiaryDB.putDebt(d);
+    }
+    await loadDebtsAndOther();
+    showToast(`ลบแล้ว ${bad.length} รายการ`);
+  }
+
+  async function cleanupCorruptedOther() {
+    const bad = allOtherInfo.filter((o) => o.encIv);
+    if (bad.length === 0) return;
+    if (!confirm(`พบข้อมูลอื่น ${bad.length} รายการที่ถอดรหัสไม่ได้ (ข้อมูลเสียมาตั้งแต่ก่อนหน้านี้ กู้คืนไม่ได้แล้ว) ต้องการลบทิ้งหรือไม่?`)) return;
+    for (const o of bad) {
+      o.deletedAt = new Date().toISOString();
+      o.updatedAt = new Date().toISOString();
+      await DiaryDB.putOtherInfo(o);
+    }
+    await loadDebtsAndOther();
+    showToast(`ลบแล้ว ${bad.length} รายการ`);
   }
 
   function renderMigrationStuck(retry) {
@@ -346,14 +394,27 @@ const Banking = (() => {
     list.innerHTML = "";
     if ($("debtEmptyState")) $("debtEmptyState").hidden = items.length > 0 || !!q;
     items.slice().sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")).forEach((d) => {
+      const row = document.createElement("div");
+      row.className = "asset-row debt-row";
+      row.dataset.id = d.id;
+      if (d.encIv) {
+        // Failed to decrypt during migration — permanently unreadable.
+        // Shown flagged rather than hidden; use "ล้างรายการที่เสีย" above
+        // to remove these in bulk since per-row edit/delete is unreliable
+        // on them.
+        row.innerHTML = `
+          <div class="asset-row-body">
+            <div class="asset-row-title">⚠️ (ข้อมูลเสีย ถอดรหัสไม่ได้)</div>
+            <div class="asset-row-sub">ใช้ปุ่ม "ล้างรายการที่เสีย" ด้านบนเพื่อลบ</div>
+          </div>`;
+        list.appendChild(row);
+        return;
+      }
       const original = parseFloat(d.originalAmount) || 0;
       const remaining = parseFloat(d.remainingAmount) || 0;
       const available = original - remaining;
       const paidPercent = original > 0 ? Math.max(0, Math.min(100, Math.round(((original - remaining) / original) * 100))) : null;
       const barTier = paidPercent === null ? "" : paidPercent >= 75 ? "high" : paidPercent >= 40 ? "mid" : "low";
-      const row = document.createElement("div");
-      row.className = "asset-row debt-row";
-      row.dataset.id = d.id;
       row.innerHTML = `
         <div class="asset-row-body">
           <div class="asset-row-title">💳 ${escapeHTML(d.debtName)}</div>
@@ -457,11 +518,20 @@ const Banking = (() => {
     list.innerHTML = "";
     if ($("otherEmptyState")) $("otherEmptyState").hidden = items.length > 0 || !!q;
     items.slice().sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")).forEach((o) => {
-      const firstFieldLine = (o.fieldsText || "").split("\n").map((l) => l.trim()).find(Boolean);
-      const subText = firstFieldLine || o.note || "แตะเพื่อดูรายละเอียด";
       const row = document.createElement("div");
       row.className = "asset-row";
       row.dataset.id = o.id;
+      if (o.encIv) {
+        row.innerHTML = `
+          <div class="asset-row-body">
+            <div class="asset-row-title">⚠️ (ข้อมูลเสีย ถอดรหัสไม่ได้)</div>
+            <div class="asset-row-sub">ใช้ปุ่ม "ล้างรายการที่เสีย" ด้านบนเพื่อลบ</div>
+          </div>`;
+        list.appendChild(row);
+        return;
+      }
+      const firstFieldLine = (o.fieldsText || "").split("\n").map((l) => l.trim()).find(Boolean);
+      const subText = firstFieldLine || o.note || "แตะเพื่อดูรายละเอียด";
       row.innerHTML = `
         <div class="asset-row-body">
           <div class="asset-row-title">📄 ${escapeHTML(o.category)} · ${escapeHTML(o.title)}</div>
@@ -565,9 +635,13 @@ const Banking = (() => {
     $("debtDeleteBtn").addEventListener("click", deleteDebt);
     $("debtList").addEventListener("click", (e) => {
       const row = e.target.closest(".asset-row");
-      if (row) openEditDebt(row.dataset.id);
+      if (!row) return;
+      const d = allDebts.find((x) => x.id === row.dataset.id);
+      if (d && d.encIv) { showToast('ข้อมูลเสีย ถอดรหัสไม่ได้ — ใช้ปุ่ม "ล้างรายการที่เสีย" แทน'); return; }
+      openEditDebt(row.dataset.id);
     });
     $("debtSearchInput").addEventListener("input", renderDebtList);
+    $("cleanupCorruptedDebtsBtn").addEventListener("click", cleanupCorruptedDebts);
 
     $("addOtherBtn").addEventListener("click", openNewOther);
     $("otherCancelBtn").addEventListener("click", closeOtherModal);
@@ -575,9 +649,13 @@ const Banking = (() => {
     $("otherDeleteBtn").addEventListener("click", deleteOther);
     $("otherList").addEventListener("click", (e) => {
       const row = e.target.closest(".asset-row");
-      if (row) openEditOther(row.dataset.id);
+      if (!row) return;
+      const o = allOtherInfo.find((x) => x.id === row.dataset.id);
+      if (o && o.encIv) { showToast('ข้อมูลเสีย ถอดรหัสไม่ได้ — ใช้ปุ่ม "ล้างรายการที่เสีย" แทน'); return; }
+      openEditOther(row.dataset.id);
     });
     $("otherSearchInput").addEventListener("input", renderOtherList);
+    $("cleanupCorruptedOtherBtn").addEventListener("click", cleanupCorruptedOther);
   }
 
   async function init() {
