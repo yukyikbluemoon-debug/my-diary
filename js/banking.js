@@ -407,7 +407,21 @@ const Banking = (() => {
     if (!list) return;
     list.innerHTML = "";
     if ($("debtEmptyState")) $("debtEmptyState").hidden = items.length > 0 || !!q;
-    items.slice().sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")).forEach((d) => {
+    const threshold = (typeof getDebtReminderDays === "function") ? getDebtReminderDays() : 5;
+    // Due-soon debts (within the reminder threshold, or already overdue —
+    // computeDaysUntilDue wraps to 0..30ish so "overdue" isn't really
+    // distinguishable from "due next month", but that's fine here) float
+    // to the top, soonest first. Everything else keeps the old most-
+    // recently-updated order below them.
+    function urgencyRank(d) {
+      const days = computeDaysUntilDue(d.dueDay);
+      return (days !== null && days <= threshold) ? days : Infinity;
+    }
+    items.slice().sort((a, b) => {
+      const ra = urgencyRank(a), rb = urgencyRank(b);
+      if (ra !== rb) return ra - rb;
+      return (b.updatedAt || "").localeCompare(a.updatedAt || "");
+    }).forEach((d) => {
       const row = document.createElement("div");
       row.className = "asset-row debt-row";
       row.dataset.id = d.id;
