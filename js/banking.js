@@ -198,8 +198,18 @@ const Banking = (() => {
     const ok = await ensureUnlocked("เพื่อดูรายละเอียดบัญชี");
     if (!ok) return;
     let details = {};
-    try { details = await DiaryCrypto.decryptJSON({ iv: a.encIv, data: a.encData }); }
-    catch (e) { showToast("ถอดรหัสไม่สำเร็จ"); return; }
+    try {
+      details = await DiaryCrypto.decryptJSON({ iv: a.encIv, data: a.encData });
+    } catch (e) {
+      // Only accountType/branch/note live in this encrypted blob — losing
+      // them shouldn't block editing the account entirely. This usually
+      // means the record was encrypted under a different password/session
+      // than the one currently unlocked (e.g. synced in from before a
+      // password change) — those 3 fields can't be recovered, but saving
+      // again here re-encrypts fresh ones under the current key.
+      console.error("Banking: could not decrypt bank account details", a.id, e);
+      showToast("ถอดรหัสรายละเอียดเดิมไม่สำเร็จ — กรอกประเภทบัญชี/สาขา/หมายเหตุใหม่ได้ (ชื่อ/เลขบัญชี/เจ้าของบัญชียังอยู่ครบ)");
+    }
 
     $("bankId").value = a.id;
     $("bankName").value = a.bankName || "";
