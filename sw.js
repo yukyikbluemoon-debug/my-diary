@@ -1,4 +1,4 @@
-const CACHE_NAME = "diary-shell-v67";
+const CACHE_NAME = "diary-shell-v69";
 const SHELL_FILES = [
   "./",
   "./index.html",

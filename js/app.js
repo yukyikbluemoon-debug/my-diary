@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.18.1";
+const APP_VERSION = "3.18.3";
 const APP_BUILD_DATE = "2026-09-04";
 
 const state = {
@@ -2199,14 +2199,20 @@ $("restoreFile").addEventListener("change", async (e) => {
       localStorage.setItem("diary_pw_verifier", backup.settings.verifier);
     }
 
+    let skippedAttachments = 0;
     for (const e of backup.entries) {
       const rec = { ...e };
       if (Array.isArray(rec.attachmentBlobs)) {
         const refs = [];
         for (const a of rec.attachmentBlobs) {
-          const blob = dataURLToBlob(a.dataURL);
-          await DiaryDB.putAttachment({ id: a.id, entryId: rec.id, type: a.type, blob, mimeType: a.mimeType, size: blob.size, createdAt: rec.createdAt, driveFileId: null });
-          refs.push({ id: a.id, type: a.type });
+          try {
+            const blob = dataURLToBlob(a.dataURL);
+            await DiaryDB.putAttachment({ id: a.id, entryId: rec.id, type: a.type, blob, mimeType: a.mimeType, size: blob.size, createdAt: rec.createdAt, driveFileId: null });
+            refs.push({ id: a.id, type: a.type });
+          } catch (attErr) {
+            console.error("Skipping corrupted attachment in backup:", a && a.id, attErr);
+            skippedAttachments++;
+          }
         }
         rec.attachmentRefs = refs;
         delete rec.attachmentBlobs;
@@ -2224,8 +2230,13 @@ $("restoreFile").addEventListener("change", async (e) => {
       for (const t of backup.transactions) {
         if (Array.isArray(t.attachmentBlobs)) {
           for (const a of t.attachmentBlobs) {
-            const blob = dataURLToBlob(a.dataURL);
-            await DiaryDB.putAttachment({ id: a.id, entryId: t.id, type: a.type, blob, mimeType: a.mimeType, size: blob.size, createdAt: t.createdAt, driveFileId: null });
+            try {
+              const blob = dataURLToBlob(a.dataURL);
+              await DiaryDB.putAttachment({ id: a.id, entryId: t.id, type: a.type, blob, mimeType: a.mimeType, size: blob.size, createdAt: t.createdAt, driveFileId: null });
+            } catch (attErr) {
+              console.error("Skipping corrupted attachment in backup:", a && a.id, attErr);
+              skippedAttachments++;
+            }
           }
           delete t.attachmentBlobs;
         }
@@ -2254,10 +2265,10 @@ $("restoreFile").addEventListener("change", async (e) => {
     if (typeof Finance !== "undefined") await Finance.render();
     if (typeof Banking !== "undefined") await Banking.render();
     if (typeof Assets !== "undefined") await Assets.render();
-    showToast(`กู้คืนข้อมูลแล้ว (${restoredCount} รายการ)`);
+    showToast(`กู้คืนข้อมูลแล้ว (${restoredCount} รายการ)` + (skippedAttachments > 0 ? ` — ข้ามไฟล์แนบที่เสีย ${skippedAttachments} ไฟล์` : ""));
   } catch (err) {
     console.error(err);
-    showToast("ไฟล์ไม่ถูกต้อง กู้คืนไม่สำเร็จ");
+    showToast("กู้คืนไม่สำเร็จ: " + (err && err.message ? err.message : "ไม่ทราบสาเหตุ"));
   }
   e.target.value = "";
 });
