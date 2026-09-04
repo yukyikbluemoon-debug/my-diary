@@ -1,24 +1,19 @@
 /* banking.js — "Banking & Liabilities" module (bank accounts, debts, and
    other sensitive records like insurance/membership numbers).
 
-   Debts and "other info" records are stored FULLY encrypted using the same
-   mechanism as private diary entries (DiaryCrypto.encryptJSON/decryptJSON)
-   — nothing about them is readable without unlocking first.
+   By explicit request, NONE of this data is encrypted anymore — bank
+   accounts, debts, and other-info records are all plain, unlock-free data,
+   same as transactions. (Diary entries marked ส่วนตัว/private are a
+   separate system and are NOT affected by this — those still encrypt as
+   before.) This was a deliberate trade-off: it removes the "ถอดรหัสไม่
+   สำเร็จ" failures and unlock friction throughout this module, at the
+   cost of this data being readable by anyone who has the device unlocked
+   at the OS level.
 
-   Bank accounts are a deliberate exception: bankName, accountName,
-   accountNumber, and ownerName are kept as PLAINTEXT fields on the record
-   (by explicit request — visible to anyone with the device unlocked at the
-   OS level, no in-app unlock needed). Only accountType, branch, and note
-   stay encrypted. This is what lets the "การเงิน" transaction form offer a
-   full "เงินสด / ธนาคาร X เลขบัญชี..." picker without requiring an app
-   unlock every time someone logs an expense — see getBankAccountPickerRows(),
-   which the transaction form's custom picker reads from directly. Every
-   transaction stores a STABLE KEY ("cash" or "bank:<id>"), never a display
-   label, so renaming a bank account or editing its account number can
-   never desync it from transaction history — see finance.js for the key
-   scheme. Google Drive sync only ever sees the same shape (plaintext
-   fields + an encrypted blob for the rest), same as it does today for
-   private diary entries. */
+   Every transaction stores a STABLE KEY ("cash" or "bank:<id>"), never a
+   display label, so renaming a bank account or editing its account number
+   can never desync it from transaction history — see finance.js for the
+   key scheme. */
 
 const Banking = (() => {
   let allBankAccountsFull = []; // ALL bank records including soft-deleted, for label resolution by id
@@ -27,22 +22,13 @@ const Banking = (() => {
   let allOtherInfo = [];
   let currentSubtab = "tx"; // "tx" | "accounts" | "debts" | "other"
 
-  function maskTail(value, keep) {
-    keep = keep || 4;
-    value = value || "";
-    if (value.length <= keep) return value;
-    return "x".repeat(value.length - keep) + value.slice(-keep);
-  }
-
   function bankLabel(a) {
     return a.accountLast4 ? `${a.bankName} (...${a.accountLast4})` : a.bankName;
   }
 
   function bankKey(id) { return "bank:" + id; }
 
-  /** Options for the Finance module's money-source picker. Always
-   *  available without an unlock (bankName/accountLast4 are plaintext) —
-   *  only ACTIVE (non-deleted) accounts are offered here. */
+  /** Options for the Finance module's money-source picker. */
   function getBankAccountOptions() {
     return allBankAccounts.map((a) => ({ key: bankKey(a.id), label: bankLabel(a) }));
   }
@@ -56,35 +42,6 @@ const Banking = (() => {
     return a.deletedAt ? `${bankLabel(a)} (ลบแล้ว)` : bankLabel(a);
   }
 
-  /* ---------------- generic encrypted-record helpers (debts / other) ---------------- */
-
-  async function encryptRecord(kind, existing, payload) {
-    const enc = await DiaryCrypto.encryptJSON(payload);
-    return {
-      id: existing ? existing.id : uid(),
-      kind,
-      deletedAt: null,
-      createdAt: existing ? existing.createdAt : new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      encIv: enc.iv,
-      encData: enc.data,
-    };
-  }
-
-  async function decryptAll(records) {
-    const out = [];
-    for (const rec of records) {
-      if (rec.deletedAt) continue;
-      try {
-        const payload = await DiaryCrypto.decryptJSON({ iv: rec.encIv, data: rec.encData });
-        out.push({ ...rec, ...payload });
-      } catch (e) {
-        console.error("Banking: failed to decrypt record", rec.id, e);
-      }
-    }
-    return out;
-  }
-
   /* ---------------- sub-tab switching ---------------- */
 
   function showFinSubtab(name) {
@@ -95,46 +52,20 @@ const Banking = (() => {
     document.querySelectorAll(".fin-panel").forEach((p) => {
       p.hidden = p.dataset.panel !== name;
     });
-    if (name === "debts" || name === "other") ensureUnlockedThenRenderLocked();
+    if (name === "debts" || name === "other") loadDebtsAndOther();
   }
 
-  async function ensureUnlockedThenRenderLocked() {
-    if (!DiaryCrypto.hasPassword()) {
-      renderLockGate("ยังไม่ได้ตั้งรหัสผ่าน — ตั้งรหัสผ่านก่อนเพื่อเริ่มใช้งานหนี้สิน/ข้อมูลอื่น (ข้อมูลจะถูกเข้ารหัสด้วยรหัสผ่านนี้)");
-      return;
-    }
-    if (!DiaryCrypto.isUnlocked()) {
-      const ok = await ensureUnlocked("เพื่อดูหนี้สินและข้อมูลอื่น");
-      if (!ok) { renderLockGate("ปลดล็อกไม่สำเร็จ — แตะเพื่อลองใหม่", true); return; }
-    }
-    await loadAndRenderLocked();
-  }
-
-  function renderLockGate(message, retry) {
-    ["debtList", "otherList"].forEach((id) => {
-      const el = $(id);
-      if (!el) return;
-      el.innerHTML = `<div class="empty-state"><p class="empty-title">🔒 ${escapeHTML(message)}</p></div>`;
-    });
-    if (retry) {
-      document.querySelectorAll(".empty-title").forEach((el) => {
-        el.style.cursor = "pointer";
-        el.addEventListener("click", ensureUnlockedThenRenderLocked, { once: true });
-      });
-    }
-  }
-
-  async function loadAndRenderLocked() {
+  async function loadDebtsAndOther() {
     const [debtRaw, otherRaw] = await Promise.all([DiaryDB.getAllDebts(), DiaryDB.getAllOtherInfo()]);
-    allDebts = await decryptAll(debtRaw);
-    allOtherInfo = await decryptAll(otherRaw);
+    allDebts = debtRaw.filter((d) => !d.deletedAt);
+    allOtherInfo = otherRaw.filter((o) => !o.deletedAt);
     renderDebtList();
     renderOtherList();
     renderSummaryCounts();
   }
 
-  /** Bank accounts never need an unlock just to LIST them (name + computed
-   *  balance are enough) — only editing reveals the encrypted fields. */
+  /** Bank accounts never need an unlock just to LIST them — this is also
+   *  what keeps Finance's "แหล่งเงิน" dropdown current. */
   async function loadBankAccounts() {
     allBankAccountsFull = await DiaryDB.getAllBankAccounts();
     allBankAccounts = allBankAccountsFull.filter((a) => !a.deletedAt);
@@ -186,7 +117,7 @@ const Banking = (() => {
         <button type="button" class="bank-send-btn" data-id="${a.id}" aria-label="ส่งเข้า Telegram">📨</button>
         <div class="asset-row-body">
           <div class="asset-row-title">🏦 ${escapeHTML(label)}</div>
-          <div class="asset-row-sub">แตะเพื่อดูรายละเอียด (ประเภทบัญชี/สาขา เข้ารหัสไว้)</div>
+          <div class="asset-row-sub">แตะเพื่อดูรายละเอียด</div>
         </div>
         <div class="asset-row-value">
           <div class="asset-row-total">${Finance.formatMoney(bal)}</div>
@@ -213,34 +144,17 @@ const Banking = (() => {
     pushNavState("bank");
   }
 
-  async function openEditBank(id) {
+  function openEditBank(id) {
     const a = allBankAccounts.find((x) => x.id === id);
     if (!a) return;
-    if (!DiaryCrypto.hasPassword()) { showToast("กรุณาตั้งรหัสผ่านก่อน"); openSetPwModal("create"); return; }
-    const ok = await ensureUnlocked("เพื่อดูรายละเอียดบัญชี");
-    if (!ok) return;
-    let details = {};
-    try {
-      details = await DiaryCrypto.decryptJSON({ iv: a.encIv, data: a.encData });
-    } catch (e) {
-      // Only accountType/branch/note live in this encrypted blob — losing
-      // them shouldn't block editing the account entirely. This usually
-      // means the record was encrypted under a different password/session
-      // than the one currently unlocked (e.g. synced in from before a
-      // password change) — those 3 fields can't be recovered, but saving
-      // again here re-encrypts fresh ones under the current key.
-      console.error("Banking: could not decrypt bank account details", a.id, e);
-      showToast("ถอดรหัสรายละเอียดเดิมไม่สำเร็จ — กรอกประเภทบัญชี/สาขา/หมายเหตุใหม่ได้ (ชื่อ/เลขบัญชี/เจ้าของบัญชียังอยู่ครบ)");
-    }
-
     $("bankId").value = a.id;
     $("bankName").value = a.bankName || "";
     $("bankAccountName").value = a.accountName || "";
-    $("bankAccountType").value = details.accountType || "";
+    $("bankAccountType").value = a.accountType || "";
     $("bankAccountNumber").value = a.accountNumber || "";
     $("bankOwnerName").value = a.ownerName || "";
-    $("bankBranch").value = details.branch || "";
-    $("bankNote").value = details.note || "";
+    $("bankBranch").value = a.branch || "";
+    $("bankNote").value = a.note || "";
     $("bankModalTitle").textContent = "แก้ไขบัญชีธนาคาร";
     $("bankDeleteBtn").hidden = false;
     $("bankModal").hidden = false;
@@ -252,40 +166,28 @@ const Banking = (() => {
   async function saveBank() {
     const bankName = $("bankName").value.trim();
     if (!bankName) { showToast("กรุณาใส่ชื่อธนาคาร"); return; }
-    if (!DiaryCrypto.hasPassword()) { showToast("กรุณาตั้งรหัสผ่านก่อน"); openSetPwModal("create"); return; }
-    const ok = await ensureUnlocked("เพื่อบันทึกข้อมูลบัญชี");
-    if (!ok) return;
 
     const id = $("bankId").value;
     const existing = id ? allBankAccounts.find((x) => x.id === id) : null;
     const accountName = $("bankAccountName").value.trim();
     const accountNumber = $("bankAccountNumber").value.trim();
-    const ownerName = $("bankOwnerName").value.trim();
-    // accountNumber and ownerName are kept as PLAINTEXT (by explicit
-    // request) so the "แหล่งเงิน" picker in รายรับ-รายจ่าย can show them
-    // without an unlock — anyone with the device open can see these two
-    // fields. accountType/branch/note stay encrypted below.
     const accountLast4 = accountNumber.replace(/\D/g, "").slice(-4) || "";
 
-    const details = {
-      accountType: $("bankAccountType").value.trim(),
-      branch: $("bankBranch").value.trim(),
-      note: $("bankNote").value.trim(),
-    };
-    const enc = await DiaryCrypto.encryptJSON(details);
     const rec = {
       id: existing ? existing.id : uid(),
       kind: "bank",
       bankName,
       accountName,
       accountNumber,
-      ownerName,
+      ownerName: $("bankOwnerName").value.trim(),
+      accountType: $("bankAccountType").value.trim(),
+      branch: $("bankBranch").value.trim(),
+      note: $("bankNote").value.trim(),
       accountLast4,
+      isPinned: existing ? !!existing.isPinned : false,
       deletedAt: null,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      encIv: enc.iv,
-      encData: enc.data,
     };
     await DiaryDB.putBankAccount(rec);
 
@@ -323,12 +225,10 @@ const Banking = (() => {
       showToast("ยังไม่ได้ตั้งค่า Telegram (ตั้งค่า → Telegram)");
       return;
     }
-    // Deliberately sends ONLY the bank/account name and computed balance —
-    // never the account number, branch, owner name, or note. Those stay
-    // encrypted and local; this is the one narrow, explicit exception to
-    // "encrypted data never leaves the device", made because the user
-    // wants a family member to know which accounts exist and roughly how
-    // much is in them.
+    // Still deliberately sends only name + balance, not the account
+    // number/branch/note, even though none of it is encrypted anymore —
+    // no reason to widen what leaves the device just because it's no
+    // longer protected locally.
     const label = bankLabel(a);
     const bal = (typeof Finance !== "undefined") ? Finance.computeWalletBalance(bankKey(a.id)) : 0;
     const lines = [`🏦 ${label}`, `ยอดคงเหลือ: ${Finance.formatMoney(bal)}`];
@@ -340,16 +240,12 @@ const Banking = (() => {
     }
   }
 
-  /** Sync lookup by id (including soft-deleted), for places that just need
-   *  the plaintext fields (accountNumber, ownerName, bankName) without a
-   *  decrypt round-trip. */
   function findBankAccountById(id) {
     return allBankAccountsFull.find((x) => x.id === id) || null;
   }
 
   /** Rows for the custom 2-line "แหล่งเงิน" picker in the transaction form:
-   *  line1 = bank + owner name, line2 = full account number. Both are
-   *  plaintext fields, so this needs no unlock. */
+   *  line1 = bank + owner name, line2 = full account number. */
   function getBankAccountPickerRows() {
     return allBankAccounts.map((a) => ({
       key: bankKey(a.id),
@@ -358,26 +254,18 @@ const Banking = (() => {
     }));
   }
 
-  /** Decrypts and returns one bank account's remaining sensitive fields by
-   *  id (accountType/branch/note), merged with its plaintext accountNumber/
-   *  ownerName — for the rare places that deliberately want the fuller
-   *  picture (e.g. the "send full summary" Telegram button). Requires an
-   *  unlock — returns null if that's not possible or decryption fails. */
-  async function getFullDetails(id) {
-    const a = allBankAccountsFull.find((x) => x.id === id);
-    if (!a) return null;
-    try {
-      const encrypted = await DiaryCrypto.decryptJSON({ iv: a.encIv, data: a.encData });
-      return { accountNumber: a.accountNumber, ownerName: a.ownerName, ...encrypted };
-    } catch (e) { return null; }
+  /** Full record by id — kept for callers written back when this data was
+   *  encrypted (e.g. the full portfolio summary send); now just a plain
+   *  lookup, no decrypt involved. */
+  function getFullDetails(id) {
+    return findBankAccountById(id);
   }
 
-  /** Decrypted list of every active debt — used by the full portfolio
-   *  summary send. Independent of whatever sub-tab the user has actually
-   *  visited this session. */
-  async function getDecryptedDebtsList() {
+  /** Every active debt — used by the full portfolio summary send and the
+   *  home-screen due-date reminder. */
+  async function getDebtsList() {
     const raw = await DiaryDB.getAllDebts();
-    return decryptAll(raw);
+    return raw.filter((d) => !d.deletedAt);
   }
 
   /* ---------------- debts ---------------- */
@@ -452,7 +340,9 @@ const Banking = (() => {
     if (!debtName) { showToast("กรุณาใส่ชื่อหนี้"); return; }
     const id = $("debtId").value;
     const existing = id ? allDebts.find((x) => x.id === id) : null;
-    const payload = {
+    const rec = {
+      id: existing ? existing.id : uid(),
+      kind: "debt",
       debtName,
       creditor: $("debtCreditor").value.trim(),
       contractNumber: $("debtContractNumber").value.trim(),
@@ -463,12 +353,14 @@ const Banking = (() => {
       startDate: $("debtStartDate").value,
       endDate: $("debtEndDate").value,
       note: $("debtNote").value.trim(),
+      deletedAt: null,
+      createdAt: existing ? existing.createdAt : new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
-    const rec = await encryptRecord("debt", existing, payload);
     await DiaryDB.putDebt(rec);
     closeDebtModalVisual();
     popNavState();
-    await loadAndRenderLocked();
+    await loadDebtsAndOther();
     showToast("บันทึกแล้ว");
   }
 
@@ -483,7 +375,7 @@ const Banking = (() => {
     await DiaryDB.putDebt(raw);
     closeDebtModalVisual();
     popNavState();
-    await loadAndRenderLocked();
+    await loadDebtsAndOther();
     showToast("ลบแล้ว");
   }
 
@@ -543,16 +435,20 @@ const Banking = (() => {
     if (!category || !title) { showToast("กรุณาใส่หมวดหมู่และหัวข้อ"); return; }
     const id = $("otherId").value;
     const existing = id ? allOtherInfo.find((x) => x.id === id) : null;
-    const payload = {
+    const rec = {
+      id: existing ? existing.id : uid(),
+      kind: "other",
       category, title,
       fieldsText: $("otherFieldsText").value,
       note: $("otherNote").value.trim(),
+      deletedAt: null,
+      createdAt: existing ? existing.createdAt : new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
-    const rec = await encryptRecord("other", existing, payload);
     await DiaryDB.putOtherInfo(rec);
     closeOtherModalVisual();
     popNavState();
-    await loadAndRenderLocked();
+    await loadDebtsAndOther();
     showToast("บันทึกแล้ว");
   }
 
@@ -567,21 +463,15 @@ const Banking = (() => {
     await DiaryDB.putOtherInfo(raw);
     closeOtherModalVisual();
     popNavState();
-    await loadAndRenderLocked();
+    await loadDebtsAndOther();
     showToast("ลบแล้ว");
   }
 
   /* ---------------- lifecycle ---------------- */
 
   async function render() {
-    // Bank accounts refresh every time (cheap, no unlock needed — this is
-    // also what keeps Finance's "แหล่งเงิน" dropdown current). Debts/other
-    // only refresh if the user is already on that sub-tab and unlocked.
     await loadBankAccounts();
-    if ((currentSubtab === "debts" || currentSubtab === "other")) {
-      if (DiaryCrypto.isUnlocked()) await loadAndRenderLocked();
-      else await ensureUnlockedThenRenderLocked();
-    }
+    if (currentSubtab === "debts" || currentSubtab === "other") await loadDebtsAndOther();
   }
 
   function wireEvents() {
@@ -626,13 +516,13 @@ const Banking = (() => {
 
   async function init() {
     wireEvents();
-    await loadBankAccounts(); // available immediately, no unlock — Finance needs this list right away
+    await loadBankAccounts();
   }
 
   return {
     init, render, showFinSubtab,
     getBankAccountOptions, resolveBankLabelById, findBankAccountById,
-    getBankAccountPickerRows, getFullDetails, getDecryptedDebtsList,
+    getBankAccountPickerRows, getFullDetails, getDebtsList,
     closeBankModalVisual, closeDebtModalVisual, closeOtherModalVisual,
   };
 })();

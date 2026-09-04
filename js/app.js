@@ -6,13 +6,17 @@ const THAI_MONTHS_FULL = ["มกราคม","กุมภาพันธ์",
 function getTrashRetentionDays() {
   return parseInt(localStorage.getItem("diary_trash_retention_days"), 10) || 30;
 }
+function getDebtReminderDays() {
+  const v = parseInt(localStorage.getItem("diary_debt_reminder_days"), 10);
+  return Number.isFinite(v) && v >= 0 ? v : 5;
+}
 const VIDEO_MAX_SECONDS = 30;
 const VIDEO_SIZE_WARN_BYTES = 20 * 1024 * 1024; // 20 MB — just a heads-up, recording still allowed past this
 const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.18.3";
+const APP_VERSION = "3.19.1";
 const APP_BUILD_DATE = "2026-09-04";
 
 const state = {
@@ -1033,6 +1037,7 @@ function refreshSettingsView() {
   const has = DiaryCrypto.hasPassword();
   $("trashRetentionSelect").value = String(getTrashRetentionDays());
   $("autoLockSelect").value = String(getAutoLockMinutes());
+  $("debtReminderDaysInput").value = String(getDebtReminderDays());
   refreshTelegramStatus();
   refreshExchangeRateDisplay();
   refreshStorageInfo();
@@ -1154,6 +1159,45 @@ $("reminderWriteBtn").addEventListener("click", openWriteForNew);
 $("reminderDismissBtn").addEventListener("click", () => {
   localStorage.setItem("diary_reminder_dismissed", todayISO());
   $("reminderBanner").hidden = true;
+});
+
+async function updateDebtReminderBanner() {
+  const banner = $("debtReminderBanner");
+  if (!banner || typeof Banking === "undefined") return;
+  const debts = await Banking.getDebtsList();
+  const today = new Date();
+  const todayDay = today.getDate();
+  const daysInThisMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+
+  const thresholdDays = getDebtReminderDays();
+  const dueSoon = [];
+  debts.forEach((d) => {
+    const dueDayNum = parseInt(d.dueDay, 10);
+    if (!dueDayNum || dueDayNum < 1 || dueDayNum > 31) return;
+    let daysUntil = dueDayNum - todayDay;
+    if (daysUntil < 0) daysUntil += daysInThisMonth; // due date already passed this month — wraps to next month
+    if (daysUntil <= thresholdDays) dueSoon.push({ name: d.debtName || "(ไม่มีชื่อ)", daysUntil });
+  });
+
+  if (dueSoon.length === 0) { banner.hidden = true; return; }
+  const dismissedFor = localStorage.getItem("diary_debt_reminder_dismissed");
+  if (dismissedFor === todayISO()) { banner.hidden = true; return; }
+
+  dueSoon.sort((a, b) => a.daysUntil - b.daysUntil);
+  const soonest = dueSoon[0];
+  const whenText = soonest.daysUntil === 0 ? "วันนี้" : `อีก ${soonest.daysUntil} วัน`;
+  $("debtReminderText").textContent = dueSoon.length === 1
+    ? `💳 ${soonest.name} ใกล้ครบกำหนดชำระ (${whenText})`
+    : `💳 มีหนี้ ${dueSoon.length} รายการใกล้ครบกำหนดชำระ — เร็วสุด ${whenText}`;
+  banner.hidden = false;
+}
+$("debtReminderViewBtn").addEventListener("click", () => {
+  showView("finance");
+  if (typeof Banking !== "undefined") Banking.showFinSubtab("debts");
+});
+$("debtReminderDismissBtn").addEventListener("click", () => {
+  localStorage.setItem("diary_debt_reminder_dismissed", todayISO());
+  $("debtReminderBanner").hidden = true;
 });
 
 function renderOnThisDay() {
@@ -1314,6 +1358,7 @@ function renderHome() {
   updateDayFilterChip();
   renderOnThisDay();
   updateReminderBanner();
+  if (typeof Banking !== "undefined") updateDebtReminderBanner();
   renderTodaySummary();
   refreshSettingsView();
 }
@@ -1912,6 +1957,12 @@ function renderTrash() {
 $("trashRetentionSelect").addEventListener("change", (e) => {
   localStorage.setItem("diary_trash_retention_days", e.target.value);
   renderTrash();
+});
+$("debtReminderDaysInput").addEventListener("change", (e) => {
+  const v = Math.max(0, Math.min(30, parseInt(e.target.value, 10) || 0));
+  e.target.value = String(v);
+  localStorage.setItem("diary_debt_reminder_days", String(v));
+  updateDebtReminderBanner();
 });
 
 function checkTrashExpiryWarning() {

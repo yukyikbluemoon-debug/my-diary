@@ -1297,6 +1297,7 @@ select {
   font-size: 14px;
 }
 .reminder-actions { display: flex; gap: 6px; }
+.reminder-banner.debt-reminder { border-color: var(--danger); }
 
 .dashboard-shortcuts { display: flex; gap: 12px; margin-bottom: 20px; }
 .dashboard-shortcut {

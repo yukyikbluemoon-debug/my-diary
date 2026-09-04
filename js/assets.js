@@ -261,19 +261,11 @@ const Assets = (() => {
     const items = activeAssets().slice().sort((a, b) => assetValueTHB(b) - assetValueTHB(a));
     const wallets = (typeof Finance !== "undefined") ? Finance.getWalletOptions() : [];
 
-    // Bank account numbers/owner names are plaintext now, no unlock needed
-    // for those. Debts are still fully encrypted though, so only gate on
-    // unlock when there's actually a debt to include.
+    // Nothing in Banking is encrypted anymore, so no unlock gate is needed
+    // here at all — just pull the list directly.
     let debts = [];
     if (typeof Banking !== "undefined") {
-      const rawDebts = await DiaryDB.getAllDebts();
-      const hasDebts = rawDebts.some((d) => !d.deletedAt);
-      if (hasDebts) {
-        if (!DiaryCrypto.hasPassword()) { showToast("กรุณาตั้งรหัสผ่านก่อน"); openSetPwModal("create"); return; }
-        const ok = await ensureUnlocked("เพื่อรวมข้อมูลหนี้สินในสรุป");
-        if (!ok) return;
-        debts = await Banking.getDecryptedDebtsList();
-      }
+      debts = await Banking.getDebtsList();
     }
 
     if (items.length === 0 && wallets.length === 0 && debts.length === 0) { showToast("ยังไม่มีข้อมูลให้ส่ง"); return; }

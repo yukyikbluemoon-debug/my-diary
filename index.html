@@ -55,6 +55,14 @@
           </div>
         </div>
 
+        <div class="reminder-banner debt-reminder" id="debtReminderBanner" hidden>
+          <span id="debtReminderText"></span>
+          <div class="reminder-actions">
+            <button type="button" class="text-btn primary" id="debtReminderViewBtn">ดูหนี้สิน</button>
+            <button type="button" class="text-btn" id="debtReminderDismissBtn">ปิด</button>
+          </div>
+        </div>
+
         <div class="dashboard-shortcuts">
           <button type="button" class="dashboard-shortcut" id="dashWriteBtn">
             <span class="dashboard-shortcut-ico">✍️</span>
@@ -381,6 +389,14 @@
             <button type="button" class="fontsize-btn small" data-size="small">เล็ก</button>
             <button type="button" class="fontsize-btn medium" data-size="medium">กลาง</button>
             <button type="button" class="fontsize-btn large" data-size="large">ใหญ่</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h2>การแจ้งเตือน</h2>
+          <div class="settings-row">
+            <span>แจ้งเตือนหนี้ล่วงหน้ากี่วันก่อนถึงกำหนดชำระ</span>
+            <input type="number" id="debtReminderDaysInput" min="0" max="30" style="width:60px; text-align:center;">
           </div>
         </div>
 
@@ -748,7 +764,7 @@
             <h2 style="margin:0;">บัญชีธนาคาร</h2>
             <button class="icon-btn" id="addBankBtn">+ เพิ่มบัญชี</button>
           </div>
-          <p class="settings-note">บัญชีที่เพิ่มไว้ที่นี่จะเป็นตัวเลือก "แหล่งเงิน" ในหน้ารายรับ-รายจ่ายด้วย ยอดคงเหลือคำนวณจากธุรกรรมที่เลือกบัญชีนั้นโดยอัตโนมัติ ไม่ต้องปลดล็อกเพื่อดูรายชื่อ/ยอด/เลขบัญชี/เจ้าของบัญชี (ใช้เลือกตอนบันทึกธุรกรรมได้เลย) แต่ต้องปลดล็อกเพื่อดูประเภทบัญชี/สาขา/หมายเหตุ</p>
+          <p class="settings-note">บัญชีที่เพิ่มไว้ที่นี่จะเป็นตัวเลือก "แหล่งเงิน" ในหน้ารายรับ-รายจ่ายด้วย ยอดคงเหลือคำนวณจากธุรกรรมที่เลือกบัญชีนั้นโดยอัตโนมัติ</p>
           <div class="toolbar">
             <div class="search-wrap">
               <input type="search" id="bankSearchInput" placeholder="ค้นหาบัญชี เช่น ชื่อธนาคาร...">
@@ -1193,7 +1209,7 @@
           <label for="bankNote">หมายเหตุ (ไม่บังคับ)</label>
           <input type="text" id="bankNote" placeholder="เช่น บัญชีหลัก">
         </div>
-        <p class="settings-note">⚠️ ชื่อธนาคาร เลขบัญชีเต็ม และชื่อเจ้าของบัญชี ไม่เข้ารหัส (ใช้เลือกตอนบันทึกรายรับ-รายจ่ายได้โดยไม่ต้องปลดล็อก — ใครก็ตามที่เปิดแอปได้จะเห็นข้อมูลนี้) ส่วนประเภทบัญชี/สาขา/หมายเหตุยังเข้ารหัสอยู่ — ยอดคงเหลือคำนวณจากธุรกรรมที่เลือกบัญชีนี้โดยอัตโนมัติ</p>
+        <p class="settings-note">⚠️ ข้อมูลบัญชีธนาคารทั้งหมด (รวมเลขบัญชีเต็ม/ประเภทบัญชี/สาขา/หมายเหตุ) ไม่เข้ารหัส — ใครก็ตามที่เปิดแอปได้จะเห็นข้อมูลนี้ ยอดคงเหลือคำนวณจากธุรกรรมที่เลือกบัญชีนี้โดยอัตโนมัติ</p>
 
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="text-btn danger" id="bankDeleteBtn" hidden>ลบ</button>
@@ -1259,7 +1275,7 @@
           <label for="debtNote">หมายเหตุ (ไม่บังคับ)</label>
           <input type="text" id="debtNote">
         </div>
-        <p class="settings-note">🔒 ข้อมูลนี้เข้ารหัสด้วยรหัสผ่านของคุณเสมอ เหมือนบันทึกส่วนตัว</p>
+        <p class="settings-note">⚠️ ข้อมูลหนี้สินไม่เข้ารหัส ใครก็ตามที่เปิดแอปได้จะเห็นข้อมูลนี้</p>
 
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="text-btn danger" id="debtDeleteBtn" hidden>ลบ</button>
@@ -1295,7 +1311,7 @@
           <label for="otherNote">หมายเหตุ (ไม่บังคับ)</label>
           <input type="text" id="otherNote">
         </div>
-        <p class="settings-note">🔒 ข้อมูลนี้เข้ารหัสด้วยรหัสผ่านของคุณเสมอ เหมือนบันทึกส่วนตัว</p>
+        <p class="settings-note">⚠️ ข้อมูลนี้ไม่เข้ารหัส ใครก็ตามที่เปิดแอปได้จะเห็นข้อมูลนี้</p>
 
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="text-btn danger" id="otherDeleteBtn" hidden>ลบ</button>
