@@ -394,19 +394,24 @@ const Banking = (() => {
     items.slice().sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")).forEach((d) => {
       const original = parseFloat(d.originalAmount) || 0;
       const remaining = parseFloat(d.remainingAmount) || 0;
+      const available = original - remaining;
       const paidPercent = original > 0 ? Math.max(0, Math.min(100, Math.round(((original - remaining) / original) * 100))) : null;
+      const barTier = paidPercent === null ? "" : paidPercent >= 75 ? "high" : paidPercent >= 40 ? "mid" : "low";
       const row = document.createElement("div");
       row.className = "asset-row debt-row";
       row.dataset.id = d.id;
       row.innerHTML = `
         <div class="asset-row-body">
           <div class="asset-row-title">💳 ${escapeHTML(d.debtName)}</div>
-          <div class="asset-row-sub">คงเหลือ ${Finance.formatMoney(remaining)}${d.dueDay ? " · ชำระวันที่ " + escapeHTML(d.dueDay) : ""}</div>
+          <div class="asset-row-sub">คงเหลือ ${Finance.formatMoney(remaining)}${original > 0 ? " · วงเงินคงเหลือ " + Finance.formatMoney(available) : ""}${d.dueDay ? " · ชำระวันที่ " + escapeHTML(d.dueDay) : ""}</div>
           ${paidPercent !== null ? `
-          <div class="debt-progress-track">
-            <div class="debt-progress-fill" style="width:${paidPercent}%;"></div>
+          <div class="debt-progress-row">
+            <div class="debt-progress-track">
+              <div class="debt-progress-fill ${barTier}" style="width:${paidPercent}%;"></div>
+            </div>
+            <div class="debt-progress-percent ${barTier}">${paidPercent}%${paidPercent >= 100 ? " 🎉" : ""}</div>
           </div>
-          <div class="debt-progress-label">ผ่อนไปแล้ว ${paidPercent}%</div>` : ""}
+          <div class="debt-progress-label">ผ่อนไปแล้ว${paidPercent >= 100 ? " — หมดแล้ว!" : ""}</div>` : ""}
         </div>`;
       list.appendChild(row);
     });
