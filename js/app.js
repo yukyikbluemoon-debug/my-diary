@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.15.0";
+const APP_VERSION = "3.15.1";
 const APP_BUILD_DATE = "2026-09-04";
 
 const state = {
@@ -672,8 +672,7 @@ $("entryLocationToggle").addEventListener("change", (e) => {
         state.entryLocation.placeName = placeName;
         state.entryLocation.weather = weather;
         const placeText = placeName || `ตำแหน่ง: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-        const weatherText = weather ? ` · ${formatWeatherText(weather)}` : "";
-        $("locationSubText").textContent = `📍 ${placeText}${weatherText}`;
+        $("locationSubText").innerHTML = `📍 ${escapeHTML(placeText)}` + (weather ? `<br>${escapeHTML(formatWeatherText(weather))}` : "");
       }
     },
     (err) => {
@@ -1469,7 +1468,7 @@ async function openWriteForEdit(id) {
     state.entryLocation = loc;
     $("entryLocationToggle").checked = true;
     const placeText = loc.placeName ? `📍 ${loc.placeName}` : `ตำแหน่ง: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`;
-    $("locationSubText").textContent = loc.weather ? `${placeText} · ${formatWeatherText(loc.weather)}` : placeText;
+    $("locationSubText").innerHTML = escapeHTML(placeText) + (loc.weather ? `<br>${escapeHTML(formatWeatherText(loc.weather))}` : "");
   }
 
   if (rec.private) {
@@ -1662,7 +1661,7 @@ async function openEntry(id) {
         ${audios.map((m) => `<div><audio controls src="${m.url}"></audio>${m.blob ? `<div class="attach-size-label">${formatBytes(m.blob.size)}</div>` : ""}</div>`).join("")}
         ${videos.map((m) => `<div><video controls src="${m.url}"></video>${m.blob ? `<div class="attach-size-label">${formatBytes(m.blob.size)}</div>` : ""}</div>`).join("")}
       </div>` : ""}
-    ${loc ? `<div class="detail-location"><a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener">📍 ${loc.placeName ? escapeHTML(loc.placeName) : "ดูตำแหน่งใน Google Maps"}</a>${loc.weather ? ` · ${escapeHTML(formatWeatherText(loc.weather))}` : ""}</div>` : ""}
+    ${loc ? `<div class="detail-location"><a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener">📍 ${loc.placeName ? escapeHTML(loc.placeName) : "ดูตำแหน่งใน Google Maps"}</a>${loc.weather ? `<br>${escapeHTML(formatWeatherText(loc.weather))}` : ""}</div>` : ""}
     ${linkedTx ? `<div class="detail-location" id="linkedTxLink" style="cursor:pointer;">🔗 ผูกกับรายการเงิน: ${escapeHTML(linkedTx.title)} (${Finance.formatMoney(linkedTx.type === "expense" ? -linkedTx.amount : linkedTx.amount)})</div>` : ""}
     ${(data.tags && data.tags.length) ? `<div class="detail-tags">${data.tags.map((t) => `<span class="entry-tag">${escapeHTML(t)}</span>`).join("")}</div>` : ""}
   `;
