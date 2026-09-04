@@ -12,7 +12,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.18.0";
+const APP_VERSION = "3.18.1";
 const APP_BUILD_DATE = "2026-09-04";
 
 const state = {
@@ -2115,6 +2115,24 @@ $("exportReadableBtn").addEventListener("click", async () => {
 $("backupBtn").addEventListener("click", async () => {
   showToast("กำลังเตรียมไฟล์สำรอง...");
   const hasPw = DiaryCrypto.hasPassword();
+
+  // Attachments synced in from another device sometimes only have a
+  // driveFileId locally (the actual blob is fetched lazily, only when the
+  // entry is opened) — fetch those now so the backup is genuinely
+  // complete instead of silently skipping anything never viewed on this
+  // device. Best-effort: if Drive isn't signed in or a fetch fails, that
+  // one attachment is skipped and counted, rest of the backup proceeds.
+  let missingCount = 0;
+  async function resolveBlob(att) {
+    if (att && att.blob) return att.blob;
+    if (att && att.driveFileId && typeof DriveSync !== "undefined") {
+      try { return await DriveSync.downloadAttachmentBlob(att.driveFileId); }
+      catch (e) { missingCount++; return null; }
+    }
+    if (att) missingCount++;
+    return null;
+  }
+
   const entries = [];
   for (const e of state.entries) {
     const copy = { ...e };
@@ -2122,7 +2140,8 @@ $("backupBtn").addEventListener("click", async () => {
       const atts = [];
       for (const ref of e.attachmentRefs) {
         const att = await DiaryDB.getAttachment(ref.id);
-        if (att && att.blob) atts.push({ id: att.id, type: att.type, mimeType: att.mimeType, dataURL: await blobToDataURL(att.blob) });
+        const blob = await resolveBlob(att);
+        if (blob) atts.push({ id: att.id, type: att.type, mimeType: att.mimeType, dataURL: await blobToDataURL(blob) });
       }
       copy.attachmentBlobs = atts;
     }
@@ -2141,7 +2160,8 @@ $("backupBtn").addEventListener("click", async () => {
     const atts = await DiaryDB.getAttachmentsByEntry(t.id);
     const withBlob = [];
     for (const att of atts) {
-      if (att.blob) withBlob.push({ id: att.id, type: att.type, mimeType: att.mimeType, dataURL: await blobToDataURL(att.blob) });
+      const blob = await resolveBlob(att);
+      if (blob) withBlob.push({ id: att.id, type: att.type, mimeType: att.mimeType, dataURL: await blobToDataURL(blob) });
     }
     if (withBlob.length) t.attachmentBlobs = withBlob;
   }
@@ -2162,7 +2182,7 @@ $("backupBtn").addEventListener("click", async () => {
   };
   const stamp = todayISO().replace(/-/g, "");
   downloadJSON(backup, `diary-backup-${stamp}.json`);
-  showToast("ดาวน์โหลดไฟล์สำรองแล้ว");
+  showToast(missingCount > 0 ? `ดาวน์โหลดไฟล์สำรองแล้ว (ไฟล์แนบ ${missingCount} รายการดึงจาก Drive ไม่ได้ — ข้ามไป)` : "ดาวน์โหลดไฟล์สำรองแล้ว");
 });
 
 $("restoreFile").addEventListener("change", async (e) => {
