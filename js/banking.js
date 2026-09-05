@@ -126,7 +126,7 @@ const Banking = (() => {
     if (!confirm(`พบหนี้สิน ${bad.length} รายการที่ถอดรหัสไม่ได้ (ข้อมูลเสียมาตั้งแต่ก่อนหน้านี้ กู้คืนไม่ได้แล้ว) ต้องการลบทิ้งหรือไม่?`)) return;
     let failCount = 0;
     for (const d of bad) {
-      try { await DiaryDB.removeDebt(d.id); }
+      try { await DiaryDB.removeDebt(d.id); if (typeof addPurgedCorruptedId === "function") addPurgedCorruptedId(d.id); }
       catch (e) { console.error("Banking: hard-delete failed for debt", d.id, e); failCount++; }
     }
     await loadDebtsAndOther();
@@ -139,7 +139,7 @@ const Banking = (() => {
     if (!confirm(`พบข้อมูลอื่น ${bad.length} รายการที่ถอดรหัสไม่ได้ (ข้อมูลเสียมาตั้งแต่ก่อนหน้านี้ กู้คืนไม่ได้แล้ว) ต้องการลบทิ้งหรือไม่?`)) return;
     let failCount = 0;
     for (const o of bad) {
-      try { await DiaryDB.removeOtherInfo(o.id); }
+      try { await DiaryDB.removeOtherInfo(o.id); if (typeof addPurgedCorruptedId === "function") addPurgedCorruptedId(o.id); }
       catch (e) { console.error("Banking: hard-delete failed for other-info", o.id, e); failCount++; }
     }
     await loadDebtsAndOther();

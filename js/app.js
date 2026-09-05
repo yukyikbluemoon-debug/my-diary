@@ -10,13 +10,31 @@ function getDebtReminderDays() {
   const v = parseInt(localStorage.getItem("diary_debt_reminder_days"), 10);
   return Number.isFinite(v) && v >= 0 ? v : 5;
 }
+
+/** IDs of records that were force-deleted via "ล้างรายการที่เสีย" (a hard
+ *  delete — no tombstone/deletedAt marker survives it) — kept here so
+ *  drive-sync.js can permanently exclude them from being pulled back in
+ *  from a stale Drive copy on a future sync, instead of them silently
+ *  resurrecting. */
+function getPurgedCorruptedIds() {
+  try { return JSON.parse(localStorage.getItem("diary_purged_corrupted_ids")) || []; }
+  catch (e) { return []; }
+}
+function addPurgedCorruptedId(id) {
+  const list = getPurgedCorruptedIds();
+  if (!list.includes(id)) {
+    list.push(id);
+    localStorage.setItem("diary_purged_corrupted_ids", JSON.stringify(list));
+  }
+}
+
 const VIDEO_MAX_SECONDS = 30;
 const VIDEO_SIZE_WARN_BYTES = 20 * 1024 * 1024; // 20 MB — just a heads-up, recording still allowed past this
 const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.20.3";
+const APP_VERSION = "3.20.4";
 const APP_BUILD_DATE = "2026-09-05";
 
 const state = {

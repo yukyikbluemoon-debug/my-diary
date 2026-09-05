@@ -230,9 +230,14 @@ const DriveSync = (() => {
     // ...and for the (fully encrypted) Banking & Liabilities records too — Drive
     // only ever sees {id, kind, timestamps, encIv, encData}, same as it does
     // today for private diary entries.
-    const mergedBanks = mergeEntries(localBanks, remoteBanks);
-    const mergedDebts = mergeEntries(localDebts, remoteDebts);
-    const mergedOther = mergeEntries(localOther, remoteOther);
+    // Records force-deleted via "ล้างรายการที่เสีย" (hard delete, no
+    // tombstone survives it) — permanently excluded from being pulled
+    // back in from a stale Drive copy, rather than silently resurrecting
+    // every time this device syncs.
+    const purgedIds = (typeof getPurgedCorruptedIds === "function") ? getPurgedCorruptedIds() : [];
+    const mergedBanks = mergeEntries(localBanks, remoteBanks.filter((b) => !purgedIds.includes(b.id)));
+    const mergedDebts = mergeEntries(localDebts, remoteDebts.filter((d) => !purgedIds.includes(d.id)));
+    const mergedOther = mergeEntries(localOther, remoteOther.filter((o) => !purgedIds.includes(o.id)));
     await DiaryDB.bulkPut(merged);
     await DiaryDB.bulkPutTransactions(mergedTx);
     await DiaryDB.bulkPutAssets(mergedAssets);
