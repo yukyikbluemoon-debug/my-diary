@@ -213,6 +213,7 @@ const Banking = (() => {
    *  Thai-name lookup, and finally to a plain 🏦 in a grey circle for
    *  anything unrecognized or unset. */
   function bankLogoHTML(a) {
+    if (a.customLogo) return `<span class="bank-logo-icon"><img src="${a.customLogo}" alt=""></span>`;
     if (typeof BankLogos === "undefined") return `<span class="bank-logo-icon bank-logo-fallback">🏦</span>`;
     const logo = a.logoCode ? BankLogos.getByCode(a.logoCode) : BankLogos.match(a.bankName);
     if (!logo) return `<span class="bank-logo-icon bank-logo-fallback">🏦</span>`;
@@ -263,6 +264,20 @@ const Banking = (() => {
     await loadBankAccounts();
   }
 
+  let pendingCustomLogo = null; // data URL staged for the currently-open bank edit form
+
+  function renderCustomLogoPreview() {
+    const preview = $("bankCustomLogoPreview");
+    const removeBtn = $("bankCustomLogoRemoveBtn");
+    if (pendingCustomLogo) {
+      preview.innerHTML = `<img src="${pendingCustomLogo}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;">`;
+      removeBtn.hidden = false;
+    } else {
+      preview.innerHTML = "";
+      removeBtn.hidden = true;
+    }
+  }
+
   function populateBankLogoSelect() {
     const sel = $("bankLogoSelect");
     if (!sel || sel.options.length > 1 || typeof BankLogos === "undefined") return; // populate once
@@ -279,6 +294,8 @@ const Banking = (() => {
     $("bankId").value = "";
     ["bankName", "bankAccountName", "bankAccountType", "bankAccountNumber", "bankOwnerName", "bankBranch", "bankNote"].forEach((id) => $(id).value = "");
     $("bankLogoSelect").value = "";
+    pendingCustomLogo = null;
+    renderCustomLogoPreview();
     $("bankModalTitle").textContent = "เพิ่มบัญชีธนาคาร";
     $("bankDeleteBtn").hidden = true;
     $("bankModal").hidden = false;
@@ -298,6 +315,8 @@ const Banking = (() => {
     $("bankBranch").value = a.branch || "";
     $("bankNote").value = a.note || "";
     $("bankLogoSelect").value = a.logoCode || "";
+    pendingCustomLogo = a.customLogo || null;
+    renderCustomLogoPreview();
     $("bankModalTitle").textContent = "แก้ไขบัญชีธนาคาร";
     $("bankDeleteBtn").hidden = false;
     $("bankModal").hidden = false;
@@ -328,6 +347,7 @@ const Banking = (() => {
       note: $("bankNote").value.trim(),
       accountLast4,
       logoCode: $("bankLogoSelect").value || null,
+      customLogo: pendingCustomLogo,
       isPinned: existing ? !!existing.isPinned : false,
       deletedAt: null,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
@@ -681,6 +701,20 @@ const Banking = (() => {
     $("addBankBtn").addEventListener("click", openNewBank);
     $("bankCancelBtn").addEventListener("click", closeBankModal);
     $("bankSaveBtn").addEventListener("click", saveBank);
+    $("bankCustomLogoInput").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const blob = await compressImageToBlob(file, 128, 0.8); // small — this is just a 22px icon
+        pendingCustomLogo = await blobToDataURL(blob);
+        renderCustomLogoPreview();
+      } catch (err) { showToast("อัปโหลดรูปไม่สำเร็จ"); }
+      e.target.value = "";
+    });
+    $("bankCustomLogoRemoveBtn").addEventListener("click", () => {
+      pendingCustomLogo = null;
+      renderCustomLogoPreview();
+    });
     $("bankDeleteBtn").addEventListener("click", deleteBank);
     $("bankList").addEventListener("click", (e) => {
       const pinBtn = e.target.closest(".bank-pin-btn");

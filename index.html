@@ -1224,6 +1224,13 @@
           <select id="bankLogoSelect">
             <option value="">อัตโนมัติ (เดาจากชื่อธนาคาร)</option>
           </select>
+          <div class="capture-row" style="margin-top:8px;">
+            <label class="capture-btn" for="bankCustomLogoInput">📷 อัปโหลดโลโก้เอง</label>
+            <input type="file" id="bankCustomLogoInput" accept="image/*" hidden>
+            <button type="button" class="capture-btn" id="bankCustomLogoRemoveBtn" hidden>ลบรูปที่อัปโหลด</button>
+          </div>
+          <div id="bankCustomLogoPreview" style="margin-top:8px;"></div>
+          <span class="field-hint">ถ้าอัปโหลดรูปเอง จะใช้แทนตัวเลือกด้านบนเสมอ</span>
         </div>
         <p class="settings-note">⚠️ ข้อมูลบัญชีธนาคารทั้งหมด (รวมเลขบัญชีเต็ม/ประเภทบัญชี/สาขา/หมายเหตุ) ไม่เข้ารหัส — ใครก็ตามที่เปิดแอปได้จะเห็นข้อมูลนี้ ยอดคงเหลือคำนวณจากธุรกรรมที่เลือกบัญชีนี้โดยอัตโนมัติ</p>
 
