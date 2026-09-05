@@ -6,6 +6,8 @@
 const Gallery = (() => {
   let items = [];        // {attId, entryId, type, blob, mimeType, size, entryDate}
   let filterType = "";
+  let sortKey = "date";  // "date" | "size" | "type"
+  let sortDir = "desc";  // "desc" | "asc"
   let selected = new Set();
 
   async function loadItems() {
@@ -26,7 +28,16 @@ const Gallery = (() => {
   }
 
   function filteredItems() {
-    return filterType ? items.filter((i) => i.type === filterType) : items;
+    const list = filterType ? items.filter((i) => i.type === filterType) : items.slice();
+    const dir = sortDir === "asc" ? 1 : -1;
+    list.sort((a, b) => {
+      let cmp;
+      if (sortKey === "size") cmp = a.size - b.size;
+      else if (sortKey === "type") cmp = a.type.localeCompare(b.type);
+      else cmp = a.entryDate.localeCompare(b.entryDate);
+      return cmp * dir;
+    });
+    return list;
   }
 
   function iconFor(type) {
@@ -83,6 +94,8 @@ const Gallery = (() => {
     $("gallerySummaryText").textContent = `${list.length} ไฟล์ · ${formatBytes(totalSize)}`;
     $("galleryDownloadBtn").textContent = `ดาวน์โหลดที่เลือก (${selected.size})`;
     $("galleryDownloadBtn").disabled = selected.size === 0;
+    $("galleryDeleteBtn").textContent = `ลบที่เลือก (${selected.size})`;
+    $("galleryDeleteBtn").disabled = selected.size === 0;
   }
 
   async function openItem(attId) {
@@ -127,6 +140,38 @@ const Gallery = (() => {
     $("galleryDownloadBtn").disabled = selected.size === 0;
   }
 
+  async function deleteSelected() {
+    const toDelete = items.filter((i) => selected.has(i.attId));
+    if (toDelete.length === 0) return;
+    const totalSize = toDelete.reduce((sum, i) => sum + (i.size || 0), 0);
+    if (!confirm(`ลบไฟล์ที่เลือก ${toDelete.length} ไฟล์ (${formatBytes(totalSize)}) ทิ้งถาวร?\n\nจะลบออกจากบันทึกที่แนบไว้ด้วย และกู้คืนไม่ได้เลย (ไม่มีถังขยะสำหรับไฟล์แนบ)`)) return;
+
+    // Group by entryId so each affected diary entry gets its
+    // attachmentRefs updated (and hasMedia recalculated) exactly once,
+    // even if several selected photos belong to the same entry.
+    const byEntry = new Map();
+    toDelete.forEach((item) => {
+      if (!byEntry.has(item.entryId)) byEntry.set(item.entryId, []);
+      byEntry.get(item.entryId).push(item.attId);
+    });
+    for (const [entryId, attIds] of byEntry) {
+      const entry = state.entries.find((e) => e.id === entryId);
+      if (entry && Array.isArray(entry.attachmentRefs)) {
+        entry.attachmentRefs = entry.attachmentRefs.filter((r) => !attIds.includes(r.id));
+        entry.hasMedia = entry.attachmentRefs.length > 0;
+        entry.updatedAt = new Date().toISOString();
+        await DiaryDB.put(entry);
+      }
+    }
+    for (const item of toDelete) {
+      await DiaryDB.removeAttachment(item.attId);
+    }
+    selected.clear();
+    await loadItems();
+    render();
+    showToast(`ลบแล้ว ${toDelete.length} ไฟล์`);
+  }
+
   async function openTab() {
     selected.clear();
     await loadItems();
@@ -141,6 +186,8 @@ const Gallery = (() => {
       document.querySelectorAll("#galleryFilter .entry-type-filter-btn").forEach((b) => b.classList.toggle("selected", b === btn));
       render();
     });
+    $("gallerySortKey").addEventListener("change", (e) => { sortKey = e.target.value; render(); });
+    $("gallerySortDir").addEventListener("change", (e) => { sortDir = e.target.value; render(); });
     $("galleryGrid").addEventListener("click", (e) => {
       const check = e.target.closest(".gallery-item-check");
       const tile = e.target.closest(".gallery-item");
@@ -157,6 +204,7 @@ const Gallery = (() => {
       render();
     });
     $("galleryDownloadBtn").addEventListener("click", downloadSelected);
+    $("galleryDeleteBtn").addEventListener("click", deleteSelected);
   }
 
   function init() {

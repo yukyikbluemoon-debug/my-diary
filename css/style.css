@@ -1383,6 +1383,8 @@ select {
 }
 .gallery-toolbar-actions { display: flex; gap: 10px; }
 .gallery-toolbar-actions .text-btn { font-size: 13px; padding: 2px 4px; }
+.gallery-sort-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.gallery-sort-row select { flex: 1; min-width: 0; padding: 6px 8px; font-size: 13px; }
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

@@ -591,6 +591,18 @@
           <button type="button" class="entry-type-filter-btn" data-galtype="sketch">✏️ ภาพวาด</button>
         </div>
 
+        <div class="gallery-sort-row">
+          <select id="gallerySortKey">
+            <option value="date">เรียงตามวันที่</option>
+            <option value="size">เรียงตามขนาดไฟล์</option>
+            <option value="type">เรียงตามประเภทไฟล์</option>
+          </select>
+          <select id="gallerySortDir">
+            <option value="desc">มากไปน้อย</option>
+            <option value="asc">น้อยไปมาก</option>
+          </select>
+        </div>
+
         <div class="gallery-toolbar">
           <span id="gallerySummaryText">0 ไฟล์</span>
           <div class="gallery-toolbar-actions">
@@ -598,7 +610,8 @@
             <button type="button" class="text-btn" id="galleryClearSelectionBtn">ล้างที่เลือก</button>
           </div>
         </div>
-        <button type="button" class="text-btn primary" id="galleryDownloadBtn" style="width:100%;margin-bottom:12px;" disabled>ดาวน์โหลดที่เลือก (0)</button>
+        <button type="button" class="text-btn primary" id="galleryDownloadBtn" style="width:100%;margin-bottom:8px;" disabled>ดาวน์โหลดที่เลือก (0)</button>
+        <button type="button" class="text-btn danger" id="galleryDeleteBtn" style="width:100%;margin-bottom:12px;" disabled>ลบที่เลือก (0)</button>
 
         <div class="gallery-grid" id="galleryGrid"></div>
         <div class="empty-state" id="galleryEmptyState" hidden>
