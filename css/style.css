@@ -925,13 +925,14 @@ select {
 
 .bank-logo-icon {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 22px; height: 22px; border-radius: 6px;
-  overflow: hidden; vertical-align: middle; margin-right: 2px;
+  width: 32px; height: 32px; border-radius: 8px;
+  overflow: hidden; vertical-align: middle; margin-right: 6px;
   flex-shrink: 0;
 }
 .bank-logo-icon svg { width: 78%; height: 78%; }
 .bank-logo-icon img { width: 100%; height: 100%; object-fit: cover; }
-.bank-logo-fallback { font-size: 13px; background: var(--ink-600) !important; }
+.bank-logo-fallback { font-size: 16px; background: var(--ink-600) !important; }
+#bankList .asset-row-sub { margin-left: 38px; }
 
 .fin-action-row {
   display: flex; gap: 8px;

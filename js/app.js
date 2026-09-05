@@ -34,7 +34,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.20.4";
+const APP_VERSION = "3.20.6";
 const APP_BUILD_DATE = "2026-09-05";
 
 const state = {
@@ -922,6 +922,14 @@ $("driveSyncBtn").addEventListener("click", async () => {
   } finally {
     $("driveSyncBtn").disabled = false;
   }
+});
+
+$("driveResetBtn").addEventListener("click", () => {
+  if (typeof DriveSync === "undefined") { showToast("โหลดฟีเจอร์ซิงค์ไม่สำเร็จ"); return; }
+  if (!confirm('รีเซ็ตการเชื่อมต่อ Google Drive? ครั้งต่อไปที่กด "ซิงค์ตอนนี้" จะให้เลือกบัญชี Google ใหม่ — ไม่ลบข้อมูลใด ๆ เลย')) return;
+  DriveSync.resetConnection();
+  $("driveSyncStatus").textContent = "ยังไม่เคยซิงค์ (รีเซ็ตแล้ว)";
+  showToast("รีเซ็ตแล้ว — ครั้งหน้าที่กดซิงค์จะให้เลือกบัญชีใหม่");
 });
 
 /* ---------------- Telegram settings ---------------- */

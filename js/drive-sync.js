@@ -17,6 +17,7 @@ const DriveSync = (() => {
   let tokenClient = null;
   let accessToken = null;
   let fileId = localStorage.getItem("diary_drive_file_id") || null;
+  let forceAccountPicker = false; // set by resetConnection() — next sync must let the user pick an account, not silently reuse whatever Google remembers for this origin
 
   function gisReady() {
     return typeof google !== "undefined" && google.accounts && google.accounts.oauth2;
@@ -57,8 +58,30 @@ const DriveSync = (() => {
         accessToken = resp.access_token;
         resolve(accessToken);
       };
-      client.requestAccessToken({ prompt: "" });
+      // After a reset, force the account chooser instead of Google silently
+      // reusing whatever account it last remembered for this origin — the
+      // exact mechanism that let a stray test Google account get used
+      // instead of the intended one.
+      client.requestAccessToken({ prompt: forceAccountPicker ? "select_account" : "" });
+      forceAccountPicker = false;
     });
+  }
+
+  /** Forgets which Drive file this device was using and forces the next
+   *  sync to go through the account picker again — for when sync ends up
+   *  reading/writing the wrong Google account's copy (e.g. a leftover
+   *  test account got silently reused). Doesn't delete anything in Drive
+   *  or locally; the correct account's diary-data.json (if any) is simply
+   *  re-found via findFileId() on the next sync. */
+  function resetConnection() {
+    if (accessToken && gisReady() && google.accounts.oauth2.revoke) {
+      try { google.accounts.oauth2.revoke(accessToken, () => {}); } catch (e) { /* best effort */ }
+    }
+    accessToken = null;
+    fileId = null;
+    forceAccountPicker = true;
+    localStorage.removeItem("diary_drive_file_id");
+    localStorage.removeItem("diary_last_synced");
   }
 
   async function authedFetch(url, options = {}) {
@@ -263,5 +286,5 @@ const DriveSync = (() => {
     return t ? new Date(t).toLocaleString("th-TH") : "ยังไม่เคยซิงค์";
   }
 
-  return { sync, lastSyncedText, downloadAttachmentBlob };
+  return { sync, lastSyncedText, downloadAttachmentBlob, resetConnection };
 })();
