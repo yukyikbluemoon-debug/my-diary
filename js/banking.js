@@ -207,11 +207,14 @@ const Banking = (() => {
 
   /* ---------------- bank accounts ---------------- */
 
-  /** Small inline logo/icon for a bank account row — matches BankLogos'
-   *  fuzzy Thai-name lookup, falls back to a plain 🏦 in a grey circle for
-   *  anything unrecognized. */
-  function bankLogoHTML(bankName) {
-    const logo = (typeof BankLogos !== "undefined") ? BankLogos.match(bankName) : null;
+  /** Small inline logo/icon for a bank account row — uses the manually
+   *  picked logoCode if the user set one (openNewBank/openEditBank's
+   *  "โลโก้ธนาคาร" dropdown), otherwise falls back to BankLogos' fuzzy
+   *  Thai-name lookup, and finally to a plain 🏦 in a grey circle for
+   *  anything unrecognized or unset. */
+  function bankLogoHTML(a) {
+    if (typeof BankLogos === "undefined") return `<span class="bank-logo-icon bank-logo-fallback">🏦</span>`;
+    const logo = a.logoCode ? BankLogos.getByCode(a.logoCode) : BankLogos.match(a.bankName);
     if (!logo) return `<span class="bank-logo-icon bank-logo-fallback">🏦</span>`;
     if (logo.svg) return `<span class="bank-logo-icon" style="background:${logo.color};">${logo.svg}</span>`;
     if (logo.img) return `<span class="bank-logo-icon" style="background:${logo.color};"><img src="${logo.img}" alt=""></span>`;
@@ -241,7 +244,7 @@ const Banking = (() => {
         <button type="button" class="bank-pin-btn${a.isPinned ? " pinned" : ""}" data-id="${a.id}" aria-label="${a.isPinned ? "เลิกปักหมุด" : "ปักหมุด"}">📌</button>
         <button type="button" class="bank-send-btn" data-id="${a.id}" aria-label="ส่งเข้า Telegram">📨</button>
         <div class="asset-row-body">
-          <div class="asset-row-title">${bankLogoHTML(a.bankName)} ${escapeHTML(label)}</div>
+          <div class="asset-row-title">${bankLogoHTML(a)} ${escapeHTML(label)}</div>
           <div class="asset-row-sub">แตะเพื่อดูรายละเอียด</div>
         </div>
         <div class="asset-row-value">
@@ -260,9 +263,22 @@ const Banking = (() => {
     await loadBankAccounts();
   }
 
+  function populateBankLogoSelect() {
+    const sel = $("bankLogoSelect");
+    if (!sel || sel.options.length > 1 || typeof BankLogos === "undefined") return; // populate once
+    BankLogos.getPickerList().forEach(({ code, name }) => {
+      const opt = document.createElement("option");
+      opt.value = code;
+      opt.textContent = name;
+      sel.appendChild(opt);
+    });
+  }
+
   function openNewBank() {
+    populateBankLogoSelect();
     $("bankId").value = "";
     ["bankName", "bankAccountName", "bankAccountType", "bankAccountNumber", "bankOwnerName", "bankBranch", "bankNote"].forEach((id) => $(id).value = "");
+    $("bankLogoSelect").value = "";
     $("bankModalTitle").textContent = "เพิ่มบัญชีธนาคาร";
     $("bankDeleteBtn").hidden = true;
     $("bankModal").hidden = false;
@@ -270,6 +286,7 @@ const Banking = (() => {
   }
 
   function openEditBank(id) {
+    populateBankLogoSelect();
     const a = allBankAccounts.find((x) => x.id === id);
     if (!a) return;
     $("bankId").value = a.id;
@@ -280,6 +297,7 @@ const Banking = (() => {
     $("bankOwnerName").value = a.ownerName || "";
     $("bankBranch").value = a.branch || "";
     $("bankNote").value = a.note || "";
+    $("bankLogoSelect").value = a.logoCode || "";
     $("bankModalTitle").textContent = "แก้ไขบัญชีธนาคาร";
     $("bankDeleteBtn").hidden = false;
     $("bankModal").hidden = false;
@@ -309,6 +327,7 @@ const Banking = (() => {
       branch: $("bankBranch").value.trim(),
       note: $("bankNote").value.trim(),
       accountLast4,
+      logoCode: $("bankLogoSelect").value || null,
       isPinned: existing ? !!existing.isPinned : false,
       deletedAt: null,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),

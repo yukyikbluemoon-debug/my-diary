@@ -363,5 +363,22 @@ const BankLogos = (() => {
     return null;
   }
 
-  return { match };
+  const DISPLAY_NAMES = {
+    kbank: "กสิกรไทย", scb: "ไทยพาณิชย์ (SCB)", bbl: "กรุงเทพ", ktb: "กรุงไทย",
+    bay: "กรุงศรีอยุธยา", gsb: "ออมสิน", ttb: "ทีทีบี (TTB)", tbank: "ธนชาต",
+    kk: "เกียรตินาคินภัทร", ghb: "อาคารสงเคราะห์ (ธอส.)", baac: "ธ.ก.ส.",
+    cimb: "ซีไอเอ็มบี", tisco: "ทิสโก้", tcrb: "ไทยเครดิต", lhb: "แลนด์ แอนด์ เฮ้าส์",
+    citi: "ซิตี้แบงก์", ibank: "ธนาคารอิสลามแห่งประเทศไทย", hsbc: "HSBC",
+    icbc: "ICBC", uob: "ยูโอบี (UOB)",
+  };
+
+  function getPickerList() {
+    return Object.keys(DISPLAY_NAMES).map((code) => ({ code, name: DISPLAY_NAMES[code] }));
+  }
+
+  function getByCode(code) {
+    return BANKS[code] ? { code, ...BANKS[code] } : null;
+  }
+
+  return { match, getPickerList, getByCode };
 })();
