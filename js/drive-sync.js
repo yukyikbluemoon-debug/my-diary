@@ -176,7 +176,7 @@ const DriveSync = (() => {
     return [...map.values()];
   }
 
-  async function syncAttachments(mergedEntries) {
+  async function syncAttachments(mergedEntries, mergedTx) {
     // 1) figure out the total pending count first, so progress toasts can
     // say "X/Y" instead of just a running count with no sense of how much
     // is left.
@@ -185,6 +185,15 @@ const DriveSync = (() => {
       if (entry.private || entry.deletedAt || !entry.attachmentRefs) continue;
       for (const ref of entry.attachmentRefs) {
         const att = await DiaryDB.getAttachment(ref.id);
+        if (att && att.blob && !att.driveFileId) pending.push(att);
+      }
+    }
+    // Transaction receipt photos — same idea, keyed by entryId = tx.id
+    // instead of attachmentRefs (see finance.js's hasAttachments flag).
+    for (const tx of (mergedTx || [])) {
+      if (tx.deletedAt || !tx.hasAttachments) continue;
+      const atts = await DiaryDB.getAttachmentsByEntry(tx.id);
+      for (const att of atts) {
         if (att && att.blob && !att.driveFileId) pending.push(att);
       }
     }
@@ -269,7 +278,7 @@ const DriveSync = (() => {
     await DiaryDB.bulkPutOtherInfo(mergedOther);
 
     await adoptRemoteAttachmentIndex(remoteObj && remoteObj.attachmentIndex);
-    const { index: attachmentIndex, uploadedCount } = await syncAttachments(merged);
+    const { index: attachmentIndex, uploadedCount } = await syncAttachments(merged, mergedTx);
     if (uploadedCount > 0) toast(`อัปโหลดไฟล์แนบเสร็จ ${uploadedCount} ไฟล์`);
 
     toast("กำลังบันทึกข้อมูลขึ้น Drive...");

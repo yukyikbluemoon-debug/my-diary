@@ -739,10 +739,22 @@ const Banking = (() => {
     await loadBankAccounts();
   }
 
+  /** Pinned bank accounts only (📌), with their live computed balance and
+   *  logo — used by the home dashboard's "ยอดเงินคงเหลือ" widget so it
+   *  doesn't have to show every single account there. */
+  function getPinnedBankAccounts() {
+    return allBankAccounts.filter((a) => a.isPinned).map((a) => ({
+      key: bankKey(a.id),
+      label: bankLabel(a),
+      logoHTML: bankLogoHTML(a),
+      balance: (typeof Finance !== "undefined") ? Finance.computeWalletBalance(bankKey(a.id)) : 0,
+    }));
+  }
+
   return {
     init, render, showFinSubtab,
     getBankAccountOptions, resolveBankLabelById, findBankAccountById,
-    getBankAccountPickerRows, getFullDetails, getDebtsList,
+    getBankAccountPickerRows, getFullDetails, getDebtsList, getPinnedBankAccounts,
     closeBankModalVisual, closeDebtModalVisual, closeOtherModalVisual,
   };
 })();

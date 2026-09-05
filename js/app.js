@@ -34,7 +34,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.20.6";
+const APP_VERSION = "3.21.0";
 const APP_BUILD_DATE = "2026-09-05";
 
 const state = {
@@ -1255,15 +1255,25 @@ function renderTimeline() {
   $("timelineEmptyState").hidden = entries.length > 0;
 
   let currentMonth = null;
+  let monthGroupDiv = null;
+  let isFirstMonth = true; // only the most recent month starts expanded — others fold away so a long history doesn't turn into one giant scroll
   entries.forEach((e) => {
     const monthKey = e.date.slice(0, 7);
     if (monthKey !== currentMonth) {
       currentMonth = monthKey;
       const [y, m] = monthKey.split("-").map(Number);
-      const monthLabel = document.createElement("div");
-      monthLabel.className = "timeline-month-heading";
-      monthLabel.textContent = `${THAI_MONTHS_FULL[m - 1]} ${y + 543}`;
-      track.appendChild(monthLabel);
+      const expanded = isFirstMonth;
+      isFirstMonth = false;
+
+      const heading = document.createElement("div");
+      heading.className = "timeline-month-heading";
+      heading.innerHTML = `<span class="timeline-month-toggle">${expanded ? "▾" : "▸"}</span> ${THAI_MONTHS_FULL[m - 1]} ${y + 543}`;
+      track.appendChild(heading);
+
+      monthGroupDiv = document.createElement("div");
+      monthGroupDiv.className = "timeline-month-group";
+      monthGroupDiv.hidden = !expanded;
+      track.appendChild(monthGroupDiv);
     }
 
     const node = document.createElement("div");
@@ -1279,11 +1289,20 @@ function renderTimeline() {
         <div class="timeline-title">${titleText}${mood ? ` ${mood}` : ""}</div>
         ${preview ? `<div class="timeline-preview">${preview}</div>` : ""}
       </div>`;
-    track.appendChild(node);
+    monthGroupDiv.appendChild(node);
   });
 }
 
 $("timelineTrack").addEventListener("click", (e) => {
+  const heading = e.target.closest(".timeline-month-heading");
+  if (heading) {
+    const group = heading.nextElementSibling;
+    if (group && group.classList.contains("timeline-month-group")) {
+      group.hidden = !group.hidden;
+      heading.querySelector(".timeline-month-toggle").textContent = group.hidden ? "▸" : "▾";
+    }
+    return;
+  }
   const node = e.target.closest(".timeline-node");
   if (node) openEntry(node.dataset.id);
 });
@@ -1385,9 +1404,30 @@ function renderHome() {
   renderOnThisDay();
   updateReminderBanner();
   if (typeof Banking !== "undefined") updateDebtReminderBanner();
+  renderBalanceOverview();
   renderTodaySummary();
   refreshSettingsView();
 }
+
+function renderBalanceOverview() {
+  const list = $("balanceOverviewList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (typeof Finance === "undefined") return;
+  const cash = Finance.computeWalletBalance("cash");
+  list.innerHTML += `<div class="today-summary-row"><span>💵 เงินสด</span><span>${Finance.formatMoney(cash)}</span></div>`;
+  if (typeof Banking !== "undefined") {
+    Banking.getPinnedBankAccounts().forEach((a) => {
+      list.innerHTML += `<div class="today-summary-row"><span>${a.logoHTML} ${escapeHTML(a.label)}</span><span>${Finance.formatMoney(a.balance)}</span></div>`;
+    });
+  }
+}
+$("balanceOverview").addEventListener("click", () => {
+  showView("finance");
+  if (typeof Banking !== "undefined") Banking.render();
+  if (typeof Finance !== "undefined") Finance.render();
+  if (typeof Assets !== "undefined") Assets.render();
+});
 
 function renderTodaySummary() {
   const today = todayISO();

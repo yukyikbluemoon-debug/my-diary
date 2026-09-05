@@ -326,9 +326,20 @@ const Finance = (() => {
       setTxCurrency("THB");
     }
     $("txNote").value = tx.note || "";
-    pendingTxAttachments = (await DiaryDB.getAttachmentsByEntry(tx.id)).map((a) => ({
-      id: a.id, type: a.type, blob: a.blob, url: a.blob ? URL.createObjectURL(a.blob) : "", existing: true,
-    }));
+    const txAtts = await DiaryDB.getAttachmentsByEntry(tx.id);
+    pendingTxAttachments = [];
+    for (const a of txAtts) {
+      // same lazy-fetch-from-Drive fallback as diary entry attachments —
+      // a receipt photo synced in from another device may only have a
+      // driveFileId locally until actually opened once.
+      if (!a.blob && a.driveFileId && typeof DriveSync !== "undefined") {
+        try {
+          a.blob = await DriveSync.downloadAttachmentBlob(a.driveFileId);
+          await DiaryDB.putAttachment(a);
+        } catch (err) { /* offline or fetch failed — leave blob null, skip below */ }
+      }
+      if (a.blob) pendingTxAttachments.push({ id: a.id, type: a.type, blob: a.blob, url: URL.createObjectURL(a.blob), existing: true });
+    }
     removedTxAttachmentIds = [];
     renderTxAttachStrip();
     $("txModalTitle").textContent = "แก้ไขรายการเงิน";
