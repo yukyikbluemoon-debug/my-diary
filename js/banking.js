@@ -80,20 +80,16 @@ const Banking = (() => {
 
   async function loadDebtsAndOther() {
     const [debtRaw, otherRaw] = await Promise.all([DiaryDB.getAllDebts(), DiaryDB.getAllOtherInfo()]);
-    const needsMigration = [...debtRaw, ...otherRaw].some((r) => !r.deletedAt && r.encIv);
-    if (needsMigration && !DiaryCrypto.isUnlocked()) {
-      if (!DiaryCrypto.hasPassword()) {
-        renderMigrationStuck();
-        return;
-      }
-      const ok = await ensureUnlocked("เพื่อกู้คืนข้อมูลหนี้สิน/อื่นๆ ที่ยังเข้ารหัสแบบเก่าอยู่ (ทำครั้งเดียวเท่านั้น)");
-      if (!ok) { renderMigrationStuck(true); return; }
-    }
 
+    // No more forced unlock prompt here — old encrypted records that never
+    // successfully migrated just stay flagged (⚠️ ข้อมูลเสีย, see
+    // renderDebtList/renderOtherList) and can be cleared any time via the
+    // "ล้างรายการที่เสีย" button. Only attempt the decrypt at all if
+    // already unlocked this session for some other reason.
     const migratedDebts = [];
-    for (const r of debtRaw) migratedDebts.push(r.deletedAt ? r : await migrateIfEncrypted(r, "debt"));
+    for (const r of debtRaw) migratedDebts.push((r.deletedAt || !DiaryCrypto.isUnlocked()) ? r : await migrateIfEncrypted(r, "debt"));
     const migratedOther = [];
-    for (const r of otherRaw) migratedOther.push(r.deletedAt ? r : await migrateIfEncrypted(r, "other"));
+    for (const r of otherRaw) migratedOther.push((r.deletedAt || !DiaryCrypto.isUnlocked()) ? r : await migrateIfEncrypted(r, "other"));
 
     allDebts = migratedDebts.filter((d) => !d.deletedAt);
     allOtherInfo = migratedOther.filter((o) => !o.deletedAt);
@@ -148,23 +144,6 @@ const Banking = (() => {
     }
     await loadDebtsAndOther();
     showToast(failCount > 0 ? `ลบได้ ${bad.length - failCount}/${bad.length} รายการ` : `ลบแล้ว ${bad.length} รายการ`);
-  }
-
-  function renderMigrationStuck(retry) {
-    const msg = retry
-      ? "ปลดล็อกไม่สำเร็จ — แตะเพื่อลองใหม่"
-      : "พบข้อมูลเก่าที่ยังเข้ารหัสอยู่ แต่ยังไม่เคยตั้งรหัสผ่านไว้บนเครื่องนี้ ลองเข้าจากเครื่อง/เบราว์เซอร์ที่เคยตั้งรหัสผ่านไว้แทน";
-    ["debtList", "otherList"].forEach((id) => {
-      const el = $(id);
-      if (!el) return;
-      el.innerHTML = `<div class="empty-state"><p class="empty-title">🔒 ${escapeHTML(msg)}</p></div>`;
-    });
-    if (retry) {
-      document.querySelectorAll(".empty-title").forEach((el) => {
-        el.style.cursor = "pointer";
-        el.addEventListener("click", loadDebtsAndOther, { once: true });
-      });
-    }
   }
 
   /** Bank accounts never need an unlock just to LIST them — this is also
