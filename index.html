@@ -282,6 +282,8 @@
               <button type="button" class="capture-btn" id="voiceRecordBtn">🎙️ บันทึกเสียง</button>
               <button type="button" class="capture-btn" id="videoRecordBtn">🎥 วิดีโอสั้น</button>
               <button type="button" class="capture-btn" id="sketchOpenBtn">✏️ วาดภาพ</button>
+              <label class="capture-btn" for="entryDocuments">📄 แนบไฟล์</label>
+              <input type="file" id="entryDocuments" accept=".pdf,.txt,application/pdf,text/plain" multiple hidden>
             </div>
             <video id="videoLivePreview" muted autoplay playsinline hidden style="width:100%;max-width:280px;border-radius:8px;margin-bottom:8px;"></video>
             <div class="attach-strip" id="attachStrip"></div>
@@ -589,6 +591,7 @@
           <button type="button" class="entry-type-filter-btn" data-galtype="audio">🎙️ เสียง</button>
           <button type="button" class="entry-type-filter-btn" data-galtype="video">🎥 วิดีโอ</button>
           <button type="button" class="entry-type-filter-btn" data-galtype="sketch">✏️ ภาพวาด</button>
+          <button type="button" class="entry-type-filter-btn" data-galtype="document">📄 ไฟล์</button>
         </div>
 
         <div class="gallery-sort-row">

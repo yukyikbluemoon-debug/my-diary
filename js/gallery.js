@@ -20,6 +20,7 @@ const Gallery = (() => {
         items.push({
           attId: att.id, entryId: e.id, type: att.type,
           blob: att.blob || null, mimeType: att.mimeType, size: att.size || 0,
+          fileName: att.fileName || null,
           driveFileId: att.driveFileId || null, entryDate: e.date,
         });
       }
@@ -41,12 +42,12 @@ const Gallery = (() => {
   }
 
   function iconFor(type) {
-    return { image: "🖼️", audio: "🎙️", video: "🎥", sketch: "✏️" }[type] || "📎";
+    return { image: "🖼️", audio: "🎙️", video: "🎥", sketch: "✏️", document: "📄" }[type] || "📎";
   }
 
   function extFor(mimeType) {
     if (!mimeType) return "bin";
-    const map = { "image/jpeg": "jpg", "image/png": "png", "audio/webm": "webm", "audio/mp4": "m4a", "video/webm": "webm", "video/mp4": "mp4" };
+    const map = { "image/jpeg": "jpg", "image/png": "png", "audio/webm": "webm", "audio/mp4": "m4a", "video/webm": "webm", "video/mp4": "mp4", "application/pdf": "pdf", "text/plain": "txt" };
     return map[mimeType] || mimeType.split("/")[1] || "bin";
   }
 
@@ -104,6 +105,13 @@ const Gallery = (() => {
     if (item.type === "image" || item.type === "sketch") {
       const blob = await ensureBlob(item);
       if (blob) openLightbox(URL.createObjectURL(blob));
+    } else if (item.type === "document") {
+      const blob = await ensureBlob(item);
+      if (!blob) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = item.fileName || `file.${extFor(item.mimeType)}`;
+      a.click();
     } else {
       // audio/video — jump to the entry itself so it plays in context
       showView("home");
@@ -126,7 +134,7 @@ const Gallery = (() => {
       showToast(`กำลังดาวน์โหลด ${done + 1}/${toDownload.length}...`);
       const blob = await ensureBlob(item);
       if (blob) {
-        const filename = `diary-${item.type}-${item.entryDate}-${item.attId}.${extFor(item.mimeType)}`;
+        const filename = item.fileName || `diary-${item.type}-${item.entryDate}-${item.attId}.${extFor(item.mimeType)}`;
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url; a.download = filename;

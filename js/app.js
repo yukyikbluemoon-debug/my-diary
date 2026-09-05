@@ -34,7 +34,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.21.1";
+const APP_VERSION = "3.22.0";
 const APP_BUILD_DATE = "2026-09-05";
 
 const state = {
@@ -265,9 +265,9 @@ function compressImageToBlob(file, maxDim = 1280, quality = 0.7) {
   });
 }
 
-function addPendingAttachment(type, blob) {
+function addPendingAttachment(type, blob, fileName) {
   const url = URL.createObjectURL(blob);
-  state.pendingAttachments.push({ id: uid(), type, blob, url, existing: false });
+  state.pendingAttachments.push({ id: uid(), type, blob, url, fileName: fileName || null, existing: false });
   renderAttachStrip();
 }
 
@@ -279,8 +279,18 @@ $("entryImages").addEventListener("change", async (e) => {
   e.target.value = "";
 });
 
+const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024; // 10MB — no compression possible for these, so cap it directly
+$("entryDocuments").addEventListener("change", (e) => {
+  const files = Array.from(e.target.files || []);
+  for (const f of files) {
+    if (f.size > DOCUMENT_MAX_BYTES) { showToast(`ไฟล์ "${f.name}" ใหญ่เกิน 10MB — ข้ามไป`); continue; }
+    addPendingAttachment("document", f, f.name);
+  }
+  e.target.value = "";
+});
+
 function attachIcon(type) {
-  return { image: "🖼️", audio: "🎙️", video: "🎥", sketch: "✏️" }[type] || "📎";
+  return { image: "🖼️", audio: "🎙️", video: "🎥", sketch: "✏️", document: "📄" }[type] || "📎";
 }
 
 function renderAttachStrip() {
@@ -295,7 +305,7 @@ function renderAttachStrip() {
       chip.innerHTML = `<span>${attachIcon(a.type)}</span>`;
     }
     const label = document.createElement("span");
-    const typeLabel = a.type === "image" ? "รูป" : a.type === "audio" ? "เสียง" : a.type === "video" ? "วิดีโอ" : "ภาพวาด";
+    const typeLabel = a.type === "image" ? "รูป" : a.type === "audio" ? "เสียง" : a.type === "video" ? "วิดีโอ" : a.type === "document" ? (a.fileName || "ไฟล์") : "ภาพวาด";
     const sizeLabel = a.blob ? formatBytes(a.blob.size) : "";
     label.textContent = sizeLabel ? `${typeLabel} · ${sizeLabel}` : typeLabel;
     chip.appendChild(label);
@@ -1592,7 +1602,7 @@ async function loadAttachmentsForEntry(rec) {
         continue; // couldn't fetch yet (offline etc.) — skip, don't fail the whole entry
       }
     }
-    if (att.blob) items.push({ id: att.id, type: att.type, blob: att.blob, url: URL.createObjectURL(att.blob) });
+    if (att.blob) items.push({ id: att.id, type: att.type, blob: att.blob, url: URL.createObjectURL(att.blob), fileName: att.fileName || null });
   }
   return items;
 }
@@ -1738,7 +1748,7 @@ $("saveEntryBtn").addEventListener("click", async () => {
       const refs = [];
       for (const a of state.pendingAttachments) {
         if (!a.existing) {
-          await DiaryDB.putAttachment({ id: a.id, entryId: id, type: a.type, blob: a.blob, mimeType: a.blob.type, size: a.blob.size, createdAt: new Date().toISOString(), driveFileId: null });
+          await DiaryDB.putAttachment({ id: a.id, entryId: id, type: a.type, blob: a.blob, mimeType: a.blob.type, size: a.blob.size, fileName: a.fileName || null, createdAt: new Date().toISOString(), driveFileId: null });
         }
         refs.push({ id: a.id, type: a.type });
       }
@@ -1809,6 +1819,7 @@ async function openEntry(id) {
   const images = mediaItems.filter((m) => m.type === "image" || m.type === "sketch");
   const audios = mediaItems.filter((m) => m.type === "audio");
   const videos = mediaItems.filter((m) => m.type === "video");
+  const documents = mediaItems.filter((m) => m.type === "document");
   const loc = rec.private ? data.location : rec.location;
 
   const linkedTx = (rec.entryType === "event" && rec.linkedTxId && typeof Finance !== "undefined") ? Finance.getTransactionById(rec.linkedTxId) : null;
@@ -1825,6 +1836,7 @@ async function openEntry(id) {
         ${audios.map((m) => `<div><audio controls src="${m.url}"></audio>${m.blob ? `<div class="attach-size-label">${formatBytes(m.blob.size)}</div>` : ""}</div>`).join("")}
         ${videos.map((m) => `<div><video controls src="${m.url}"></video>${m.blob ? `<div class="attach-size-label">${formatBytes(m.blob.size)}</div>` : ""}</div>`).join("")}
       </div>` : ""}
+    ${documents.length ? `<div class="detail-documents">${documents.map((m) => `<a href="${m.url}" download="${escapeHTML(m.fileName || "file")}" class="detail-document-chip">📄 ${escapeHTML(m.fileName || "ไฟล์แนบ")}${m.blob ? ` <span class="attach-size-label">(${formatBytes(m.blob.size)})</span>` : ""}</a>`).join("")}</div>` : ""}
     ${loc ? `<div class="detail-location"><a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener">📍 ${loc.placeName ? escapeHTML(loc.placeName) : "ดูตำแหน่งใน Google Maps"}</a>${loc.weather ? `<br>${escapeHTML(formatWeatherText(loc.weather))}` : ""}</div>` : ""}
     ${linkedTx ? `<div class="detail-location" id="linkedTxLink" style="cursor:pointer;">🔗 ผูกกับรายการเงิน: ${escapeHTML(linkedTx.title)} (${Finance.formatMoney(linkedTx.type === "expense" ? -linkedTx.amount : linkedTx.amount)})</div>` : ""}
     ${(data.tags && data.tags.length) ? `<div class="detail-tags">${data.tags.map((t) => `<span class="entry-tag">${escapeHTML(t)}</span>`).join("")}</div>` : ""}
