@@ -207,6 +207,17 @@ const Banking = (() => {
 
   /* ---------------- bank accounts ---------------- */
 
+  /** Small inline logo/icon for a bank account row — matches BankLogos'
+   *  fuzzy Thai-name lookup, falls back to a plain 🏦 in a grey circle for
+   *  anything unrecognized. */
+  function bankLogoHTML(bankName) {
+    const logo = (typeof BankLogos !== "undefined") ? BankLogos.match(bankName) : null;
+    if (!logo) return `<span class="bank-logo-icon bank-logo-fallback">🏦</span>`;
+    if (logo.svg) return `<span class="bank-logo-icon" style="background:${logo.color};">${logo.svg}</span>`;
+    if (logo.img) return `<span class="bank-logo-icon" style="background:${logo.color};"><img src="${logo.img}" alt=""></span>`;
+    return `<span class="bank-logo-icon bank-logo-fallback">🏦</span>`;
+  }
+
   function renderBankList() {
     const q = ($("bankSearchInput") && $("bankSearchInput").value || "").trim().toLowerCase();
     const items = q
@@ -230,7 +241,7 @@ const Banking = (() => {
         <button type="button" class="bank-pin-btn${a.isPinned ? " pinned" : ""}" data-id="${a.id}" aria-label="${a.isPinned ? "เลิกปักหมุด" : "ปักหมุด"}">📌</button>
         <button type="button" class="bank-send-btn" data-id="${a.id}" aria-label="ส่งเข้า Telegram">📨</button>
         <div class="asset-row-body">
-          <div class="asset-row-title">🏦 ${escapeHTML(label)}</div>
+          <div class="asset-row-title">${bankLogoHTML(a.bankName)} ${escapeHTML(label)}</div>
           <div class="asset-row-sub">แตะเพื่อดูรายละเอียด</div>
         </div>
         <div class="asset-row-value">

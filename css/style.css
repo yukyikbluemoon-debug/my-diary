@@ -923,6 +923,16 @@ select {
 .bank-pin-btn.pinned { opacity: 1; color: var(--amber); transform: rotate(0deg); }
 .bank-row-pinned { border-color: var(--amber-dim); }
 
+.bank-logo-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 6px;
+  overflow: hidden; vertical-align: middle; margin-right: 2px;
+  flex-shrink: 0;
+}
+.bank-logo-icon svg { width: 78%; height: 78%; }
+.bank-logo-icon img { width: 100%; height: 100%; object-fit: cover; }
+.bank-logo-fallback { font-size: 13px; background: var(--ink-600) !important; }
+
 .fin-action-row {
   display: flex; gap: 8px;
   overflow-x: auto;
