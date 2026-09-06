@@ -34,7 +34,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.22.0";
+const APP_VERSION = "3.23.0";
 const APP_BUILD_DATE = "2026-09-05";
 
 const state = {
@@ -1425,10 +1425,10 @@ function renderBalanceOverview() {
   list.innerHTML = "";
   if (typeof Finance === "undefined") return;
   const cash = Finance.computeWalletBalance("cash");
-  list.innerHTML += `<div class="today-summary-row"><span>💵 เงินสด</span><span>${Finance.formatMoney(cash)}</span></div>`;
+  list.innerHTML += `<div class="today-summary-row"><span>💵 เงินสด</span><span class="money-blur">${Finance.formatMoney(cash)}</span></div>`;
   if (typeof Banking !== "undefined") {
     Banking.getPinnedBankAccounts().forEach((a) => {
-      list.innerHTML += `<div class="today-summary-row"><span>${a.logoHTML} ${escapeHTML(a.label)}</span><span>${Finance.formatMoney(a.balance)}</span></div>`;
+      list.innerHTML += `<div class="today-summary-row"><span>${a.logoHTML} ${escapeHTML(a.label)}</span><span class="money-blur">${Finance.formatMoney(a.balance)}</span></div>`;
     });
   }
 }
@@ -2523,6 +2523,19 @@ document.querySelectorAll(".nav-btn[data-nav]").forEach((btn) => {
   });
 });
 $("headerSettingsBtn").addEventListener("click", () => showView("settings"));
+function applyMoneyMaskState() {
+  const masked = localStorage.getItem("diary_money_masked") === "1";
+  document.body.classList.toggle("money-masked", masked);
+  $("moneyMaskBtn").textContent = masked ? "🙈" : "👁️";
+  $("moneyMaskBtn").setAttribute("aria-label", masked ? "แสดงตัวเลขการเงิน" : "ซ่อนตัวเลขการเงิน");
+}
+$("moneyMaskBtn").addEventListener("click", () => {
+  const masked = localStorage.getItem("diary_money_masked") === "1";
+  localStorage.setItem("diary_money_masked", masked ? "0" : "1");
+  applyMoneyMaskState();
+});
+applyMoneyMaskState();
+
 $("headerStatsBtn").addEventListener("click", () => {
   state.statsReturnView = state.view;
   renderStats();
