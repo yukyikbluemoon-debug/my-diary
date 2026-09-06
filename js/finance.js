@@ -125,7 +125,7 @@ const Finance = (() => {
     const container = $("walletBalanceList");
     container.innerHTML = options.map((o) => {
       const bal = computeWalletBalance(o.key);
-      return `<div class="wallet-balance-row"><span>${escapeHTML(o.label)}</span><span class="wallet-balance-amount${bal < 0 ? " negative" : ""}">${formatMoney(bal)}</span></div>`;
+      return `<div class="wallet-balance-row"><span>${escapeHTML(o.label)}</span><span class="wallet-balance-amount money-blur${bal < 0 ? " negative" : ""}">${formatMoney(bal)}</span></div>`;
     }).join("");
   }
 
@@ -501,7 +501,7 @@ const Finance = (() => {
           <div class="tx-item-title">${escapeHTML(tx.title)}</div>
           <div class="tx-item-sub">${subParts.filter(Boolean).map(escapeHTML).join(" · ")}</div>
         </div>
-        <span class="tx-item-amount ${amountClass}">${amountText}</span>`;
+        <span class="tx-item-amount ${amountClass} money-blur">${amountText}</span>`;
       groupDiv.appendChild(row);
     });
   }
