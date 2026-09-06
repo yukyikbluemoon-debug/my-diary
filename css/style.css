@@ -203,6 +203,15 @@ button, input, textarea, select {
 }
 .header-icon-btn:hover { background: var(--ink-700); }
 
+/* ============================================================
+   Money masking (👁️ header button) — blurs financial figures
+   throughout the app for looking at it in public
+   ============================================================ */
+body.money-masked .money-blur {
+  filter: blur(6px);
+  user-select: none;
+}
+
 .views {
   max-width: 640px;
   margin: 0 auto;
