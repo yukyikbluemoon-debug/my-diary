@@ -35,6 +35,7 @@
       <span class="brand" id="brandText">สมุดบันทึก</span>
       <button type="button" class="today-pill" id="todayPill" aria-label="ดูปฏิทิน"></button>
       <div class="header-icons">
+        <button type="button" class="header-icon-btn" id="moneyMaskBtn" aria-label="ซ่อนตัวเลขการเงิน">👁️</button>
         <button type="button" class="header-icon-btn" id="headerStatsBtn" aria-label="สถิติ">📊</button>
         <button type="button" class="header-icon-btn" id="headerSettingsBtn" aria-label="ตั้งค่า">⚙️</button>
       </div>
@@ -90,8 +91,8 @@
         <div class="today-summary" id="todaySummary">
           <h3>วันนี้</h3>
           <div class="today-summary-row"><span>📝 ไดอารี่</span><span id="todayDiaryCount">0 รายการ</span></div>
-          <div class="today-summary-row"><span>💰 รายรับ</span><span id="todayIncomeText">฿0</span></div>
-          <div class="today-summary-row"><span>💸 รายจ่าย</span><span id="todayExpenseText">฿0</span></div>
+          <div class="today-summary-row"><span>💰 รายรับ</span><span id="todayIncomeText" class="money-blur">฿0</span></div>
+          <div class="today-summary-row"><span>💸 รายจ่าย</span><span id="todayExpenseText" class="money-blur">฿0</span></div>
         </div>
 
         <div class="on-this-day" id="onThisDay" hidden>
@@ -687,15 +688,15 @@
       <div class="fin-panel" data-panel="tx">
         <div class="stats-cards">
           <div class="stats-card">
-            <div class="stats-num" id="finIncomeThisMonth">฿0</div>
+            <div class="stats-num money-blur" id="finIncomeThisMonth">฿0</div>
             <div class="stats-label">รายรับเดือนนี้</div>
           </div>
           <div class="stats-card">
-            <div class="stats-num" id="finExpenseThisMonth">฿0</div>
+            <div class="stats-num money-blur" id="finExpenseThisMonth">฿0</div>
             <div class="stats-label">รายจ่ายเดือนนี้</div>
           </div>
           <div class="stats-card">
-            <div class="stats-num" id="finNetThisMonth">฿0</div>
+            <div class="stats-num money-blur" id="finNetThisMonth">฿0</div>
             <div class="stats-label">เงินเหลือ</div>
           </div>
         </div>
@@ -715,11 +716,11 @@
           </div>
           <div class="stats-cards">
             <div class="stats-card">
-              <div class="stats-num" id="assetTotalValue">฿0</div>
+              <div class="stats-num money-blur" id="assetTotalValue">฿0</div>
               <div class="stats-label">มูลค่ารวม</div>
             </div>
             <div class="stats-card">
-              <div class="stats-num" id="assetTotalGain">฿0</div>
+              <div class="stats-num money-blur" id="assetTotalGain">฿0</div>
               <div class="stats-label">กำไร/ขาดทุนรวม</div>
             </div>
           </div>
@@ -789,7 +790,7 @@
             <div class="stats-label">บัญชีธนาคาร</div>
           </div>
           <div class="stats-card">
-            <div class="stats-num" id="finBankTotalBalance">฿0</div>
+            <div class="stats-num money-blur" id="finBankTotalBalance">฿0</div>
             <div class="stats-label">ยอดคงเหลือรวม</div>
           </div>
         </div>
@@ -820,11 +821,11 @@
             <div class="stats-label">หนี้สิน</div>
           </div>
           <div class="stats-card">
-            <div class="stats-num" id="finDebtTotalRemaining">฿0</div>
+            <div class="stats-num money-blur" id="finDebtTotalRemaining">฿0</div>
             <div class="stats-label">รวมคงเหลือ</div>
           </div>
           <div class="stats-card">
-            <div class="stats-num" id="finDebtTotalInstallment">฿0</div>
+            <div class="stats-num money-blur" id="finDebtTotalInstallment">฿0</div>
             <div class="stats-label">รวมค่างวด/เดือน</div>
           </div>
         </div>
