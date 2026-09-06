@@ -228,7 +228,7 @@ const Banking = (() => {
           <div class="asset-row-sub">แตะเพื่อดูรายละเอียด</div>
         </div>
         <div class="asset-row-value">
-          <div class="asset-row-total">${Finance.formatMoney(bal)}</div>
+          <div class="asset-row-total money-blur">${Finance.formatMoney(bal)}</div>
         </div>`;
       list.appendChild(row);
     });
@@ -479,7 +479,7 @@ const Banking = (() => {
       row.innerHTML = `
         <div class="asset-row-body">
           <div class="asset-row-title">💳 ${escapeHTML(d.debtName)}</div>
-          <div class="asset-row-sub">คงเหลือ ${Finance.formatMoney(remaining)}${original > 0 ? " · วงเงินคงเหลือ " + Finance.formatMoney(available) : ""}${d.dueDay ? " · ชำระวันที่ " + escapeHTML(d.dueDay) : ""}</div>
+          <div class="asset-row-sub">คงเหลือ <span class="money-blur">${Finance.formatMoney(remaining)}</span>${original > 0 ? ` · วงเงินคงเหลือ <span class="money-blur">${Finance.formatMoney(available)}</span>` : ""}${d.dueDay ? " · ชำระวันที่ " + escapeHTML(d.dueDay) : ""}</div>
           ${isDueSoon ? `<div class="debt-due-warning">⚠️ ${dueSoonText}</div>` : ""}
           ${d.note ? `<div class="debt-note-badge">📝 ${escapeHTML(d.note)}</div>` : ""}
           ${paidPercent !== null ? `
