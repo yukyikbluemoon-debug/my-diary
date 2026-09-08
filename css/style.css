@@ -1573,6 +1573,7 @@ select {
   display: flex; align-items: center; gap: 6px;
 }
 .timeline-month-toggle { color: var(--amber); font-size: 11px; }
+.timeline-month-count { color: var(--paper-dim); font-weight: 400; font-size: 11px; }
 .timeline-node {
   display: flex; gap: 12px; padding-bottom: 14px;
   border-left: 2px solid var(--ink-600);

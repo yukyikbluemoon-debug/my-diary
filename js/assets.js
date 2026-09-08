@@ -182,7 +182,7 @@ const Assets = (() => {
         <div class="stat-bar-row">
           <span class="stat-bar-label">${escapeHTML(r.label)}</span>
           <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${Math.round((r.count / max) * 100)}%"></span></span>
-          <span class="stat-bar-count" style="width:auto;">${escapeHTML(r.displayText)}</span>
+          <span class="stat-bar-count money-blur" style="width:auto;">${escapeHTML(r.displayText)}</span>
         </div>`).join("");
     }
   }

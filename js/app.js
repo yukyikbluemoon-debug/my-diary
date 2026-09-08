@@ -34,7 +34,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.23.0";
+const APP_VERSION = "3.24.0";
 const APP_BUILD_DATE = "2026-09-05";
 
 const state = {
@@ -1185,13 +1185,42 @@ $("clearDayFilterBtn").addEventListener("click", () => {
   renderHome();
 });
 
+const DAILY_PROMPTS = [
+  "วันนี้อะไรคือสิ่งที่ทำได้ดีที่สุด?",
+  "อะไรที่ทำให้คุณขอบคุณวันนี้?",
+  "วันนี้เจออะไรที่ทำให้ยิ้มได้บ้าง?",
+  "มีอะไรที่อยากทำแต่ยังไม่ได้ทำวันนี้ไหม?",
+  "วันนี้เรียนรู้อะไรใหม่บ้าง?",
+  "ถ้าให้ตั้งชื่อวันนี้เป็นหนึ่งคำ จะตั้งว่าอะไร?",
+  "มีใครที่อยากขอบคุณเป็นพิเศษวันนี้ไหม?",
+  "วันนี้มีอะไรที่ทำให้รู้สึกภูมิใจในตัวเองบ้าง?",
+  "ถ้าย้อนกลับไปได้ อยากเปลี่ยนอะไรในวันนี้ไหม?",
+  "พรุ่งนี้อยากให้เป็นวันแบบไหน?",
+  "วันนี้มีเรื่องอะไรที่ยังค้างคาใจอยู่ไหม?",
+  "มีความคิดอะไรที่แวบเข้ามาบ่อย ๆ วันนี้ไหม?",
+  "วันนี้ดูแลตัวเองยังไงบ้าง?",
+  "มีอะไรที่ทำให้รู้สึกผ่อนคลายวันนี้บ้าง?",
+  "ถ้าวันนี้ต้องเล่าให้เพื่อนฟังสั้น ๆ จะเล่าว่าอะไร?",
+];
+
+/** Same prompt shows all day (deterministic from today's date), changes
+ *  the next day — not random on every render, just picks an index from
+ *  the day-of-year so it's stable within a day. */
+function getDailyPrompt() {
+  const d = new Date();
+  const start = new Date(d.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((d - start) / 86400000);
+  return DAILY_PROMPTS[dayOfYear % DAILY_PROMPTS.length];
+}
+
 function updateReminderBanner() {
   const today = todayISO();
   const hasToday = activeEntries().some((e) => e.date === today);
   const dismissedFor = localStorage.getItem("diary_reminder_dismissed");
   $("reminderBanner").hidden = hasToday || dismissedFor === today;
+  if (!hasToday) $("reminderBannerText").textContent = `💭 ${getDailyPrompt()}`;
 }
-$("reminderWriteBtn").addEventListener("click", openWriteForNew);
+$("reminderWriteBtn").addEventListener("click", () => openWriteForNew(getDailyPrompt()));
 $("reminderDismissBtn").addEventListener("click", () => {
   localStorage.setItem("diary_reminder_dismissed", todayISO());
   $("reminderBanner").hidden = true;
@@ -1258,34 +1287,12 @@ $("onThisDayList").addEventListener("click", (e) => {
   if (item) openEntry(item.dataset.id);
 });
 
-function renderTimeline() {
-  const track = $("timelineTrack");
-  track.innerHTML = "";
-  const entries = activeEntries().slice().sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
-  $("timelineEmptyState").hidden = entries.length > 0;
+let timelineMonthGroups = new Map(); // monthKey -> entries[] — kept around so toggling a month can lazily build its DOM on first expand instead of building every month upfront
 
-  let currentMonth = null;
-  let monthGroupDiv = null;
-  let isFirstMonth = true; // only the most recent month starts expanded — others fold away so a long history doesn't turn into one giant scroll
-  entries.forEach((e) => {
-    const monthKey = e.date.slice(0, 7);
-    if (monthKey !== currentMonth) {
-      currentMonth = monthKey;
-      const [y, m] = monthKey.split("-").map(Number);
-      const expanded = isFirstMonth;
-      isFirstMonth = false;
-
-      const heading = document.createElement("div");
-      heading.className = "timeline-month-heading";
-      heading.innerHTML = `<span class="timeline-month-toggle">${expanded ? "▾" : "▸"}</span> ${THAI_MONTHS_FULL[m - 1]} ${y + 543}`;
-      track.appendChild(heading);
-
-      monthGroupDiv = document.createElement("div");
-      monthGroupDiv.className = "timeline-month-group";
-      monthGroupDiv.hidden = !expanded;
-      track.appendChild(monthGroupDiv);
-    }
-
+function buildTimelineMonthNodes(groupDiv, monthEntries) {
+  if (groupDiv.dataset.built === "1") return; // already built once
+  groupDiv.dataset.built = "1";
+  monthEntries.forEach((e) => {
     const node = document.createElement("div");
     node.className = "timeline-node" + (e.pinned ? " milestone" : "");
     node.dataset.id = e.id;
@@ -1299,7 +1306,44 @@ function renderTimeline() {
         <div class="timeline-title">${titleText}${mood ? ` ${mood}` : ""}</div>
         ${preview ? `<div class="timeline-preview">${preview}</div>` : ""}
       </div>`;
-    monthGroupDiv.appendChild(node);
+    groupDiv.appendChild(node);
+  });
+}
+
+function renderTimeline() {
+  const track = $("timelineTrack");
+  track.innerHTML = "";
+  const entries = activeEntries().slice().sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  $("timelineEmptyState").hidden = entries.length > 0;
+
+  // Group first (cheap — no DOM yet), so collapsed months can skip building
+  // any nodes at all instead of building everything upfront and just
+  // hiding it — the difference matters once there are years of entries.
+  timelineMonthGroups = new Map();
+  entries.forEach((e) => {
+    const monthKey = e.date.slice(0, 7);
+    if (!timelineMonthGroups.has(monthKey)) timelineMonthGroups.set(monthKey, []);
+    timelineMonthGroups.get(monthKey).push(e);
+  });
+
+  let isFirstMonth = true; // only the most recent month starts expanded — others fold away so a long history doesn't turn into one giant scroll
+  timelineMonthGroups.forEach((monthEntries, monthKey) => {
+    const [y, m] = monthKey.split("-").map(Number);
+    const expanded = isFirstMonth;
+    isFirstMonth = false;
+
+    const heading = document.createElement("div");
+    heading.className = "timeline-month-heading";
+    heading.dataset.monthKey = monthKey;
+    heading.innerHTML = `<span class="timeline-month-toggle">${expanded ? "▾" : "▸"}</span> ${THAI_MONTHS_FULL[m - 1]} ${y + 543} <span class="timeline-month-count">(${monthEntries.length})</span>`;
+    track.appendChild(heading);
+
+    const groupDiv = document.createElement("div");
+    groupDiv.className = "timeline-month-group";
+    groupDiv.dataset.monthKey = monthKey;
+    groupDiv.hidden = !expanded;
+    if (expanded) buildTimelineMonthNodes(groupDiv, monthEntries);
+    track.appendChild(groupDiv);
   });
 }
 
@@ -1308,8 +1352,10 @@ $("timelineTrack").addEventListener("click", (e) => {
   if (heading) {
     const group = heading.nextElementSibling;
     if (group && group.classList.contains("timeline-month-group")) {
+      const willExpand = group.hidden;
       group.hidden = !group.hidden;
       heading.querySelector(".timeline-month-toggle").textContent = group.hidden ? "▸" : "▾";
+      if (willExpand) buildTimelineMonthNodes(group, timelineMonthGroups.get(group.dataset.monthKey) || []);
     }
     return;
   }
@@ -1578,8 +1624,9 @@ function resetWriteForm() {
   document.querySelectorAll(".mood-btn").forEach((b) => b.classList.remove("selected"));
 }
 
-function openWriteForNew() {
+function openWriteForNew(prefillPrompt) {
   resetWriteForm();
+  if (prefillPrompt) $("entryContent").value = prefillPrompt + "\n\n";
   $("writeHeading").textContent = "เขียนบันทึก";
   state.editId = null;
   showView("write");

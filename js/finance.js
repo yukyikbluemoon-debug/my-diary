@@ -532,14 +532,14 @@ const Finance = (() => {
       <div class="stat-bar-row">
         <span class="stat-bar-label">${escapeHTML(r.label)}</span>
         <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${Math.round((Math.abs(r.count) / max) * 100)}%"></span></span>
-        <span class="stat-bar-count" style="width:auto;">${escapeHTML(r.displayText)}</span>
+        <span class="stat-bar-count money-blur" style="width:auto;">${escapeHTML(r.displayText)}</span>
       </div>`).join("");
   }
 
   function renderRollupTable() {
     const rows = computeMonthlyRollup(activeTx(), 6);
     const head = `<div class="fin-rollup-row head"><span>เดือน</span><span>รายรับ</span><span>รายจ่าย</span><span>เงินเหลือ</span></div>`;
-    const body = rows.map((r) => `<div class="fin-rollup-row"><span>${escapeHTML(r.label)}</span><span>${formatMoney(r.income)}</span><span>${formatMoney(r.expense)}</span><span>${formatMoney(r.net)}</span></div>`).join("");
+    const body = rows.map((r) => `<div class="fin-rollup-row"><span>${escapeHTML(r.label)}</span><span class="money-blur">${formatMoney(r.income)}</span><span class="money-blur">${formatMoney(r.expense)}</span><span class="money-blur">${formatMoney(r.net)}</span></div>`).join("");
     $("finRollupTable").innerHTML = head + body;
   }
 
