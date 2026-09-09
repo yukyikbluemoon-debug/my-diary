@@ -34,8 +34,8 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.24.0";
-const APP_BUILD_DATE = "2026-09-05";
+const APP_VERSION = "3.25.0";
+const APP_BUILD_DATE = "2026-09-06";
 
 const state = {
   entries: [],
@@ -196,6 +196,7 @@ function closeCurrentLayer() {
   if (!$("assetQuickUpdateModal").hidden && typeof Assets !== "undefined") { Assets.closeQuickUpdateVisual(); return; }
   if (!$("bankModal").hidden && typeof Banking !== "undefined") { Banking.closeBankModalVisual(); return; }
   if (!$("debtModal").hidden && typeof Banking !== "undefined") { Banking.closeDebtModalVisual(); return; }
+  if (!$("debtCalcModal").hidden && typeof Banking !== "undefined") { Banking.closeDebtCalcModalVisual(); return; }
   if (!$("otherModal").hidden && typeof Banking !== "undefined") { Banking.closeOtherModalVisual(); return; }
   if (state.view === "trash") { showView("settings"); return; }
   if (state.view === "timeline") { showView("home"); return; }
@@ -2609,6 +2610,25 @@ function handleShareTarget() {
   showToast("นำเข้าจากการแชร์แล้ว — ตรวจสอบก่อนบันทึก");
 }
 
+/** Handles the two entries in manifest.json's "shortcuts" (long-press the
+ *  home screen icon on Android to jump straight into one of these,
+ *  without opening the app to its normal dashboard first). */
+function handleShortcut() {
+  const params = new URLSearchParams(window.location.search);
+  const shortcut = params.get("shortcut");
+  if (!shortcut) return;
+  history.replaceState(null, "", window.location.pathname);
+  if (shortcut === "write") {
+    openWriteForNew();
+  } else if (shortcut === "expense") {
+    showView("finance");
+    if (typeof Banking !== "undefined") Banking.render();
+    if (typeof Finance !== "undefined") Finance.render();
+    if (typeof Assets !== "undefined") Assets.render();
+    if (typeof Finance !== "undefined") Finance.openNewTx({ type: "expense" });
+  }
+}
+
 /* ---------------- init ---------------- */
 
 function registerServiceWorkerWithUpdateCheck() {
@@ -2663,6 +2683,7 @@ async function init() {
     refreshSettingsView();
     showView("dashboard");
     handleShareTarget();
+    handleShortcut();
     checkTrashExpiryWarning();
     checkSyncReminder();
     if (navigator.storage && navigator.storage.persist) {

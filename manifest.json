@@ -18,5 +18,19 @@
     "action": "./index.html",
     "method": "GET",
     "params": { "title": "title", "text": "text", "url": "url" }
-  }
+  },
+  "shortcuts": [
+    {
+      "name": "เขียนบันทึกใหม่",
+      "short_name": "เขียนบันทึก",
+      "description": "เปิดฟอร์มเขียนบันทึกไดอารี่ใหม่ทันที",
+      "url": "./index.html?shortcut=write"
+    },
+    {
+      "name": "บันทึกรายจ่าย",
+      "short_name": "รายจ่าย",
+      "description": "เปิดฟอร์มบันทึกรายจ่ายใหม่ทันที",
+      "url": "./index.html?shortcut=expense"
+    }
+  ]
 }

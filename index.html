@@ -1027,6 +1027,23 @@
     </div>
 
     <!-- Statement: combined chronological export across every wallet -->
+    <!-- Debt payoff calculator: simple slider projection, no interest math -->
+    <div class="modal" id="debtCalcModal" hidden>
+      <div class="modal-card">
+        <h2 id="debtCalcTitle">📊 คำนวณแผนผ่อน</h2>
+        <p class="settings-note">คำนวณแบบไม่รวมดอกเบี้ย/ค่าธรรมเนียม — ประมาณการคร่าวๆ จากยอดคงเหลือหารด้วยค่างวดต่อเดือนเท่านั้น</p>
+        <div class="debt-calc-row"><span>คงเหลือ</span><span id="debtCalcRemaining" class="money-blur">฿0</span></div>
+        <div class="field">
+          <label for="debtCalcSlider">ค่างวดต่อเดือน: <span id="debtCalcSliderValue" class="money-blur">฿0</span></label>
+          <input type="range" id="debtCalcSlider" min="0" max="0" step="50">
+        </div>
+        <div class="debt-calc-result" id="debtCalcResult"></div>
+        <div class="modal-actions">
+          <button class="text-btn primary" id="debtCalcCloseBtn">ปิด</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal" id="statementModal" hidden>
       <div class="modal-card">
         <h2>📄 Statement</h2>

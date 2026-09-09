@@ -477,6 +477,7 @@ const Banking = (() => {
       const isDueSoon = daysUntilDue !== null && daysUntilDue <= threshold;
       const dueSoonText = daysUntilDue === 0 ? "ครบกำหนดชำระวันนี้!" : `ใกล้ครบกำหนดชำระ (อีก ${daysUntilDue} วัน)`;
       row.innerHTML = `
+        <button type="button" class="bank-send-btn debt-calc-btn" data-id="${d.id}" aria-label="คำนวณแผนผ่อน">📊</button>
         <div class="asset-row-body">
           <div class="asset-row-title">💳 ${escapeHTML(d.debtName)}</div>
           <div class="asset-row-sub">คงเหลือ <span class="money-blur">${Finance.formatMoney(remaining)}</span>${original > 0 ? ` · วงเงินคงเหลือ <span class="money-blur">${Finance.formatMoney(available)}</span>` : ""}${d.dueDay ? " · ชำระวันที่ " + escapeHTML(d.dueDay) : ""}</div>
@@ -492,6 +493,62 @@ const Banking = (() => {
         </div>`;
       list.appendChild(row);
     });
+  }
+
+  /* ---------------- debt payoff calculator ---------------- */
+
+  let debtCalcCurrentId = null;
+
+  function openDebtCalc(id) {
+    const d = allDebts.find((x) => x.id === id);
+    if (!d) return;
+    debtCalcCurrentId = id;
+    const remaining = parseFloat(d.remainingAmount) || 0;
+    const installment = parseFloat(d.installmentAmount) || 0;
+    $("debtCalcTitle").textContent = `📊 คำนวณแผนผ่อน — ${d.debtName}`;
+    $("debtCalcRemaining").textContent = Finance.formatMoney(remaining);
+    const slider = $("debtCalcSlider");
+    if (remaining <= 0) {
+      slider.disabled = true;
+      $("debtCalcResult").innerHTML = "<p>หนี้นี้ผ่อนหมดแล้ว 🎉</p>";
+    } else {
+      slider.disabled = false;
+      const minPay = Math.max(50, Math.round((installment || remaining) * 0.5));
+      const maxPay = Math.max(Math.ceil(remaining), installment * 3, minPay + 500);
+      slider.min = minPay;
+      slider.max = maxPay;
+      slider.step = 50;
+      slider.value = installment > 0 ? installment : minPay;
+      updateDebtCalcResult(d);
+    }
+    $("debtCalcModal").hidden = false;
+    pushNavState("debtcalc");
+  }
+  function closeDebtCalcModalVisual() { $("debtCalcModal").hidden = true; }
+  function closeDebtCalcModal() { closeDebtCalcModalVisual(); popNavState(); }
+
+  function updateDebtCalcResult(d) {
+    const remaining = parseFloat(d.remainingAmount) || 0;
+    const installment = parseFloat(d.installmentAmount) || 0;
+    const pay = parseFloat($("debtCalcSlider").value) || 0;
+    $("debtCalcSliderValue").textContent = Finance.formatMoney(pay);
+    if (pay <= 0 || remaining <= 0) { $("debtCalcResult").innerHTML = ""; return; }
+
+    const months = Math.ceil(remaining / pay);
+    const payoffDate = new Date();
+    payoffDate.setMonth(payoffDate.getMonth() + months);
+    const payoffText = `${THAI_MONTHS_FULL[payoffDate.getMonth()]} ${payoffDate.getFullYear() + 543}`;
+
+    let compareHtml = "";
+    if (installment > 0 && pay !== installment) {
+      const currentMonths = Math.ceil(remaining / installment);
+      const diff = currentMonths - months;
+      if (diff > 0) compareHtml = `<div class="debt-calc-compare positive">⚡ เร็วขึ้น ${diff} เดือน เทียบกับค่างวดปัจจุบัน (${Finance.formatMoney(installment)})</div>`;
+      else if (diff < 0) compareHtml = `<div class="debt-calc-compare negative">🐢 ช้าลง ${Math.abs(diff)} เดือน เทียบกับค่างวดปัจจุบัน</div>`;
+    }
+    $("debtCalcResult").innerHTML = `
+      <div class="debt-calc-highlight">หมดหนี้ในอีก <b>${months} เดือน</b><br>ประมาณ <b>${payoffText}</b></div>
+      ${compareHtml}`;
   }
 
   function openNewDebt() {
@@ -710,6 +767,8 @@ const Banking = (() => {
     $("debtSaveBtn").addEventListener("click", saveDebt);
     $("debtDeleteBtn").addEventListener("click", deleteDebt);
     $("debtList").addEventListener("click", (e) => {
+      const calcBtn = e.target.closest(".debt-calc-btn");
+      if (calcBtn) { openDebtCalc(calcBtn.dataset.id); return; }
       const row = e.target.closest(".asset-row");
       if (!row) return;
       const d = allDebts.find((x) => x.id === row.dataset.id);
@@ -718,6 +777,11 @@ const Banking = (() => {
     });
     $("debtSearchInput").addEventListener("input", renderDebtList);
     $("cleanupCorruptedDebtsBtn").addEventListener("click", cleanupCorruptedDebts);
+    $("debtCalcCloseBtn").addEventListener("click", closeDebtCalcModal);
+    $("debtCalcSlider").addEventListener("input", () => {
+      const d = allDebts.find((x) => x.id === debtCalcCurrentId);
+      if (d) updateDebtCalcResult(d);
+    });
 
     $("addOtherBtn").addEventListener("click", openNewOther);
     $("otherCancelBtn").addEventListener("click", closeOtherModal);
@@ -755,6 +819,6 @@ const Banking = (() => {
     init, render, showFinSubtab,
     getBankAccountOptions, resolveBankLabelById, findBankAccountById,
     getBankAccountPickerRows, getFullDetails, getDebtsList, getPinnedBankAccounts,
-    closeBankModalVisual, closeDebtModalVisual, closeOtherModalVisual,
+    closeBankModalVisual, closeDebtModalVisual, closeOtherModalVisual, closeDebtCalcModalVisual,
   };
 })();
