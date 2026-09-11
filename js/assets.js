@@ -5,6 +5,8 @@
 
 const Assets = (() => {
   let allAssets = []; // includes soft-deleted; filter with activeAssets()
+  let allAssetLogs = [];
+  let groupMode = ""; // "" | "market" | "broker"
 
   function activeAssets() {
     return allAssets.filter((a) => !a.deletedAt);
@@ -52,6 +54,8 @@ const Assets = (() => {
     $("assetExchangeRate").value = "";
     $("assetCost").value = "";
     $("assetCurrentValue").value = "";
+    $("assetMarket").value = "";
+    $("assetBroker").value = "";
     $("assetNote").value = "";
     $("assetModalTitle").textContent = "เพิ่มทรัพย์สิน";
     $("assetDeleteBtn").hidden = true;
@@ -71,6 +75,8 @@ const Assets = (() => {
     if (a.currency === "USD") $("assetExchangeRate").value = a.exchangeRate || "";
     $("assetCost").value = a.costPerUnit;
     $("assetCurrentValue").value = a.currentValuePerUnit;
+    $("assetMarket").value = a.market || "";
+    $("assetBroker").value = a.broker || "";
     $("assetNote").value = a.note || "";
     $("assetModalTitle").textContent = "แก้ไขทรัพย์สิน";
     $("assetDeleteBtn").hidden = false;
@@ -103,6 +109,8 @@ const Assets = (() => {
       id, type: $("assetType").value, name, quantity,
       currency, exchangeRate,
       costPerUnit, currentValuePerUnit,
+      market: $("assetMarket").value.trim(),
+      broker: $("assetBroker").value.trim(),
       note: $("assetNote").value.trim(),
       deletedAt: null,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
@@ -133,6 +141,27 @@ const Assets = (() => {
     showToast("ลบแล้ว");
   }
 
+  function buildAssetRowHTML(a) {
+    const value = assetValueTHB(a);
+    const cost = assetCostTHB(a);
+    const gain = value - cost;
+    const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
+    const unitLabel = a.currency === "USD" ? `$${a.currentValuePerUnit}` : Finance.formatMoney(a.currentValuePerUnit);
+    const updatedLabel = typeof formatDateHeading === "function" ? formatDateHeading((a.updatedAt || a.createdAt).slice(0, 10)) : (a.updatedAt || "").slice(0, 10);
+    return `
+      <button type="button" class="asset-quick-update-btn" data-id="${a.id}" aria-label="อัปเดตมูลค่า">🔄</button>
+      <button type="button" class="asset-send-btn" data-id="${a.id}" aria-label="ส่งเข้า Telegram">📨</button>
+      <div class="asset-row-body">
+        <div class="asset-row-title">${assetLogoHTML(a.name)} ${escapeHTML(a.name)}</div>
+        <div class="asset-row-sub">${escapeHTML(a.type)} · ${a.quantity} หน่วย @ ${unitLabel}</div>
+        <div class="asset-row-updated">อัปเดตล่าสุด ${updatedLabel}</div>
+      </div>
+      <div class="asset-row-value">
+        <div class="asset-row-total money-blur">${Finance.formatMoney(value)}</div>
+        <div class="asset-row-gain money-blur ${gain >= 0 ? "positive" : "negative"}">${gain >= 0 ? "+" : ""}${Finance.formatMoney(gain)} (${gainPct >= 0 ? "+" : ""}${gainPct.toFixed(1)}%)</div>
+      </div>`;
+  }
+
   function renderAssetList() {
     const items = activeAssets().slice().sort((a, b) => assetValueTHB(b) - assetValueTHB(a));
     const list = $("assetList");
@@ -143,33 +172,49 @@ const Assets = (() => {
     const typeTotals = {};
     const typeCosts = {};
     items.forEach((a) => {
-      const value = assetValueTHB(a);
-      const cost = assetCostTHB(a);
-      totalValue += value;
-      totalCost += cost;
-      typeTotals[a.type] = (typeTotals[a.type] || 0) + value;
-      typeCosts[a.type] = (typeCosts[a.type] || 0) + cost;
-      const gain = value - cost;
-      const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
-      const row = document.createElement("div");
-      row.className = "asset-row";
-      row.dataset.id = a.id;
-      const unitLabel = a.currency === "USD" ? `$${a.currentValuePerUnit}` : Finance.formatMoney(a.currentValuePerUnit);
-      const updatedLabel = typeof formatDateHeading === "function" ? formatDateHeading((a.updatedAt || a.createdAt).slice(0, 10)) : (a.updatedAt || "").slice(0, 10);
-      row.innerHTML = `
-        <button type="button" class="asset-quick-update-btn" data-id="${a.id}" aria-label="อัปเดตมูลค่า">🔄</button>
-        <button type="button" class="asset-send-btn" data-id="${a.id}" aria-label="ส่งเข้า Telegram">📨</button>
-        <div class="asset-row-body">
-          <div class="asset-row-title">${escapeHTML(a.name)}</div>
-          <div class="asset-row-sub">${escapeHTML(a.type)} · ${a.quantity} หน่วย @ ${unitLabel}</div>
-          <div class="asset-row-updated">อัปเดตล่าสุด ${updatedLabel}</div>
-        </div>
-        <div class="asset-row-value">
-          <div class="asset-row-total money-blur">${Finance.formatMoney(value)}</div>
-          <div class="asset-row-gain money-blur ${gain >= 0 ? "positive" : "negative"}">${gain >= 0 ? "+" : ""}${Finance.formatMoney(gain)} (${gainPct >= 0 ? "+" : ""}${gainPct.toFixed(1)}%)</div>
-        </div>`;
-      list.appendChild(row);
+      totalValue += assetValueTHB(a);
+      totalCost += assetCostTHB(a);
+      typeTotals[a.type] = (typeTotals[a.type] || 0) + assetValueTHB(a);
+      typeCosts[a.type] = (typeCosts[a.type] || 0) + assetCostTHB(a);
     });
+
+    if (groupMode === "market" || groupMode === "broker") {
+      const field = groupMode;
+      const groups = new Map();
+      items.forEach((a) => {
+        const key = (a[field] || "").trim() || "(ไม่ระบุ)";
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(a);
+      });
+      // groups ordered by total value, largest first
+      const ordered = [...groups.entries()].sort((x, y) => {
+        const sumX = x[1].reduce((s, a) => s + assetValueTHB(a), 0);
+        const sumY = y[1].reduce((s, a) => s + assetValueTHB(a), 0);
+        return sumY - sumX;
+      });
+      ordered.forEach(([key, groupItems]) => {
+        const groupTotal = groupItems.reduce((s, a) => s + assetValueTHB(a), 0);
+        const heading = document.createElement("div");
+        heading.className = "asset-group-heading";
+        heading.innerHTML = `<span>${escapeHTML(key)} · ${groupItems.length} รายการ</span><span class="money-blur">${Finance.formatMoney(groupTotal)}</span>`;
+        list.appendChild(heading);
+        groupItems.forEach((a) => {
+          const row = document.createElement("div");
+          row.className = "asset-row";
+          row.dataset.id = a.id;
+          row.innerHTML = buildAssetRowHTML(a);
+          list.appendChild(row);
+        });
+      });
+    } else {
+      items.forEach((a) => {
+        const row = document.createElement("div");
+        row.className = "asset-row";
+        row.dataset.id = a.id;
+        row.innerHTML = buildAssetRowHTML(a);
+        list.appendChild(row);
+      });
+    }
 
     $("assetTotalValue").textContent = Finance.formatMoney(totalValue);
     const totalGain = totalValue - totalCost;
@@ -181,6 +226,7 @@ const Assets = (() => {
       const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
       return { label, amount, gain, gainPct };
     });
+    renderDonutChart(typeRows, totalValue);
     const chartEl = $("assetTypeChart");
     if (typeRows.length === 0) { chartEl.innerHTML = ""; }
     else {
@@ -191,6 +237,60 @@ const Assets = (() => {
           <div class="asset-type-card-gain money-blur ${r.gain >= 0 ? "positive" : "negative"}">${r.gain >= 0 ? "↗" : "↘"} ${Finance.formatMoney(Math.abs(r.gain))} (${r.gainPct >= 0 ? "+" : ""}${r.gainPct.toFixed(1)}%)</div>
         </div>`).join("")}</div>`;
     }
+    renderTop5();
+  }
+
+  function renderTop5() {
+    const el = $("assetTop5");
+    if (!el) return;
+    const items = activeAssets().slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
+    if (items.length === 0) { el.innerHTML = ""; return; }
+    el.innerHTML = items.map((a, i) => `
+      <div class="asset-top5-row">
+        <span class="asset-top5-rank">${i + 1}</span>
+        ${assetLogoHTML(a.name)}
+        <span class="asset-top5-name">${escapeHTML(a.name)}</span>
+        <span class="asset-top5-value money-blur">${Finance.formatMoney(assetValueTHB(a))}</span>
+      </div>`).join("");
+  }
+
+  /** Plain SVG donut chart (stroke-dasharray technique on a circle, one
+   *  arc per category) — no charting library, matching how the Net Worth
+   *  Timeline chart was built. Always grouped by asset TYPE regardless of
+   *  the list's own market/broker grouping toggle — a separate, fixed
+   *  breakdown, same as the reference screenshot had. */
+  function renderDonutChart(typeRows, totalValue) {
+    const wrap = $("assetDonutWrap");
+    if (!wrap) return;
+    if (typeRows.length === 0 || totalValue <= 0) { wrap.innerHTML = ""; return; }
+
+    const palette = ["pastel-purple", "pastel-green", "pastel-orange", "pastel-pink", "pastel-teal", "pastel-blue", "pastel-red", "pastel-yellow"];
+    const R = 15.9155; // radius that makes the circle's circumference exactly 100 units — lets each arc's dasharray be a plain percentage
+    const CIRC = 2 * Math.PI * R;
+    let offset = 0;
+    const arcs = typeRows.map((r, i) => {
+      const pct = (r.amount / totalValue) * 100;
+      const color = `var(--${palette[i % palette.length]})`;
+      const arc = `<circle cx="21" cy="21" r="${R}" fill="transparent" stroke="${color}" stroke-width="5"
+        stroke-dasharray="${(pct / 100) * CIRC} ${CIRC}" stroke-dashoffset="${-offset}"></circle>`;
+      offset += (pct / 100) * CIRC;
+      return { svg: arc, pct, color, label: r.label };
+    });
+
+    wrap.innerHTML = `
+      <div class="asset-donut-row">
+        <svg viewBox="0 0 42 42" class="asset-donut-svg">
+          ${arcs.map((a) => a.svg).join("")}
+        </svg>
+        <div class="asset-donut-legend">
+          ${arcs.map((a) => `
+            <div class="asset-donut-legend-row">
+              <span class="asset-donut-swatch" style="background:${a.color};"></span>
+              <span class="asset-donut-legend-label">${assetTypeIcon(a.label)} ${escapeHTML(a.label)}</span>
+              <span class="asset-donut-legend-pct">${a.pct.toFixed(1)}%</span>
+            </div>`).join("")}
+        </div>
+      </div>`;
   }
 
   function assetTypeIcon(type) {
@@ -202,6 +302,30 @@ const Assets = (() => {
     if (t.includes("พันธบัตร") || t.includes("ตราสารหนี้") || t.includes("bond")) return "🏦";
     if (t.includes("อสังหา") || t.includes("บ้าน") || t.includes("ที่ดิน") || t.includes("estate")) return "🏠";
     return "💼";
+  }
+
+  function assetLogoHTML(name) {
+    // Best-effort: financialmodelingprep.com serves a keyless static logo
+    // image per ticker at this exact path (confirmed working for US-listed
+    // tickers) — no API key, no account, just a plain <img> hotlink. Falls
+    // back to a colored initials avatar if the ticker isn't recognized
+    // (Thai/HK-listed stocks, crypto, or anything not on FMP) or the
+    // request fails for any reason — this is why it's safe to just try it
+    // for every asset rather than needing a curated list like the bank
+    // logos: worst case is a graceful fallback, not a broken app.
+    const clean = (name || "").trim();
+    const ticker = clean.toUpperCase().replace(/[^A-Z0-9.]/g, "");
+    const initials = escapeHTML(clean.slice(0, 2).toUpperCase() || "?");
+    const pastels = ["pastel-red", "pastel-orange", "pastel-yellow", "pastel-green", "pastel-teal", "pastel-blue", "pastel-purple", "pastel-pink"];
+    let hash = 0;
+    for (let i = 0; i < clean.length; i++) hash = (hash * 31 + clean.charCodeAt(i)) >>> 0;
+    const color = `var(--${pastels[hash % pastels.length]})`;
+    if (!ticker) return `<span class="asset-logo-icon" style="background:${color}; font-size:10px; font-weight:700; color:var(--ink-900);">${initials}</span>`;
+    return `<span class="asset-logo-icon">
+      <img src="https://financialmodelingprep.com/image-stock/${ticker}.png" alt=""
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+      <span class="asset-logo-fallback" style="display:none; background:${color};">${initials}</span>
+    </span>`;
   }
 
   function openQuickUpdate(id) {
@@ -350,6 +474,75 @@ const Assets = (() => {
     }
   }
 
+  /* ---------------- buy/sell log ---------------- */
+
+  function populateAssetLogNameList() {
+    const dl = $("assetLogNameList");
+    if (!dl) return;
+    const names = [...new Set(activeAssets().map((a) => a.name))];
+    dl.innerHTML = names.map((n) => `<option value="${escapeHTML(n)}"></option>`).join("");
+  }
+
+  function openAssetLogModal() {
+    populateAssetLogNameList();
+    $("assetLogName").value = "";
+    $("assetLogAction").value = "BUY";
+    $("assetLogQuantity").value = "";
+    $("assetLogPrice").value = "";
+    const today = todayISO();
+    $("assetLogDateValue").value = today;
+    $("assetLogDateBtn").textContent = formatFullThaiDate(today);
+    renderAssetLogList();
+    $("assetLogModal").hidden = false;
+    pushNavState("assetlog");
+  }
+  function closeAssetLogModalVisual() { $("assetLogModal").hidden = true; }
+  function closeAssetLogModal() { closeAssetLogModalVisual(); popNavState(); }
+
+  function renderAssetLogList() {
+    const el = $("assetLogList");
+    if (!el) return;
+    const logs = allAssetLogs.slice().sort((a, b) => (b.date + (b.createdAt || "")).localeCompare(a.date + (a.createdAt || "")));
+    if (logs.length === 0) { el.innerHTML = '<p class="settings-note">ยังไม่มีประวัติ</p>'; return; }
+    el.innerHTML = logs.map((l) => `
+      <div class="asset-log-row">
+        <div class="asset-log-row-body">
+          <div class="asset-log-row-title">${escapeHTML(l.name)} <span class="asset-log-action ${l.action === "BUY" ? "buy" : "sell"}">${l.action === "BUY" ? "ซื้อ" : "ขาย"}</span></div>
+          <div class="asset-log-row-sub">${formatFullThaiDate(l.date)} · จำนวน ${l.quantity}${l.price ? ` · ราคา ${Finance.formatMoney(l.price)}/หน่วย` : ""}</div>
+        </div>
+        <button type="button" class="asset-log-delete-btn" data-id="${l.id}" aria-label="ลบ">🗑️</button>
+      </div>`).join("");
+  }
+
+  async function addAssetLogEntry() {
+    const name = $("assetLogName").value.trim();
+    const quantity = parseFloat($("assetLogQuantity").value);
+    if (!name) { showToast("กรุณาใส่ชื่อทรัพย์สิน"); return; }
+    if (!quantity || quantity <= 0) { showToast("กรุณาใส่จำนวนที่ถูกต้อง"); return; }
+    const rec = {
+      id: uid(),
+      name,
+      action: $("assetLogAction").value,
+      quantity,
+      price: parseFloat($("assetLogPrice").value) || null,
+      date: $("assetLogDateValue").value || todayISO(),
+      createdAt: new Date().toISOString(),
+    };
+    await DiaryDB.putAssetLog(rec);
+    allAssetLogs.push(rec);
+    $("assetLogQuantity").value = "";
+    $("assetLogPrice").value = "";
+    renderAssetLogList();
+    showToast("เพิ่มรายการแล้ว");
+  }
+
+  async function deleteAssetLogEntry(id) {
+    if (!confirm("ลบรายการนี้หรือไม่?")) return;
+    await DiaryDB.removeAssetLog(id);
+    allAssetLogs = allAssetLogs.filter((l) => l.id !== id);
+    renderAssetLogList();
+  }
+
   async function render() {
     allAssets = await DiaryDB.getAllAssets();
     renderAssetList();
@@ -374,12 +567,35 @@ const Assets = (() => {
     });
     $("quickUpdateCancelBtn").addEventListener("click", closeQuickUpdate);
     $("quickUpdateSaveBtn").addEventListener("click", saveQuickUpdate);
+
+    $("assetGroupFilter").addEventListener("click", (e) => {
+      const btn = e.target.closest(".entry-type-filter-btn");
+      if (!btn) return;
+      groupMode = btn.dataset.group;
+      document.querySelectorAll("#assetGroupFilter .entry-type-filter-btn").forEach((b) => b.classList.toggle("selected", b === btn));
+      renderAssetList();
+    });
+
+    $("assetLogOpenBtn").addEventListener("click", openAssetLogModal);
+    $("assetLogCloseBtn").addEventListener("click", closeAssetLogModal);
+    $("assetLogAddBtn").addEventListener("click", addAssetLogEntry);
+    $("assetLogDateBtn").addEventListener("click", () => {
+      openCalendarForPick($("assetLogDateValue").value || todayISO(), (d) => {
+        $("assetLogDateValue").value = d;
+        $("assetLogDateBtn").textContent = formatFullThaiDate(d);
+      });
+    });
+    $("assetLogList").addEventListener("click", (e) => {
+      const delBtn = e.target.closest(".asset-log-delete-btn");
+      if (delBtn) deleteAssetLogEntry(delBtn.dataset.id);
+    });
   }
 
   async function init() {
     wireEvents();
     allAssets = await DiaryDB.getAllAssets();
+    allAssetLogs = await DiaryDB.getAllAssetLogs();
   }
 
-  return { init, render, closeAssetModalVisual, closeQuickUpdateVisual };
+  return { init, render, closeAssetModalVisual, closeQuickUpdateVisual, closeAssetLogModalVisual };
 })();

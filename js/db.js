@@ -24,11 +24,12 @@
 
 const DiaryDB = (() => {
   const DB_NAME = "diary_db_v2";
-  const DB_VERSION = 4;
+  const DB_VERSION = 5;
   const ENTRIES_STORE = "entries";
   const ATTACH_STORE = "attachments";
   const TX_STORE = "transactions";
   const ASSET_STORE = "assets";
+  const ASSET_LOG_STORE = "asset_logs";
   const BANK_STORE = "bank_accounts";
   const DEBT_STORE = "debts";
   const OTHER_STORE = "other_info";
@@ -71,6 +72,16 @@ const DiaryDB = (() => {
         }
         if (!db.objectStoreNames.contains(ASSET_STORE)) {
           db.createObjectStore(ASSET_STORE, { keyPath: "id" });
+        }
+        // v5: a lightweight buy/sell log, separate from the assets store
+        // itself. It's a plain record-keeping trail (what you bought/sold,
+        // when, how much) — it does NOT automatically recalculate an
+        // asset's live quantity/cost; that stays a manual edit on the
+        // asset record as before. Simpler and safer than trying to keep a
+        // running ledger and a snapshot in sync automatically.
+        if (!db.objectStoreNames.contains(ASSET_LOG_STORE)) {
+          const s = db.createObjectStore(ASSET_LOG_STORE, { keyPath: "id" });
+          s.createIndex("date", "date", { unique: false });
         }
         // v4: Banking & Liabilities module (bank accounts, debts, other
         // sensitive records like insurance/membership numbers). Every
@@ -290,6 +301,21 @@ const DiaryDB = (() => {
     });
   }
 
+  async function putAssetLog(rec) {
+    const store = await storeTx(ASSET_LOG_STORE, "readwrite");
+    await reqToPromise(store.put(rec));
+    return rec;
+  }
+  async function getAllAssetLogs() {
+    const store = await storeTx(ASSET_LOG_STORE, "readonly");
+    return reqToPromise(store.getAll());
+  }
+  async function removeAssetLog(id) {
+    const store = await storeTx(ASSET_LOG_STORE, "readwrite");
+    await reqToPromise(store.delete(id));
+    return true;
+  }
+
   /* ---------- banking & liabilities (bank accounts / debts / other) ---------- */
 
   async function putBankAccount(rec) {
@@ -361,6 +387,7 @@ const DiaryDB = (() => {
     putAttachment, getAttachment, getAttachmentsByEntry, getAllAttachments, removeAttachment,
     putTransaction, removeTransaction, getAllTransactions, getTransaction, bulkPutTransactions,
     putAsset, getAllAssets, bulkPutAssets,
+    putAssetLog, getAllAssetLogs, removeAssetLog,
     putBankAccount, getAllBankAccounts, bulkPutBankAccounts,
     putDebt, getAllDebts, bulkPutDebts, removeDebt,
     putOtherInfo, getAllOtherInfo, bulkPutOtherInfo, removeOtherInfo,

@@ -725,7 +725,24 @@
               <div class="stats-label">กำไร/ขาดทุนรวม</div>
             </div>
           </div>
+
+          <div id="assetDonutWrap"></div>
           <div id="assetTypeChart" style="margin-bottom:14px;"></div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h3 style="margin:0;">🏆 ทรัพย์สินล่าสุด 5 อันดับ</h3>
+          </div>
+          <div id="assetTop5" style="margin-bottom:16px;"></div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h3 style="margin:0;">รายการทรัพย์สิน</h3>
+            <button class="text-btn" id="assetLogOpenBtn">📋 ประวัติซื้อ-ขาย</button>
+          </div>
+          <div class="entry-type-filter" id="assetGroupFilter">
+            <button type="button" class="entry-type-filter-btn selected" data-group="">ไม่จัดกลุ่ม</button>
+            <button type="button" class="entry-type-filter-btn" data-group="market">ตามตลาด</button>
+            <button type="button" class="entry-type-filter-btn" data-group="broker">ตามโบรกเกอร์</button>
+          </div>
           <div id="assetList"></div>
           <div class="empty-state" id="assetEmptyState" hidden>
             <p class="empty-title">ยังไม่มีทรัพย์สิน</p>
@@ -1193,6 +1210,17 @@
         </div>
         <p class="settings-note">มูลค่าปัจจุบันต้องอัปเดตเองเป็นระยะ ไม่ได้ดึงราคาสดอัตโนมัติ</p>
 
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="assetMarket">ตลาด/ประเทศ (ไม่บังคับ)</label>
+            <input type="text" id="assetMarket" placeholder="เช่น หุ้นสหรัฐฯ, หุ้นไทย">
+          </div>
+          <div class="field">
+            <label for="assetBroker">โบรกเกอร์ (ไม่บังคับ)</label>
+            <input type="text" id="assetBroker" placeholder="เช่น Dime!, InnovestX">
+          </div>
+        </div>
+
         <div class="field">
           <label for="assetNote">หมายเหตุ (ไม่บังคับ)</label>
           <input type="text" id="assetNote" placeholder="เช่น ซื้อผ่าน Dime">
@@ -1222,6 +1250,54 @@
         <div class="modal-actions">
           <button class="text-btn" id="quickUpdateCancelBtn">ยกเลิก</button>
           <button class="text-btn primary" id="quickUpdateSaveBtn">บันทึก</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buy/sell log — a plain record-keeping trail, doesn't touch the
+         asset's own quantity/cost automatically -->
+    <div class="modal" id="assetLogModal" hidden>
+      <div class="modal-card">
+        <h2>📋 ประวัติซื้อ-ขาย</h2>
+        <p class="settings-note">แค่บันทึกเก็บไว้ดูย้อนหลังเฉย ๆ ไม่ได้เชื่อมกับจำนวน/ต้นทุนของทรัพย์สินอัตโนมัติ (ยังต้องแก้ไขทรัพย์สินเองตามปกติ)</p>
+
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="assetLogName">ชื่อทรัพย์สิน</label>
+            <input type="text" id="assetLogName" list="assetLogNameList" placeholder="เช่น NVDA">
+            <datalist id="assetLogNameList"></datalist>
+          </div>
+          <div class="field">
+            <label for="assetLogAction">รายการ</label>
+            <select id="assetLogAction">
+              <option value="BUY">ซื้อ (BUY)</option>
+              <option value="SELL">ขาย (SELL)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="assetLogQuantity">จำนวน</label>
+            <input type="number" id="assetLogQuantity" inputmode="decimal" step="any" placeholder="0">
+          </div>
+          <div class="field">
+            <label for="assetLogPrice">ราคาต่อหน่วย (ไม่บังคับ)</label>
+            <input type="number" id="assetLogPrice" inputmode="decimal" step="any" placeholder="0">
+          </div>
+        </div>
+        <div class="field">
+          <label for="assetLogDateBtn">วันที่</label>
+          <button type="button" class="date-picker-btn" id="assetLogDateBtn"></button>
+          <input type="hidden" id="assetLogDateValue">
+        </div>
+        <div class="modal-actions" style="justify-content:flex-end; margin-bottom:16px;">
+          <button class="text-btn primary" id="assetLogAddBtn">+ เพิ่มรายการ</button>
+        </div>
+
+        <div id="assetLogList"></div>
+
+        <div class="modal-actions">
+          <button class="text-btn primary" id="assetLogCloseBtn">ปิด</button>
         </div>
       </div>
     </div>
