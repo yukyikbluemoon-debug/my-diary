@@ -101,6 +101,30 @@ html[data-theme="slate"] {
   --glow-a: rgba(95,191,174,0.10); --glow-b: rgba(143,165,199,0.07);
   --accent-shadow: rgba(95,191,174,0.28); --accent-shadow-strong: rgba(95,191,174,0.4);
 }
+html[data-theme="mint"] {
+  /* Bright, white-card-on-cream look (fintech-app style) rather than the
+     muted parchment tone "paper" already uses — cards are near-white,
+     page background a soft cream, green as the primary accent. */
+  color-scheme: light;
+  --ink-900: #F7F4EC; --ink-800: #FFFFFF; --ink-700: #FFFFFF; --ink-600: #EFEBDF; --ink-500: #DCD6C4;
+  --paper: #3A352C; --paper-dim: #8C8574;
+  --amber: #C9A227; --amber-dim: #9C7D1E;
+  --plum: #9B7FC4; --plum-dim: #6B5690;
+  --sage: #4FAE63; --danger: #E0645A;
+  --glow-a: rgba(79,174,99,0.10); --glow-b: rgba(201,162,39,0.08);
+  --accent-shadow: rgba(79,174,99,0.18); --accent-shadow-strong: rgba(79,174,99,0.28);
+}
+/* Flat white-on-white cards need a soft shadow for definition instead of
+   relying on the ink-700/ink-800 gradient contrast dark themes get for
+   free — matches the soft-card fintech-app look this theme is going for. */
+html[data-theme="mint"] .stats-card,
+html[data-theme="mint"] .asset-row,
+html[data-theme="mint"] .entry-card,
+html[data-theme="mint"] .today-summary,
+html[data-theme="mint"] .modal-card,
+html[data-theme="mint"] .tx-item {
+  box-shadow: 0 2px 10px rgba(58,53,44,0.08);
+}
 
 /* ---- Reading font size (scoped to content-heavy elements, see below) ---- */
 html[data-fontsize="small"] { --content-scale: 0.9; }
@@ -764,6 +788,22 @@ input[type="range"]::-moz-range-track {
   overflow: hidden;
 }
 .stats-label { font-size: 12px; color: var(--paper-dim); margin-top: 4px; }
+
+.asset-type-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.asset-type-card {
+  background: linear-gradient(155deg, var(--ink-700), var(--ink-800));
+  border: 1px solid var(--ink-600);
+  border-radius: var(--radius-m);
+  padding: 14px;
+}
+.asset-type-card-label { font-size: 13px; color: var(--paper-dim); margin-bottom: 6px; }
+.asset-type-card-value { font-family: var(--serif); font-weight: 700; font-size: 20px; }
+.asset-type-card-gain { font-size: 12px; margin-top: 4px; font-weight: 600; }
+.asset-type-card-gain.positive { color: var(--sage); }
+.asset-type-card-gain.negative { color: var(--danger); }
+html[data-theme="mint"] .asset-type-card { box-shadow: 0 2px 10px rgba(58,53,44,0.08); }
 
 .stat-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
 .stat-bar-label { width: 76px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1518,6 +1558,7 @@ input[type="range"]::-moz-range-track {
 .theme-swatch[data-theme="indigo"] { background: linear-gradient(135deg, #12141F, #6FA8DC); }
 .theme-swatch[data-theme="wine"] { background: linear-gradient(135deg, #1A1013, #D98C5F); }
 .theme-swatch[data-theme="slate"] { background: linear-gradient(135deg, #12161A, #5FBFAE); }
+.theme-swatch[data-theme="mint"] { background: linear-gradient(135deg, #F7F4EC, #4FAE63); }
 
 .fontsize-row { display: flex; gap: 8px; padding: 10px 14px; background: linear-gradient(155deg, var(--ink-700), var(--ink-800)); border: 1px solid var(--ink-600); border-radius: var(--radius-m); }
 .fontsize-btn {

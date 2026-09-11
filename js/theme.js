@@ -6,7 +6,7 @@
 const ThemeSettings = (() => {
   const THEME_KEY = "diary_theme";
   const SIZE_KEY = "diary_font_size";
-  const THEMES = ["lamp", "forest", "orchid", "paper", "indigo", "wine", "slate"];
+  const THEMES = ["lamp", "forest", "orchid", "paper", "indigo", "wine", "slate", "mint"];
   const SIZES = ["small", "medium", "large"];
 
   function apply() {

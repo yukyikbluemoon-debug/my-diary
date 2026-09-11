@@ -141,12 +141,14 @@ const Assets = (() => {
 
     let totalValue = 0, totalCost = 0;
     const typeTotals = {};
+    const typeCosts = {};
     items.forEach((a) => {
       const value = assetValueTHB(a);
       const cost = assetCostTHB(a);
       totalValue += value;
       totalCost += cost;
       typeTotals[a.type] = (typeTotals[a.type] || 0) + value;
+      typeCosts[a.type] = (typeCosts[a.type] || 0) + cost;
       const gain = value - cost;
       const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
       const row = document.createElement("div");
@@ -173,18 +175,33 @@ const Assets = (() => {
     const totalGain = totalValue - totalCost;
     $("assetTotalGain").textContent = (totalGain >= 0 ? "+" : "") + Finance.formatMoney(totalGain);
 
-    const typeRows = Object.entries(typeTotals).sort((a, b) => b[1] - a[1]).map(([label, amount]) => ({ label, count: amount, displayText: Finance.formatMoney(amount) }));
+    const typeRows = Object.entries(typeTotals).sort((a, b) => b[1] - a[1]).map(([label, amount]) => {
+      const cost = typeCosts[label] || 0;
+      const gain = amount - cost;
+      const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
+      return { label, amount, gain, gainPct };
+    });
     const chartEl = $("assetTypeChart");
     if (typeRows.length === 0) { chartEl.innerHTML = ""; }
     else {
-      const max = Math.max(...typeRows.map((r) => r.count), 1);
-      chartEl.innerHTML = typeRows.map((r) => `
-        <div class="stat-bar-row">
-          <span class="stat-bar-label">${escapeHTML(r.label)}</span>
-          <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${Math.round((r.count / max) * 100)}%"></span></span>
-          <span class="stat-bar-count money-blur" style="width:auto;">${escapeHTML(r.displayText)}</span>
-        </div>`).join("");
+      chartEl.innerHTML = `<div class="asset-type-grid">${typeRows.map((r) => `
+        <div class="asset-type-card">
+          <div class="asset-type-card-label">${assetTypeIcon(r.label)} ${escapeHTML(r.label)}</div>
+          <div class="asset-type-card-value money-blur">${Finance.formatMoney(r.amount)}</div>
+          <div class="asset-type-card-gain money-blur ${r.gain >= 0 ? "positive" : "negative"}">${r.gain >= 0 ? "↗" : "↘"} ${Finance.formatMoney(Math.abs(r.gain))} (${r.gainPct >= 0 ? "+" : ""}${r.gainPct.toFixed(1)}%)</div>
+        </div>`).join("")}</div>`;
     }
+  }
+
+  function assetTypeIcon(type) {
+    const t = (type || "").toLowerCase();
+    if (t.includes("หุ้น") || t.includes("stock")) return "📈";
+    if (t.includes("etf") || t.includes("กองทุน")) return "📊";
+    if (t.includes("คริป") || t.includes("crypto") || t.includes("bitcoin")) return "🪙";
+    if (t.includes("ทอง") || t.includes("gold")) return "🥇";
+    if (t.includes("พันธบัตร") || t.includes("ตราสารหนี้") || t.includes("bond")) return "🏦";
+    if (t.includes("อสังหา") || t.includes("บ้าน") || t.includes("ที่ดิน") || t.includes("estate")) return "🏠";
+    return "💼";
   }
 
   function openQuickUpdate(id) {
