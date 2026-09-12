@@ -33,6 +33,33 @@ const Assets = (() => {
     }
   }
 
+  function guessMarketCode(marketText) {
+    const t = (marketText || "").toLowerCase();
+    if (t.includes("ไทย") || t.includes("thai")) return "TH";
+    if (t.includes("จีน") || t.includes("ฮ่องกง") || t.includes("hk") || t.includes("china") || t.includes("hong kong")) return "HK";
+    return "US"; // most common default among global tickers
+  }
+
+  function getQuoteProxyBase() {
+    return (localStorage.getItem("diary_quote_proxy_url") || "").trim()
+      || "https://sudgnxcdzdpoksqvzraj.supabase.co/functions/v1/quote-proxy";
+  }
+
+  /** Best-effort live quote fetch — a third-party proxy (not an official
+   *  data source), so every caller must handle failure gracefully and
+   *  fall back to the existing manual-entry flow. Never assume this
+   *  keeps working; the base URL is deliberately configurable in
+   *  Settings so it can be swapped without an app update if it breaks. */
+  async function fetchLivePrice(symbol, market) {
+    const base = getQuoteProxyBase();
+    const url = `${base}?action=full&symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`เชื่อมต่อไม่สำเร็จ (${res.status})`);
+    const json = await res.json();
+    if (!json.ok || !json.data || typeof json.data.price !== "number") throw new Error("ไม่พบข้อมูลราคาสำหรับสัญลักษณ์นี้");
+    return json.data;
+  }
+
   function updatePriceCheckLink(linkEl, name, type) {
     const q = (name || "").trim();
     if (!q) { linkEl.href = "#"; return; }
@@ -57,6 +84,8 @@ const Assets = (() => {
     $("assetMarket").value = "";
     $("assetBroker").value = "";
     $("assetNote").value = "";
+    $("assetFetchMarket").value = "US";
+    $("assetFetchResult").textContent = "";
     $("assetModalTitle").textContent = "เพิ่มทรัพย์สิน";
     $("assetDeleteBtn").hidden = true;
     updatePriceCheckLink($("assetPriceCheckLink"), "", "หุ้น");
@@ -78,6 +107,8 @@ const Assets = (() => {
     $("assetMarket").value = a.market || "";
     $("assetBroker").value = a.broker || "";
     $("assetNote").value = a.note || "";
+    $("assetFetchMarket").value = guessMarketCode(a.market);
+    $("assetFetchResult").textContent = "";
     $("assetModalTitle").textContent = "แก้ไขทรัพย์สิน";
     $("assetDeleteBtn").hidden = false;
     updatePriceCheckLink($("assetPriceCheckLink"), a.name, a.type);
@@ -336,6 +367,8 @@ const Assets = (() => {
     $("quickUpdateValueLabel").textContent = a.currency === "USD" ? "มูลค่าปัจจุบันต่อหน่วย (USD)" : "มูลค่าปัจจุบันต่อหน่วย (บาท)";
     $("quickUpdateValue").value = a.currentValuePerUnit;
     updatePriceCheckLink($("quickUpdatePriceCheckLink"), a.name, a.type);
+    $("quickUpdateFetchMarket").value = guessMarketCode(a.market);
+    $("quickUpdateFetchResult").textContent = "";
     $("assetQuickUpdateModal").hidden = false;
     pushNavState("assetquick");
   }
@@ -543,6 +576,21 @@ const Assets = (() => {
     renderAssetLogList();
   }
 
+  async function handleFetchPriceClick(symbol, market, resultElId, targetInputId, currencySetter) {
+    const resultEl = $(resultElId);
+    if (!symbol) { showToast("กรุณาใส่ชื่อ/สัญลักษณ์ก่อน"); return; }
+    resultEl.textContent = "กำลังดึงราคา...";
+    try {
+      const data = await fetchLivePrice(symbol, market);
+      $(targetInputId).value = data.price;
+      if (data.currency === "USD" && currencySetter) currencySetter("USD");
+      const changeSign = data.change >= 0 ? "+" : "";
+      resultEl.textContent = `✅ ${data.name || symbol}: ${data.price} ${data.currency} (${changeSign}${data.changePct.toFixed(2)}%) — อัปเดต ${new Date(data.updatedAt).toLocaleString("th-TH")}`;
+    } catch (err) {
+      resultEl.textContent = `❌ ดึงราคาไม่สำเร็จ: ${err.message} — ลองเช็คด้วยตนเองแทน หรือเปลี่ยนตลาดที่เลือก`;
+    }
+  }
+
   async function render() {
     allAssets = await DiaryDB.getAllAssets();
     renderAssetList();
@@ -567,6 +615,14 @@ const Assets = (() => {
     });
     $("quickUpdateCancelBtn").addEventListener("click", closeQuickUpdate);
     $("quickUpdateSaveBtn").addEventListener("click", saveQuickUpdate);
+
+    $("assetFetchPriceBtn").addEventListener("click", () => {
+      handleFetchPriceClick($("assetName").value.trim(), $("assetFetchMarket").value, "assetFetchResult", "assetCurrentValue", setAssetCurrency);
+    });
+    $("quickUpdateFetchPriceBtn").addEventListener("click", () => {
+      const a = allAssets.find((x) => x.id === $("quickUpdateAssetId").value);
+      handleFetchPriceClick(a ? a.name : "", $("quickUpdateFetchMarket").value, "quickUpdateFetchResult", "quickUpdateValue");
+    });
 
     $("assetGroupFilter").addEventListener("click", (e) => {
       const btn = e.target.closest(".entry-type-filter-btn");

@@ -34,8 +34,8 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.28.1";
-const APP_BUILD_DATE = "2026-09-06";
+const APP_VERSION = "3.29.0";
+const APP_BUILD_DATE = "2026-09-13";
 
 const state = {
   entries: [],
@@ -944,6 +944,13 @@ $("driveResetBtn").addEventListener("click", () => {
   showToast("รีเซ็ตแล้ว — ครั้งหน้าที่กดซิงค์จะให้เลือกบัญชีใหม่");
 });
 
+$("quoteProxyUrlInput").addEventListener("change", (e) => {
+  const url = e.target.value.trim();
+  if (url) localStorage.setItem("diary_quote_proxy_url", url);
+  else localStorage.removeItem("diary_quote_proxy_url");
+  showToast("บันทึกแล้ว");
+});
+
 /* ---------------- Telegram settings ---------------- */
 
 function refreshExchangeRateDisplay() {
@@ -1075,6 +1082,7 @@ function refreshSettingsView() {
   const has = DiaryCrypto.hasPassword();
   $("trashRetentionSelect").value = String(getTrashRetentionDays());
   $("autoLockSelect").value = String(getAutoLockMinutes());
+  $("quoteProxyUrlInput").value = localStorage.getItem("diary_quote_proxy_url") || "https://sudgnxcdzdpoksqvzraj.supabase.co/functions/v1/quote-proxy";
   $("debtReminderDaysInput").value = String(getDebtReminderDays());
   refreshTelegramStatus();
   refreshExchangeRateDisplay();

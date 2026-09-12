@@ -528,6 +528,15 @@
         </div>
 
         <div class="settings-group">
+          <h2>ดึงราคาหุ้นสด</h2>
+          <div class="field">
+            <label for="quoteProxyUrlInput">Quote Proxy URL</label>
+            <input type="text" id="quoteProxyUrlInput" placeholder="https://.../quote-proxy">
+          </div>
+          <p class="settings-note">⚠️ เป็นบริการของบุคคลที่สาม (ไม่ใช่ทางการ) ไม่รับประกันว่าจะใช้งานได้ตลอดไป หรือรองรับทุกตลาด — ถ้าใช้ไม่ได้แล้วในอนาคต เปลี่ยน URL ตรงนี้แทนได้โดยไม่ต้องรออัปเดตแอป</p>
+        </div>
+
+        <div class="settings-group">
           <h2>Telegram</h2>
           <p class="settings-note">บันทึกที่ไม่ใช่ส่วนตัว (ไดอารี่ + เหตุการณ์) จะถูกส่งเข้า Telegram อัตโนมัติทุกครั้งที่เขียนใหม่ — บันทึกส่วนตัว (🔒) จะไม่ถูกส่งเด็ดขาดไม่ว่ากรณีใด</p>
           <div class="settings-row">
@@ -1208,7 +1217,16 @@
             <a href="#" target="_blank" rel="noopener" id="assetPriceCheckLink" class="field-hint" style="display:inline-block;color:var(--sage);">🔍 เช็คราคาปัจจุบัน</a>
           </div>
         </div>
-        <p class="settings-note">มูลค่าปัจจุบันต้องอัปเดตเองเป็นระยะ ไม่ได้ดึงราคาสดอัตโนมัติ</p>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+          <button type="button" class="text-btn" id="assetFetchPriceBtn">🔄 ดึงราคาล่าสุด (หุ้น/ETF)</button>
+          <select id="assetFetchMarket" style="width:auto; padding:6px 8px; font-size:12px;">
+            <option value="US">สหรัฐฯ</option>
+            <option value="TH">ไทย</option>
+            <option value="HK">จีน/ฮ่องกง</option>
+          </select>
+        </div>
+        <p class="settings-note" id="assetFetchResult"></p>
+        <p class="settings-note">มูลค่าปัจจุบันต้องอัปเดตเองเป็นระยะ ไม่ได้ดึงราคาสดอัตโนมัติ (ปุ่มดึงราคาด้านบนช่วยได้ถ้าใช้ได้กับตลาดนั้น — เป็นบริการภายนอกที่ไม่ได้การันตีเสถียรภาพ)</p>
 
         <div class="field-row two-col">
           <div class="field">
@@ -1247,6 +1265,15 @@
           <input type="number" id="quickUpdateValue" inputmode="decimal" step="0.01">
           <a href="#" target="_blank" rel="noopener" id="quickUpdatePriceCheckLink" class="field-hint" style="display:inline-block;color:var(--sage);">🔍 เช็คราคาปัจจุบัน</a>
         </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+          <button type="button" class="text-btn" id="quickUpdateFetchPriceBtn">🔄 ดึงราคาล่าสุด</button>
+          <select id="quickUpdateFetchMarket" style="width:auto; padding:6px 8px; font-size:12px;">
+            <option value="US">สหรัฐฯ</option>
+            <option value="TH">ไทย</option>
+            <option value="HK">จีน/ฮ่องกง</option>
+          </select>
+        </div>
+        <p class="settings-note" id="quickUpdateFetchResult"></p>
         <div class="modal-actions">
           <button class="text-btn" id="quickUpdateCancelBtn">ยกเลิก</button>
           <button class="text-btn primary" id="quickUpdateSaveBtn">บันทึก</button>
