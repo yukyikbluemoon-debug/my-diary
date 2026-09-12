@@ -277,7 +277,7 @@ const Assets = (() => {
     const items = activeAssets().slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
     if (items.length === 0) { el.innerHTML = ""; return; }
     el.innerHTML = items.map((a, i) => `
-      <div class="asset-top5-row">
+      <div class="asset-top5-row" data-id="${a.id}" style="cursor:pointer;">
         <span class="asset-top5-rank">${i + 1}</span>
         ${assetLogoHTML(a.name)}
         <span class="asset-top5-name">${escapeHTML(a.name)}</span>
@@ -576,19 +576,111 @@ const Assets = (() => {
     renderAssetLogList();
   }
 
-  async function handleFetchPriceClick(symbol, market, resultElId, targetInputId, currencySetter) {
+  async function handleFetchPriceClick(symbol, market, resultElId, targetInputId, currencySetter, assetId) {
     const resultEl = $(resultElId);
     if (!symbol) { showToast("กรุณาใส่ชื่อ/สัญลักษณ์ก่อน"); return; }
     resultEl.textContent = "กำลังดึงราคา...";
     try {
       const data = await fetchLivePrice(symbol, market);
-      $(targetInputId).value = data.price;
+      if (targetInputId) $(targetInputId).value = data.price;
       if (data.currency === "USD" && currencySetter) currencySetter("USD");
       const changeSign = data.change >= 0 ? "+" : "";
       resultEl.textContent = `✅ ${data.name || symbol}: ${data.price} ${data.currency} (${changeSign}${data.changePct.toFixed(2)}%) — อัปเดต ${new Date(data.updatedAt).toLocaleString("th-TH")}`;
+      // Cache the full response on the asset record itself (RSI/MACD/EMA/
+      // P/E/EPS/PEG etc.) so the detail view can show it without a fresh
+      // fetch every time it's opened.
+      if (assetId) {
+        const a = allAssets.find((x) => x.id === assetId);
+        if (a) {
+          a.marketData = data;
+          a.marketDataAt = new Date().toISOString();
+          await DiaryDB.putAsset(a);
+        }
+      }
+      return data;
     } catch (err) {
       resultEl.textContent = `❌ ดึงราคาไม่สำเร็จ: ${err.message} — ลองเช็คด้วยตนเองแทน หรือเปลี่ยนตลาดที่เลือก`;
+      return null;
     }
+  }
+
+  /* ---------------- asset detail view (rich market data) ---------------- */
+
+  let assetDetailCurrentId = null;
+
+  function openAssetDetail(id) {
+    const a = allAssets.find((x) => x.id === id);
+    if (!a) return;
+    assetDetailCurrentId = id;
+    $("assetDetailTitle").innerHTML = `${assetLogoHTML(a.name)} ${escapeHTML(a.name)}`;
+    const unitLabel = a.currency === "USD" ? `$${a.currentValuePerUnit}` : Finance.formatMoney(a.currentValuePerUnit);
+    $("assetDetailBasic").innerHTML = `${escapeHTML(a.type)} · ${a.quantity} หน่วย @ ${unitLabel}${a.market ? " · " + escapeHTML(a.market) : ""}${a.broker ? " · " + escapeHTML(a.broker) : ""}`;
+    if (a.marketData) {
+      renderAssetDetailData(a.marketData);
+      const ageHours = (Date.now() - new Date(a.marketDataAt).getTime()) / 3600000;
+      $("assetDetailStale").hidden = ageHours < 24;
+    } else {
+      $("assetDetailMarketData").innerHTML = '<p class="settings-note">ยังไม่มีข้อมูลตลาดสำหรับรายการนี้ — กด "ดึง/อัปเดตข้อมูลตลาด" ด้านล่าง</p>';
+      $("assetDetailStale").hidden = true;
+    }
+    $("assetDetailModal").hidden = false;
+    pushNavState("assetdetail");
+  }
+  function closeAssetDetailModalVisual() { $("assetDetailModal").hidden = true; }
+  function closeAssetDetailModal() { closeAssetDetailModalVisual(); popNavState(); }
+
+  function rsiLabel(rsi) {
+    if (rsi == null) return "";
+    if (rsi >= 70) return " (ซื้อมากเกินไป)";
+    if (rsi <= 30) return " (ขายมากเกินไป)";
+    return " (ปกติ)";
+  }
+  function rsiTier(rsi) {
+    if (rsi == null) return "";
+    if (rsi >= 70) return "negative";
+    if (rsi <= 30) return "positive";
+    return "";
+  }
+
+  function renderAssetDetailData(data) {
+    const el = $("assetDetailMarketData");
+    const changeSign = data.change >= 0 ? "+" : "";
+    const changeTier = data.change >= 0 ? "positive" : "negative";
+
+    // 52-week range as a simple horizontal position bar — the closest
+    // thing to a "chart" this data actually supports (this endpoint gives
+    // a single current snapshot, not a historical price series, so a real
+    // line chart isn't possible from this alone).
+    let rangeBar = "";
+    if (data.high52w != null && data.low52w != null && data.high52w > data.low52w) {
+      const pct = Math.max(0, Math.min(100, ((data.price - data.low52w) / (data.high52w - data.low52w)) * 100));
+      rangeBar = `
+        <div class="asset-detail-row"><span>ช่วง 52 สัปดาห์</span></div>
+        <div class="asset-52w-track"><div class="asset-52w-dot" style="left:${pct}%;"></div></div>
+        <div class="asset-52w-labels"><span>${data.low52w}</span><span>${data.high52w}</span></div>`;
+    }
+
+    const rows = [];
+    if (data.rsi14 != null) rows.push(["RSI (14 วัน)", `${data.rsi14.toFixed(1)}${rsiLabel(data.rsi14)}`, rsiTier(data.rsi14)]);
+    if (data.rsi14w != null) rows.push(["RSI (14 สัปดาห์)", `${data.rsi14w.toFixed(1)}${rsiLabel(data.rsi14w)}`, rsiTier(data.rsi14w)]);
+    if (data.macd != null && data.macdSignal != null) rows.push(["MACD vs Signal", `${data.macd.toFixed(2)} / ${data.macdSignal.toFixed(2)}`, data.macd >= data.macdSignal ? "positive" : "negative"]);
+    if (data.ema50 != null) rows.push(["EMA50 (วัน) vs ราคา", `${data.ema50.toFixed(2)} ${data.price >= data.ema50 ? "(ราคาสูงกว่า)" : "(ราคาต่ำกว่า)"}`, data.price >= data.ema50 ? "positive" : "negative"]);
+    if (data.ema50w != null) rows.push(["EMA50 (สัปดาห์) vs ราคา", `${data.ema50w.toFixed(2)} ${data.price >= data.ema50w ? "(ราคาสูงกว่า)" : "(ราคาต่ำกว่า)"}`, data.price >= data.ema50w ? "positive" : "negative"]);
+    if (data.pe != null) rows.push(["P/E", data.pe.toFixed(2), ""]);
+    if (data.eps != null) rows.push(["EPS", data.eps.toFixed(2), ""]);
+    if (data.epsGrowth != null) rows.push(["EPS Growth", `${data.epsGrowth >= 0 ? "+" : ""}${data.epsGrowth.toFixed(1)}%`, data.epsGrowth >= 0 ? "positive" : "negative"]);
+    if (data.peg != null) rows.push(["PEG", data.peg.toFixed(2), ""]);
+
+    el.innerHTML = `
+      <div class="asset-detail-price">
+        <span class="asset-detail-price-num">${data.price} ${data.currency}</span>
+        <span class="asset-detail-change ${changeTier}">${changeSign}${data.change.toFixed(2)} (${changeSign}${data.changePct.toFixed(2)}%)</span>
+      </div>
+      ${rangeBar}
+      <div class="asset-detail-table">
+        ${rows.map(([label, value, tier]) => `<div class="asset-detail-row"><span>${escapeHTML(label)}</span><span class="${tier}">${escapeHTML(value)}</span></div>`).join("")}
+      </div>
+      <p class="settings-note">ที่มา: ${escapeHTML(data.source || "ไม่ทราบ")} · อัปเดต ${new Date(data.updatedAt).toLocaleString("th-TH")}</p>`;
   }
 
   async function render() {
@@ -611,17 +703,41 @@ const Assets = (() => {
       const sendBtn = e.target.closest(".asset-send-btn");
       if (sendBtn) { sendAssetToTelegram(sendBtn.dataset.id); return; }
       const row = e.target.closest(".asset-row");
-      if (row) openEditAsset(row.dataset.id);
+      if (row) openAssetDetail(row.dataset.id);
     });
     $("quickUpdateCancelBtn").addEventListener("click", closeQuickUpdate);
     $("quickUpdateSaveBtn").addEventListener("click", saveQuickUpdate);
 
     $("assetFetchPriceBtn").addEventListener("click", () => {
-      handleFetchPriceClick($("assetName").value.trim(), $("assetFetchMarket").value, "assetFetchResult", "assetCurrentValue", setAssetCurrency);
+      handleFetchPriceClick($("assetName").value.trim(), $("assetFetchMarket").value, "assetFetchResult", "assetCurrentValue", setAssetCurrency, $("assetId").value || null);
     });
     $("quickUpdateFetchPriceBtn").addEventListener("click", () => {
       const a = allAssets.find((x) => x.id === $("quickUpdateAssetId").value);
-      handleFetchPriceClick(a ? a.name : "", $("quickUpdateFetchMarket").value, "quickUpdateFetchResult", "quickUpdateValue");
+      handleFetchPriceClick(a ? a.name : "", $("quickUpdateFetchMarket").value, "quickUpdateFetchResult", "quickUpdateValue", null, a ? a.id : null);
+    });
+
+    $("assetDetailCloseBtn").addEventListener("click", closeAssetDetailModal);
+    $("assetDetailEditBtn").addEventListener("click", () => {
+      const id = assetDetailCurrentId;
+      closeAssetDetailModalVisual();
+      popNavState();
+      openEditAsset(id);
+    });
+    $("assetDetailFetchBtn").addEventListener("click", async () => {
+      const a = allAssets.find((x) => x.id === assetDetailCurrentId);
+      if (!a) return;
+      $("assetDetailMarketData").innerHTML = '<p class="settings-note">กำลังดึงข้อมูล...</p>';
+      try {
+        const data = await fetchLivePrice(a.name, guessMarketCode(a.market));
+        a.marketData = data;
+        a.marketDataAt = new Date().toISOString();
+        await DiaryDB.putAsset(a);
+        renderAssetDetailData(data);
+        $("assetDetailStale").hidden = true;
+        renderAssetList(); // refresh list in case it shows cached data too
+      } catch (err) {
+        $("assetDetailMarketData").innerHTML = `<p class="settings-note">❌ ดึงข้อมูลไม่สำเร็จ: ${escapeHTML(err.message)}</p>`;
+      }
     });
 
     $("assetGroupFilter").addEventListener("click", (e) => {
@@ -641,6 +757,10 @@ const Assets = (() => {
         $("assetLogDateBtn").textContent = formatFullThaiDate(d);
       });
     });
+    $("assetTop5").addEventListener("click", (e) => {
+      const row = e.target.closest(".asset-top5-row");
+      if (row) openAssetDetail(row.dataset.id);
+    });
     $("assetLogList").addEventListener("click", (e) => {
       const delBtn = e.target.closest(".asset-log-delete-btn");
       if (delBtn) deleteAssetLogEntry(delBtn.dataset.id);
@@ -653,5 +773,5 @@ const Assets = (() => {
     allAssetLogs = await DiaryDB.getAllAssetLogs();
   }
 
-  return { init, render, closeAssetModalVisual, closeQuickUpdateVisual, closeAssetLogModalVisual };
+  return { init, render, closeAssetModalVisual, closeQuickUpdateVisual, closeAssetLogModalVisual, closeAssetDetailModalVisual };
 })();

@@ -1255,6 +1255,28 @@
     </div>
 
     <!-- Quick asset value update -->
+    <!-- Asset detail view: rich market data (52w range, RSI/MACD/EMA,
+         P/E/EPS/PEG) from the same quote proxy, cached on the asset
+         record after a successful fetch so it doesn't need re-fetching
+         every time this opens -->
+    <div class="modal" id="assetDetailModal" hidden>
+      <div class="modal-card">
+        <h2 id="assetDetailTitle">รายละเอียดทรัพย์สิน</h2>
+        <p class="settings-note" id="assetDetailBasic"></p>
+
+        <div id="assetDetailMarketData"></div>
+        <p class="settings-note" id="assetDetailStale" hidden>ข้อมูลตลาดนี้อาจไม่ใช่ปัจจุบันแล้ว — กดอัปเดตอีกครั้ง</p>
+
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="text-btn" id="assetDetailFetchBtn">🔄 ดึง/อัปเดตข้อมูลตลาด</button>
+          <div style="display:flex; gap:8px;">
+            <button class="text-btn" id="assetDetailEditBtn">แก้ไข</button>
+            <button class="text-btn primary" id="assetDetailCloseBtn">ปิด</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal" id="assetQuickUpdateModal" hidden>
       <div class="modal-card">
         <h2>อัปเดตมูลค่า</h2>
