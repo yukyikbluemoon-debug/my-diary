@@ -854,31 +854,24 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
 .asset-log-delete-btn:hover { opacity: 1; }
 
 .asset-detail-price { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
-.asset-detail-price-num { font-family: var(--serif); font-weight: 700; font-size: 24px; }
-.asset-detail-change { font-size: 14px; font-weight: 600; }
+.asset-detail-price-num { font-family: var(--serif); font-weight: 700; font-size: 22px; }
+.asset-detail-change { font-size: 13px; font-weight: 600; }
 .asset-detail-change.positive { color: var(--sage); }
 .asset-detail-change.negative { color: var(--danger); }
-.asset-52w-track {
-  position: relative; height: 6px; border-radius: 999px;
-  background: linear-gradient(90deg, var(--danger), var(--ink-500), var(--sage));
-  margin: 8px 0 4px;
-}
-.asset-52w-dot {
-  position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%;
-  background: var(--paper); border: 2px solid var(--ink-900);
-  transform: translate(-50%, -50%);
-}
-.asset-52w-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--paper-dim); margin-bottom: 14px; }
-.asset-detail-table { margin-bottom: 8px; }
+.asset-detail-table { margin-bottom: 8px; border: 1px solid var(--ink-600); border-radius: var(--radius-s); overflow: hidden; }
 .asset-detail-row {
-  display: flex; justify-content: space-between;
-  font-size: 13px; padding: 7px 0;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+  font-size: 12.5px; padding: 9px 10px;
   border-bottom: 1px solid var(--ink-600);
 }
+.asset-detail-row:nth-child(odd) { background: var(--ink-700); }
 .asset-detail-row:last-child { border-bottom: none; }
-.asset-detail-row span:last-child { font-weight: 600; }
-.asset-detail-row span.positive { color: var(--sage); }
-.asset-detail-row span.negative { color: var(--danger); }
+.asset-detail-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.asset-detail-gloss { font-size: 10.5px; color: var(--paper-dim); font-weight: 400; line-height: 1.4; }
+.asset-detail-val { font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.asset-detail-val.positive { color: var(--sage); }
+.asset-detail-val.negative { color: var(--danger); }
+.tradingview-widget-container { border-radius: var(--radius-s); overflow: hidden; }
 
 .stat-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
 .stat-bar-label { width: 76px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

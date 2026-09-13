@@ -1255,14 +1255,21 @@
     </div>
 
     <!-- Quick asset value update -->
-    <!-- Asset detail view: rich market data (52w range, RSI/MACD/EMA,
-         P/E/EPS/PEG) from the same quote proxy, cached on the asset
-         record after a successful fetch so it doesn't need re-fetching
-         every time this opens -->
+    <!-- Asset detail view: a real TradingView chart (free embed widget,
+         no API key) plus rich market data (RSI/MACD/EMA/P-E/EPS/PEG) from
+         the quote proxy, cached on the asset record after a successful
+         fetch so it doesn't need re-fetching every time this opens -->
     <div class="modal" id="assetDetailModal" hidden>
       <div class="modal-card">
         <h2 id="assetDetailTitle">รายละเอียดทรัพย์สิน</h2>
         <p class="settings-note" id="assetDetailBasic"></p>
+
+        <div id="assetDetailChartWrap" style="margin-bottom:10px;"></div>
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:16px;">
+          <input type="text" id="assetDetailTvSymbol" placeholder="เช่น NASDAQ:NVDA, SET:GULF, HKEX:0981" style="flex:1; font-size:12px; padding:7px 9px;">
+          <button type="button" class="text-btn" id="assetDetailTvApplyBtn" style="font-size:12px; white-space:nowrap;">โหลดกราฟ</button>
+        </div>
+        <p class="settings-note">กราฟข้างบนเป็นของ TradingView (ของจริง มีข้อมูลราคาย้อนหลัง) — ถ้ากราฟไม่ขึ้นหรือขึ้นผิดตัว ลองแก้สัญลักษณ์ด้านบนเอง เช่น ตลาดสหรัฐฯ ส่วนใหญ่ใช้ NASDAQ: หรือ NYSE: นำหน้า, ตลาดไทยใช้ SET:, ฮ่องกงใช้ HKEX: นำหน้า</p>
 
         <div id="assetDetailMarketData"></div>
         <p class="settings-note" id="assetDetailStale" hidden>ข้อมูลตลาดนี้อาจไม่ใช่ปัจจุบันแล้ว — กดอัปเดตอีกครั้ง</p>

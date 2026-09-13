@@ -623,11 +623,65 @@ const Assets = (() => {
       $("assetDetailMarketData").innerHTML = '<p class="settings-note">ยังไม่มีข้อมูลตลาดสำหรับรายการนี้ — กด "ดึง/อัปเดตข้อมูลตลาด" ด้านล่าง</p>';
       $("assetDetailStale").hidden = true;
     }
+    $("assetDetailTvSymbol").value = a.tvSymbol || guessTvSymbol(a.name, guessMarketCode(a.market));
+    loadTradingViewChart($("assetDetailTvSymbol").value);
     $("assetDetailModal").hidden = false;
     pushNavState("assetdetail");
   }
   function closeAssetDetailModalVisual() { $("assetDetailModal").hidden = true; }
   function closeAssetDetailModal() { closeAssetDetailModalVisual(); popNavState(); }
+
+  function guessTvSymbol(name, marketCode) {
+    const ticker = (name || "").trim().toUpperCase().replace(/[^A-Z0-9.]/g, "");
+    if (marketCode === "TH") return `SET:${ticker}`;
+    if (marketCode === "HK") return `HKEX:${ticker}`;
+    return `NASDAQ:${ticker}`; // best guess for US — many large names are actually NYSE, TradingView's widget still often resolves it, or the user corrects it manually below
+  }
+
+  /** TradingView's free embed widget — a real chart with actual historical
+   *  price data, unlike anything we could build from the quote proxy's
+   *  single current-snapshot response. No API key, but it's a <script>
+   *  tag whose JSON config is its text content, so it has to be built
+   *  with createElement (innerHTML never executes scripts) and the
+   *  container cleared first so re-opening the modal doesn't stack up
+   *  duplicate widgets underneath each other. */
+  function loadTradingViewChart(symbol) {
+    const wrap = $("assetDetailChartWrap");
+    wrap.innerHTML = "";
+    if (!symbol) return;
+    const container = document.createElement("div");
+    container.className = "tradingview-widget-container";
+    const widgetDiv = document.createElement("div");
+    widgetDiv.className = "tradingview-widget-container__widget";
+    container.appendChild(widgetDiv);
+    const script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js";
+    script.async = true;
+    script.text = JSON.stringify({
+      symbol, width: "100%", height: "220", locale: "th",
+      dateRange: "12M", colorTheme: "dark", isTransparent: true,
+      autosize: false, noTimeScale: false,
+    });
+    container.appendChild(script);
+    wrap.appendChild(container);
+  }
+
+  // A one-line plain-language gloss for each jargon term — shown right
+  // under the label in the table instead of a hover tooltip (tooltips
+  // don't work reliably on mobile taps).
+  const METRIC_GLOSS = {
+    "RSI (14 วัน)": "วัดความแรงซื้อ/ขายช่วงสั้น (0-100, เกิน 70=ซื้อเยอะ ต่ำกว่า 30=ขายเยอะ)",
+    "RSI (14 สัปดาห์)": "แบบเดียวกับ RSI 14 วัน แต่มองภาพระยะยาวกว่า",
+    "MACD vs Signal": "เส้นแนวโน้ม 2 เส้น — ถ้า MACD สูงกว่า Signal มักตีความว่าแนวโน้มเป็นบวก",
+    "EMA50 (วัน) vs ราคา": "ราคาเฉลี่ยเคลื่อนที่ 50 วัน — ราคาปัจจุบันอยู่เหนือ/ใต้เส้นนี้บอกแนวโน้มระยะกลาง",
+    "EMA50 (สัปดาห์) vs ราคา": "แบบเดียวกับ EMA50 วัน แต่เป็นรายสัปดาห์ ภาพรวมยาวกว่า",
+    "P/E": "ราคาหุ้นเทียบกำไรต่อหุ้น — ยิ่งสูงมักแปลว่าตลาดคาดหวังการเติบโตสูง",
+    "EPS": "กำไรสุทธิต่อหุ้น (บาท/ดอลลาร์ต่อหุ้น)",
+    "EPS Growth": "อัตราการเติบโตของกำไรต่อหุ้นเทียบปีก่อน",
+    "PEG": "P/E หารด้วยอัตราการเติบโต — ต่ำกว่า 1 มักตีความว่าราคายังไม่แพงเทียบการเติบโต",
+    "ช่วง 52 สัปดาห์": "ราคาต่ำสุด-สูงสุดในรอบ 1 ปีที่ผ่านมา",
+  };
 
   function rsiLabel(rsi) {
     if (rsi == null) return "";
@@ -647,20 +701,11 @@ const Assets = (() => {
     const changeSign = data.change >= 0 ? "+" : "";
     const changeTier = data.change >= 0 ? "positive" : "negative";
 
-    // 52-week range as a simple horizontal position bar — the closest
-    // thing to a "chart" this data actually supports (this endpoint gives
-    // a single current snapshot, not a historical price series, so a real
-    // line chart isn't possible from this alone).
-    let rangeBar = "";
-    if (data.high52w != null && data.low52w != null && data.high52w > data.low52w) {
-      const pct = Math.max(0, Math.min(100, ((data.price - data.low52w) / (data.high52w - data.low52w)) * 100));
-      rangeBar = `
-        <div class="asset-detail-row"><span>ช่วง 52 สัปดาห์</span></div>
-        <div class="asset-52w-track"><div class="asset-52w-dot" style="left:${pct}%;"></div></div>
-        <div class="asset-52w-labels"><span>${data.low52w}</span><span>${data.high52w}</span></div>`;
-    }
-
     const rows = [];
+    if (data.high52w != null && data.low52w != null) {
+      const pct = data.high52w > data.low52w ? Math.round(((data.price - data.low52w) / (data.high52w - data.low52w)) * 100) : null;
+      rows.push(["ช่วง 52 สัปดาห์", `${data.low52w} – ${data.high52w}${pct != null ? ` (ตอนนี้ ${pct}%)` : ""}`, ""]);
+    }
     if (data.rsi14 != null) rows.push(["RSI (14 วัน)", `${data.rsi14.toFixed(1)}${rsiLabel(data.rsi14)}`, rsiTier(data.rsi14)]);
     if (data.rsi14w != null) rows.push(["RSI (14 สัปดาห์)", `${data.rsi14w.toFixed(1)}${rsiLabel(data.rsi14w)}`, rsiTier(data.rsi14w)]);
     if (data.macd != null && data.macdSignal != null) rows.push(["MACD vs Signal", `${data.macd.toFixed(2)} / ${data.macdSignal.toFixed(2)}`, data.macd >= data.macdSignal ? "positive" : "negative"]);
@@ -676,9 +721,12 @@ const Assets = (() => {
         <span class="asset-detail-price-num">${data.price} ${data.currency}</span>
         <span class="asset-detail-change ${changeTier}">${changeSign}${data.change.toFixed(2)} (${changeSign}${data.changePct.toFixed(2)}%)</span>
       </div>
-      ${rangeBar}
       <div class="asset-detail-table">
-        ${rows.map(([label, value, tier]) => `<div class="asset-detail-row"><span>${escapeHTML(label)}</span><span class="${tier}">${escapeHTML(value)}</span></div>`).join("")}
+        ${rows.map(([label, value, tier]) => `
+          <div class="asset-detail-row">
+            <span class="asset-detail-label">${escapeHTML(label)}${METRIC_GLOSS[label] ? `<span class="asset-detail-gloss">${escapeHTML(METRIC_GLOSS[label])}</span>` : ""}</span>
+            <span class="asset-detail-val ${tier}">${escapeHTML(value)}</span>
+          </div>`).join("")}
       </div>
       <p class="settings-note">ที่มา: ${escapeHTML(data.source || "ไม่ทราบ")} · อัปเดต ${new Date(data.updatedAt).toLocaleString("th-TH")}</p>`;
   }
@@ -717,6 +765,12 @@ const Assets = (() => {
     });
 
     $("assetDetailCloseBtn").addEventListener("click", closeAssetDetailModal);
+    $("assetDetailTvApplyBtn").addEventListener("click", async () => {
+      const symbol = $("assetDetailTvSymbol").value.trim();
+      loadTradingViewChart(symbol);
+      const a = allAssets.find((x) => x.id === assetDetailCurrentId);
+      if (a) { a.tvSymbol = symbol; await DiaryDB.putAsset(a); }
+    });
     $("assetDetailEditBtn").addEventListener("click", () => {
       const id = assetDetailCurrentId;
       closeAssetDetailModalVisual();
