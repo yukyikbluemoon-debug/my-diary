@@ -656,22 +656,27 @@ const Assets = (() => {
     const wrap = $("assetDetailChartWrap");
     wrap.innerHTML = "";
     if (!symbol) return;
-    const container = document.createElement("div");
-    container.className = "tradingview-widget-container";
-    const widgetDiv = document.createElement("div");
-    widgetDiv.className = "tradingview-widget-container__widget";
-    container.appendChild(widgetDiv);
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js";
-    script.async = true;
-    script.text = JSON.stringify({
+    // Switched from the "auto-init" embed script (a <script> tag that's
+    // meant to read its own inline JSON config and inject an iframe on
+    // execution) to a plain iframe pointing at TradingView's widget page
+    // directly. The script version is written for scripts already present
+    // when the page is parsed — dynamically created+appended scripts often
+    // can't reliably find their own container via document.currentScript,
+    // so it can silently render nothing. A bare iframe has no such
+    // dependency and just works once given a URL.
+    const config = {
       symbol, width: "100%", height: "220", locale: "th",
       dateRange: "12M", colorTheme: "dark", isTransparent: true,
-      autosize: false, noTimeScale: false,
-    });
-    container.appendChild(script);
-    wrap.appendChild(container);
+    };
+    const iframe = document.createElement("iframe");
+    iframe.src = `https://s.tradingview.com/embed-widget/mini-symbol-overview/#${encodeURIComponent(JSON.stringify(config))}`;
+    iframe.style.width = "100%";
+    iframe.style.height = "220px";
+    iframe.style.border = "none";
+    iframe.setAttribute("scrolling", "no");
+    iframe.setAttribute("allowtransparency", "true");
+    iframe.setAttribute("frameborder", "0");
+    wrap.appendChild(iframe);
   }
 
   // A one-line plain-language gloss for each jargon term — shown right
