@@ -888,10 +888,20 @@
             <h2 style="margin:0;">ข้อมูลอื่น</h2>
             <button class="icon-btn" id="addOtherBtn">+ เพิ่มข้อมูล</button>
           </div>
-          <p class="settings-note">เช่น ประกันชีวิต, บัตรเครดิต, บัญชีลงทุน, เลขสมาชิก, ทรัพย์สิน — ตั้งหมวดหมู่เองได้</p>
+          <div class="entry-type-filter" id="otherModeFilter">
+            <button type="button" class="entry-type-filter-btn selected" data-mode="recurring">💸 ค่าใช้จ่ายประจำ</button>
+            <button type="button" class="entry-type-filter-btn" data-mode="personal">📋 ข้อมูลส่วนบุคคล</button>
+          </div>
+          <p class="settings-note" id="otherModeHint">ค่าน้ำ ค่าไฟ ค่าบ้าน ค่าเช่า ประกัน ฯลฯ — จ่ายซ้ำเป็นรอบ ไม่ใช่หนี้ที่ค่อย ๆ หมด</p>
+          <div class="stats-cards" id="otherRecurringSummary" style="margin-bottom:14px;">
+            <div class="stats-card">
+              <div class="stats-num money-blur" id="otherMonthlyTotal">฿0</div>
+              <div class="stats-label">รวมค่าใช้จ่ายประจำ/เดือน (เทียบเท่า)</div>
+            </div>
+          </div>
           <div class="toolbar">
             <div class="search-wrap">
-              <input type="search" id="otherSearchInput" placeholder="ค้นหา เช่น ประกัน, บัตร...">
+              <input type="search" id="otherSearchInput" placeholder="ค้นหา...">
             </div>
           </div>
           <button type="button" class="text-btn danger" id="cleanupCorruptedOtherBtn" hidden style="margin-bottom:8px;"></button>
@@ -1487,23 +1497,51 @@
       </div>
     </div>
 
-    <!-- Other sensitive info form -->
+    <!-- Other info form — shared modal for both modes: recurring fixed
+         expenses (water/electric/rent/insurance-by-installment) and
+         personal reference info (policy numbers etc). Field sets shown
+         depend on which mode is selected in the list view. -->
     <div class="modal" id="otherModal" hidden>
       <div class="modal-card tx-card">
         <h2 id="otherModalTitle">เพิ่มข้อมูลอื่น</h2>
         <input type="hidden" id="otherId">
+        <input type="hidden" id="otherKind">
 
-        <div class="field-row two-col">
+        <div id="otherPersonalFields">
           <div class="field">
             <label for="otherCategory">หมวดหมู่ (กำหนดเองได้)</label>
             <input type="text" id="otherCategory" placeholder="เช่น ประกันชีวิต, บัตรเครดิต">
           </div>
+        </div>
+
+        <div class="field">
+          <label for="otherTitle" id="otherTitleLabel">หัวข้อ</label>
+          <input type="text" id="otherTitle">
+        </div>
+
+        <div id="otherRecurringFields">
+          <div class="field-row two-col">
+            <div class="field">
+              <label for="otherAmount">จำนวนเงินต่อรอบ</label>
+              <input type="number" id="otherAmount" inputmode="decimal" step="0.01" placeholder="0">
+            </div>
+            <div class="field">
+              <label for="otherFrequency">ความถี่</label>
+              <select id="otherFrequency">
+                <option value="monthly">รายเดือน</option>
+                <option value="quarterly">ราย 3 เดือน</option>
+                <option value="semiannual">ราย 6 เดือน</option>
+                <option value="annual">ราย 12 เดือน</option>
+              </select>
+            </div>
+          </div>
           <div class="field">
-            <label for="otherTitle">หัวข้อ</label>
-            <input type="text" id="otherTitle">
+            <label for="otherDueDay">วันครบกำหนด (ไม่บังคับ)</label>
+            <input type="text" id="otherDueDay" placeholder="เช่น ทุกวันที่ 5 ของเดือน">
           </div>
         </div>
-        <div class="field">
+
+        <div id="otherFieldsTextWrap" class="field">
           <label for="otherFieldsText">รายละเอียด (รูปแบบ: ชื่อฟิลด์: ค่า ต่อบรรทัด)</label>
           <textarea id="otherFieldsText" rows="4" placeholder="เลขกรมธรรม์: xxxxxxx&#10;บริษัท: xxxxxxx&#10;วันครบกำหนด: 01/01/2027"></textarea>
         </div>

@@ -309,10 +309,17 @@ const Assets = (() => {
     });
 
     wrap.innerHTML = `
+      <div class="asset-donut-header">📊 สัดส่วนพอร์ต</div>
       <div class="asset-donut-row">
-        <svg viewBox="0 0 42 42" class="asset-donut-svg">
-          ${arcs.map((a) => a.svg).join("")}
-        </svg>
+        <div class="asset-donut-chart-wrap">
+          <svg viewBox="0 0 42 42" class="asset-donut-svg">
+            ${arcs.map((a) => a.svg).join("")}
+          </svg>
+          <div class="asset-donut-center">
+            <div class="asset-donut-center-label">รวมทั้งหมด</div>
+            <div class="asset-donut-center-value money-blur">${Finance.formatMoney(totalValue)}</div>
+          </div>
+        </div>
         <div class="asset-donut-legend">
           ${arcs.map((a) => `
             <div class="asset-donut-legend-row">

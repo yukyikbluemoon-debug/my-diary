@@ -480,7 +480,10 @@ const Banking = (() => {
         <button type="button" class="bank-send-btn debt-calc-btn" data-id="${d.id}" aria-label="คำนวณแผนผ่อน">📊</button>
         <div class="asset-row-body">
           <div class="asset-row-title">💳 ${escapeHTML(d.debtName)}</div>
-          <div class="asset-row-sub">คงเหลือ <span class="money-blur">${Finance.formatMoney(remaining)}</span>${original > 0 ? ` · วงเงินคงเหลือ <span class="money-blur">${Finance.formatMoney(available)}</span>` : ""}${d.dueDay ? " · ชำระวันที่ " + escapeHTML(d.dueDay) : ""}</div>
+          <div class="debt-highlight-row">
+            <span class="debt-highlight-amounts">คงเหลือ <b class="money-blur">${Finance.formatMoney(remaining)}</b>${original > 0 ? ` · วงเงิน <b class="money-blur">${Finance.formatMoney(available)}</b>` : ""}</span>
+            ${d.dueDay ? `<span class="debt-highlight-date">📅 ${escapeHTML(d.dueDay)}</span>` : ""}
+          </div>
           ${isDueSoon ? `<div class="debt-due-warning">⚠️ ${dueSoonText}</div>` : ""}
           ${d.note ? `<div class="debt-note-badge">📝 ${escapeHTML(d.note)}</div>` : ""}
           ${paidPercent !== null ? `
@@ -627,15 +630,38 @@ const Banking = (() => {
 
   /* ---------------- other info (flexible key/value records) ---------------- */
 
+  let otherViewMode = "recurring"; // "recurring" | "personal"
+
+  function monthlyEquivalent(amount, frequency) {
+    const divisor = { monthly: 1, quarterly: 3, semiannual: 6, annual: 12 }[frequency] || 1;
+    return (parseFloat(amount) || 0) / divisor;
+  }
+  function frequencyLabel(frequency) {
+    return { monthly: "รายเดือน", quarterly: "ราย 3 เดือน", semiannual: "ราย 6 เดือน", annual: "ราย 12 เดือน" }[frequency] || frequency;
+  }
+
   function renderOtherList() {
     const q = ($("otherSearchInput") && $("otherSearchInput").value || "").trim().toLowerCase();
+    const modeItems = allOtherInfo.filter((o) => (o.kind === "recurring" ? "recurring" : "personal") === otherViewMode);
     const items = q
-      ? allOtherInfo.filter((o) => [o.category, o.title, o.note].join(" ").toLowerCase().includes(q))
-      : allOtherInfo;
+      ? modeItems.filter((o) => [o.category, o.title, o.note].join(" ").toLowerCase().includes(q))
+      : modeItems;
     const list = $("otherList");
     if (!list) return;
     list.innerHTML = "";
     if ($("otherEmptyState")) $("otherEmptyState").hidden = items.length > 0 || !!q;
+
+    if ($("otherRecurringSummary")) $("otherRecurringSummary").hidden = otherViewMode !== "recurring";
+    if ($("otherModeHint")) {
+      $("otherModeHint").textContent = otherViewMode === "recurring"
+        ? "ค่าน้ำ ค่าไฟ ค่าบ้าน ค่าเช่า ประกัน ฯลฯ — จ่ายซ้ำเป็นรอบ ไม่ใช่หนี้ที่ค่อย ๆ หมด"
+        : "เช่น ประกันชีวิต, บัตรเครดิต, บัญชีลงทุน, เลขสมาชิก, ทรัพย์สิน — ตั้งหมวดหมู่เองได้";
+    }
+    if (otherViewMode === "recurring" && $("otherMonthlyTotal")) {
+      const total = modeItems.filter((o) => !o.encIv).reduce((sum, o) => sum + monthlyEquivalent(o.amount, o.frequency), 0);
+      $("otherMonthlyTotal").textContent = Finance.formatMoney(total);
+    }
+
     items.slice().sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")).forEach((o) => {
       const row = document.createElement("div");
       row.className = "asset-row";
@@ -649,21 +675,44 @@ const Banking = (() => {
         list.appendChild(row);
         return;
       }
-      const firstFieldLine = (o.fieldsText || "").split("\n").map((l) => l.trim()).find(Boolean);
-      const subText = firstFieldLine || o.note || "แตะเพื่อดูรายละเอียด";
-      row.innerHTML = `
-        <div class="asset-row-body">
-          <div class="asset-row-title">📄 ${escapeHTML(o.category)} · ${escapeHTML(o.title)}</div>
-          <div class="asset-row-sub">${escapeHTML(subText)}</div>
-        </div>`;
+      if (otherViewMode === "recurring") {
+        row.innerHTML = `
+          <div class="asset-row-body">
+            <div class="asset-row-title">💸 ${escapeHTML(o.title)}</div>
+            <div class="asset-row-sub">${frequencyLabel(o.frequency)}${o.dueDay ? " · ครบกำหนด " + escapeHTML(o.dueDay) : ""}${o.note ? " · " + escapeHTML(o.note) : ""}</div>
+          </div>
+          <div class="asset-row-value">
+            <div class="asset-row-total money-blur">${Finance.formatMoney(o.amount)}</div>
+            ${o.frequency !== "monthly" ? `<div class="asset-row-gain money-blur">≈ ${Finance.formatMoney(monthlyEquivalent(o.amount, o.frequency))}/เดือน</div>` : ""}
+          </div>`;
+      } else {
+        const firstFieldLine = (o.fieldsText || "").split("\n").map((l) => l.trim()).find(Boolean);
+        const subText = firstFieldLine || o.note || "แตะเพื่อดูรายละเอียด";
+        row.innerHTML = `
+          <div class="asset-row-body">
+            <div class="asset-row-title">📄 ${escapeHTML(o.category)} · ${escapeHTML(o.title)}</div>
+            <div class="asset-row-sub">${escapeHTML(subText)}</div>
+          </div>`;
+      }
       list.appendChild(row);
     });
   }
 
+  function applyOtherModeFieldVisibility() {
+    const isRecurring = otherViewMode === "recurring";
+    $("otherPersonalFields").hidden = isRecurring;
+    $("otherRecurringFields").hidden = !isRecurring;
+    $("otherFieldsTextWrap").hidden = isRecurring;
+    $("otherTitleLabel").textContent = isRecurring ? "ชื่อรายการ (เช่น ค่าน้ำ, ค่าไฟ, ค่าบ้าน)" : "หัวข้อ";
+  }
+
   function openNewOther() {
     $("otherId").value = "";
-    ["otherCategory", "otherTitle", "otherFieldsText", "otherNote"].forEach((id) => $(id).value = "");
-    $("otherModalTitle").textContent = "เพิ่มข้อมูลอื่น";
+    $("otherKind").value = otherViewMode;
+    ["otherCategory", "otherTitle", "otherFieldsText", "otherNote", "otherAmount", "otherDueDay"].forEach((id) => $(id).value = "");
+    $("otherFrequency").value = "monthly";
+    applyOtherModeFieldVisibility();
+    $("otherModalTitle").textContent = otherViewMode === "recurring" ? "เพิ่มค่าใช้จ่ายประจำ" : "เพิ่มข้อมูลอื่น";
     $("otherDeleteBtn").hidden = true;
     $("otherModal").hidden = false;
     pushNavState("other");
@@ -672,11 +721,17 @@ const Banking = (() => {
     const o = allOtherInfo.find((x) => x.id === id);
     if (!o) return;
     $("otherId").value = o.id;
+    $("otherKind").value = o.kind || "personal";
     $("otherCategory").value = o.category || "";
     $("otherTitle").value = o.title || "";
     $("otherFieldsText").value = o.fieldsText || "";
     $("otherNote").value = o.note || "";
-    $("otherModalTitle").textContent = "แก้ไขข้อมูล";
+    $("otherAmount").value = o.amount || "";
+    $("otherFrequency").value = o.frequency || "monthly";
+    $("otherDueDay").value = o.dueDay || "";
+    otherViewMode = o.kind === "recurring" ? "recurring" : "personal"; // form should match the item's own kind, not whatever the list happened to show last
+    applyOtherModeFieldVisibility();
+    $("otherModalTitle").textContent = otherViewMode === "recurring" ? "แก้ไขค่าใช้จ่ายประจำ" : "แก้ไขข้อมูล";
     $("otherDeleteBtn").hidden = false;
     $("otherModal").hidden = false;
     pushNavState("other");
@@ -685,16 +740,20 @@ const Banking = (() => {
   function closeOtherModal() { closeOtherModalVisual(); popNavState(); }
 
   async function saveOther() {
-    const category = $("otherCategory").value.trim();
+    const kind = $("otherKind").value || "personal";
     const title = $("otherTitle").value.trim();
-    if (!category || !title) { showToast("กรุณาใส่หมวดหมู่และหัวข้อ"); return; }
+    if (!title) { showToast("กรุณาใส่ชื่อ/หัวข้อ"); return; }
+    if (kind === "personal" && !$("otherCategory").value.trim()) { showToast("กรุณาใส่หมวดหมู่"); return; }
     const id = $("otherId").value;
     const existing = id ? allOtherInfo.find((x) => x.id === id) : null;
     const rec = {
       id: existing ? existing.id : uid(),
-      kind: "other",
-      category, title,
+      kind, title,
+      category: $("otherCategory").value.trim(),
       fieldsText: $("otherFieldsText").value,
+      amount: kind === "recurring" ? (parseFloat($("otherAmount").value) || 0) : null,
+      frequency: kind === "recurring" ? $("otherFrequency").value : null,
+      dueDay: kind === "recurring" ? $("otherDueDay").value.trim() : "",
       note: $("otherNote").value.trim(),
       deletedAt: null,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
@@ -795,6 +854,13 @@ const Banking = (() => {
       openEditOther(row.dataset.id);
     });
     $("otherSearchInput").addEventListener("input", renderOtherList);
+    $("otherModeFilter").addEventListener("click", (e) => {
+      const btn = e.target.closest(".entry-type-filter-btn");
+      if (!btn) return;
+      otherViewMode = btn.dataset.mode;
+      document.querySelectorAll("#otherModeFilter .entry-type-filter-btn").forEach((b) => b.classList.toggle("selected", b === btn));
+      renderOtherList();
+    });
     $("cleanupCorruptedOtherBtn").addEventListener("click", cleanupCorruptedOther);
   }
 
