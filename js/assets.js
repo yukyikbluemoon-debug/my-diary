@@ -656,26 +656,24 @@ const Assets = (() => {
     const wrap = $("assetDetailChartWrap");
     wrap.innerHTML = "";
     if (!symbol) return;
-    // Switched from the "auto-init" embed script (a <script> tag that's
-    // meant to read its own inline JSON config and inject an iframe on
-    // execution) to a plain iframe pointing at TradingView's widget page
-    // directly. The script version is written for scripts already present
-    // when the page is parsed — dynamically created+appended scripts often
-    // can't reliably find their own container via document.currentScript,
-    // so it can silently render nothing. A bare iframe has no such
-    // dependency and just works once given a URL.
-    const config = {
-      symbol, width: "100%", height: "220", locale: "th",
-      dateRange: "12M", colorTheme: "dark", isTransparent: true,
-    };
+    // Switched again — the mini-symbol-overview widget rendered its shell
+    // but showed "No data here yet" via direct iframe (its config format
+    // doesn't seem to match 1:1 with the auto-init script's JSON). This
+    // uses the classic, long-established '/widgetembed/' Advanced Chart
+    // iframe instead — a full interactive chart, and a much more widely
+    // used/documented URL pattern than the mini widget's direct-iframe form.
+    const params = new URLSearchParams({
+      symbol, interval: "D", theme: "Dark", style: "1",
+      timezone: "exchange", withdateranges: "1",
+      hidesidetoolbar: "1", hideideas: "1", saveimage: "0", locale: "th",
+    });
     const iframe = document.createElement("iframe");
-    iframe.src = `https://s.tradingview.com/embed-widget/mini-symbol-overview/#${encodeURIComponent(JSON.stringify(config))}`;
+    iframe.src = `https://s.tradingview.com/widgetembed/?${params.toString()}`;
     iframe.style.width = "100%";
-    iframe.style.height = "220px";
+    iframe.style.height = "320px";
     iframe.style.border = "none";
-    iframe.setAttribute("scrolling", "no");
-    iframe.setAttribute("allowtransparency", "true");
     iframe.setAttribute("frameborder", "0");
+    iframe.setAttribute("allowtransparency", "true");
     wrap.appendChild(iframe);
   }
 

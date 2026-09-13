@@ -327,6 +327,17 @@
                 <span class="switch-track"></span>
               </span>
             </label>
+
+            <label class="switch-row" for="entryTelegramToggle">
+              <span>
+                <span class="switch-label">📨 ส่งเข้า Telegram</span>
+                <span class="switch-sub">ปิดไว้เป็นค่าเริ่มต้น — ติ๊กเฉพาะรายการที่อยากให้ส่ง</span>
+              </span>
+              <span class="switch">
+                <input type="checkbox" id="entryTelegramToggle">
+                <span class="switch-track"></span>
+              </span>
+            </label>
           </div>
         </form>
       </div>
@@ -1421,6 +1432,17 @@
         </div>
         <p class="settings-note">⚠️ ข้อมูลบัญชีธนาคารทั้งหมด (รวมเลขบัญชีเต็ม/ประเภทบัญชี/สาขา/หมายเหตุ) ไม่เข้ารหัส — ใครก็ตามที่เปิดแอปได้จะเห็นข้อมูลนี้ ยอดคงเหลือคำนวณจากธุรกรรมที่เลือกบัญชีนี้โดยอัตโนมัติ</p>
 
+        <label class="switch-row" for="bankTelegramToggle">
+          <span>
+            <span class="switch-label">📨 ส่งเข้า Telegram</span>
+            <span class="switch-sub">ปิดไว้เป็นค่าเริ่มต้น — ติ๊กเฉพาะครั้งที่อยากส่ง</span>
+          </span>
+          <span class="switch">
+            <input type="checkbox" id="bankTelegramToggle">
+            <span class="switch-track"></span>
+          </span>
+        </label>
+
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="text-btn danger" id="bankDeleteBtn" hidden>ลบ</button>
           <div style="display:flex; gap:12px;">
@@ -1486,6 +1508,17 @@
           <input type="text" id="debtNote">
         </div>
         <p class="settings-note">⚠️ ข้อมูลหนี้สินไม่เข้ารหัส ใครก็ตามที่เปิดแอปได้จะเห็นข้อมูลนี้</p>
+
+        <label class="switch-row" for="debtTelegramToggle">
+          <span>
+            <span class="switch-label">📨 ส่งเข้า Telegram</span>
+            <span class="switch-sub">ปิดไว้เป็นค่าเริ่มต้น — ติ๊กเฉพาะครั้งที่อยากส่ง</span>
+          </span>
+          <span class="switch">
+            <input type="checkbox" id="debtTelegramToggle">
+            <span class="switch-track"></span>
+          </span>
+        </label>
 
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="text-btn danger" id="debtDeleteBtn" hidden>ลบ</button>

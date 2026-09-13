@@ -34,7 +34,7 @@ const EVENT_CATEGORY_ICONS = {
   "ซื้อของ": "🛍️", "ไปทำงาน": "💼", "เดินทาง": "✈️", "ซื้อหุ้น": "📈",
   "ได้เงิน": "💵", "จ่ายบิล": "🧾", "ซ่อมของ": "🔧", "ซื้อของมือสอง": "♻️", "อื่นๆ": "📌",
 };
-const APP_VERSION = "3.31.2";
+const APP_VERSION = "3.32.0";
 const APP_BUILD_DATE = "2026-09-13";
 
 const state = {
@@ -1621,6 +1621,7 @@ function resetWriteForm() {
   $("entryTags").value = "";
   $("entryPrivate").checked = false;
   $("entryPinnedCheckbox").checked = false;
+  $("entryTelegramToggle").checked = false;
   $("entryLocationToggle").checked = false;
   state.entryLocation = null;
   $("locationSubText").textContent = "ไม่บังคับ — ใช้ตำแหน่งคร่าวๆ จาก GPS";
@@ -1687,6 +1688,7 @@ async function openWriteForEdit(id) {
   $("entryTags").value = (data.tags || []).join(", ");
   $("entryPrivate").checked = !!rec.private;
   $("entryPinnedCheckbox").checked = !!rec.pinned;
+  $("entryTelegramToggle").checked = false; // a "send on this save" intent, not a stored preference — always starts unticked
   if (rec.entryType === "event") {
     populateEventCategorySelect(rec.eventCategory || "อื่นๆ");
     populateEventLinkTxSelect(rec.date, rec.linkedTxId || "");
@@ -1817,8 +1819,8 @@ $("saveEntryBtn").addEventListener("click", async () => {
     const idx = state.entries.findIndex((e) => e.id === id);
     if (idx >= 0) state.entries[idx] = rec; else state.entries.push(rec);
 
-    if (!existing && !isPrivate && typeof TelegramNotify !== "undefined") {
-      TelegramNotify.sendEntry(rec, rec, state.pendingAttachments); // fire-and-forget; never blocks the save, never sent if private
+    if (!existing && !isPrivate && $("entryTelegramToggle").checked && typeof TelegramNotify !== "undefined") {
+      TelegramNotify.sendEntry(rec, rec, state.pendingAttachments); // fire-and-forget; never blocks the save, never sent if private or unticked
     }
 
     clearDraft();

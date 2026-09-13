@@ -273,6 +273,7 @@ const Banking = (() => {
     $("bankId").value = "";
     ["bankName", "bankAccountName", "bankAccountType", "bankAccountNumber", "bankOwnerName", "bankBranch", "bankNote"].forEach((id) => $(id).value = "");
     $("bankLogoSelect").value = "";
+    $("bankTelegramToggle").checked = false;
     pendingCustomLogo = null;
     renderCustomLogoPreview();
     $("bankModalTitle").textContent = "เพิ่มบัญชีธนาคาร";
@@ -294,6 +295,7 @@ const Banking = (() => {
     $("bankBranch").value = a.branch || "";
     $("bankNote").value = a.note || "";
     $("bankLogoSelect").value = a.logoCode || "";
+    $("bankTelegramToggle").checked = false;
     pendingCustomLogo = a.customLogo || null;
     renderCustomLogoPreview();
     $("bankModalTitle").textContent = "แก้ไขบัญชีธนาคาร";
@@ -333,12 +335,14 @@ const Banking = (() => {
       updatedAt: new Date().toISOString(),
     };
     await DiaryDB.putBankAccount(rec);
+    const shouldSend = $("bankTelegramToggle").checked;
 
     closeBankModalVisual();
     popNavState();
     await loadBankAccounts();
     if (typeof Finance !== "undefined") Finance.render();
     showToast("บันทึกแล้ว");
+    if (shouldSend) sendBankToTelegram(rec.id);
   }
 
   async function deleteBank() {
@@ -557,6 +561,7 @@ const Banking = (() => {
   function openNewDebt() {
     $("debtId").value = "";
     ["debtName", "debtCreditor", "debtContractNumber", "debtOriginalAmount", "debtRemainingAmount", "debtInstallmentAmount", "debtDueDay", "debtStartDate", "debtEndDate", "debtNote"].forEach((id) => $(id).value = "");
+    $("debtTelegramToggle").checked = false;
     $("debtModalTitle").textContent = "เพิ่มหนี้สิน";
     $("debtDeleteBtn").hidden = true;
     $("debtModal").hidden = false;
@@ -576,6 +581,7 @@ const Banking = (() => {
     $("debtStartDate").value = d.startDate || "";
     $("debtEndDate").value = d.endDate || "";
     $("debtNote").value = d.note || "";
+    $("debtTelegramToggle").checked = false;
     $("debtModalTitle").textContent = "แก้ไขหนี้สิน";
     $("debtDeleteBtn").hidden = false;
     $("debtModal").hidden = false;
@@ -583,6 +589,24 @@ const Banking = (() => {
   }
   function closeDebtModalVisual() { $("debtModal").hidden = true; }
   function closeDebtModal() { closeDebtModalVisual(); popNavState(); }
+
+  async function sendDebtToTelegram(id) {
+    const d = allDebts.find((x) => x.id === id);
+    if (!d) return;
+    if (typeof TelegramNotify === "undefined" || !TelegramNotify.isConfigured()) {
+      showToast("ยังไม่ได้ตั้งค่า Telegram (ตั้งค่า → Telegram)");
+      return;
+    }
+    const lines = [`💳 ${d.debtName}`, `คงเหลือ: ${Finance.formatMoney(d.remainingAmount)}`];
+    if (d.originalAmount > 0) lines.push(`วงเงินคงเหลือ: ${Finance.formatMoney(d.originalAmount - d.remainingAmount)}`);
+    if (d.dueDay) lines.push(`ชำระวันที่: ${d.dueDay}`);
+    try {
+      await TelegramNotify.sendMessage(lines.join("\n"));
+      showToast("ส่งเข้า Telegram แล้ว");
+    } catch (err) {
+      showToast("ส่งไม่สำเร็จ: " + (err && err.message ? err.message : ""));
+    }
+  }
 
   async function saveDebt() {
     const debtName = $("debtName").value.trim();
@@ -607,10 +631,12 @@ const Banking = (() => {
       updatedAt: new Date().toISOString(),
     };
     await DiaryDB.putDebt(rec);
+    const shouldSend = $("debtTelegramToggle").checked;
     closeDebtModalVisual();
     popNavState();
     await loadDebtsAndOther();
     showToast("บันทึกแล้ว");
+    if (shouldSend) sendDebtToTelegram(rec.id);
   }
 
   async function deleteDebt() {
