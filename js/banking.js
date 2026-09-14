@@ -482,7 +482,6 @@ const Banking = (() => {
       const isDueSoon = daysUntilDue !== null && daysUntilDue <= threshold;
       const dueSoonText = daysUntilDue === 0 ? "ครบกำหนดชำระวันนี้!" : `ใกล้ครบกำหนดชำระ (อีก ${daysUntilDue} วัน)`;
       row.innerHTML = `
-        <button type="button" class="bank-send-btn debt-calc-btn" data-id="${d.id}" aria-label="คำนวณแผนผ่อน">📊</button>
         <div class="asset-row-body">
           <div class="asset-row-title">💳 ${escapeHTML(d.debtName)}</div>
           <div class="asset-row-sub">${original > 0 ? `วงเงินคงเหลือ <span class="money-blur">${Finance.formatMoney(available)}</span> · ` : ""}${d.dueDay ? `📅 ชำระวันที่ ${escapeHTML(d.dueDay)}` : "ไม่มีวันครบกำหนด"}</div>
@@ -495,6 +494,7 @@ const Banking = (() => {
             </div>
             <div class="debt-progress-percent ${barTier}">${paidPercent}%${paidPercent >= 100 ? " 🎉" : ""}</div>
           </div>${paidPercent >= 100 ? '<div class="debt-paid-off">🎉 ผ่อนหมดแล้ว!</div>' : ""}` : ""}
+          <button type="button" class="debt-calc-link debt-calc-btn" data-id="${d.id}">📊 คำนวณแผนผ่อน</button>
         </div>
         <div class="asset-row-value">
           <div class="asset-row-label">คงเหลือ</div>

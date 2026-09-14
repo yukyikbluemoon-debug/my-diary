@@ -1088,10 +1088,14 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
    one send-to-Telegram button. */
 #debtList .asset-row, #otherList .asset-row { padding-right: 14px; }
 #bankList .asset-row { padding-right: 78px; }
-#debtList .asset-row { align-items: flex-start; padding-right: 100px; padding-top: 18px; padding-bottom: 18px; margin-bottom: 12px; }
+#debtList .asset-row { align-items: flex-start; padding-top: 18px; padding-bottom: 18px; margin-bottom: 12px; }
 #debtList .asset-row-title { font-size: 16px; margin-bottom: 2px; }
 #debtList .asset-row-sub { font-size: 13px; line-height: 1.6; }
-#debtList .debt-calc-btn { top: auto; bottom: 12px; right: 12px; }
+.debt-calc-link {
+  display: inline-block; margin-top: 10px;
+  background: none; border: none; padding: 4px 0;
+  color: var(--sage); font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
 #debtList .asset-row-value { margin-top: 2px; }
 .asset-row-label { font-size: 11px; color: var(--paper-dim); margin-bottom: 2px; }
 .debt-amount-num { color: var(--amber); font-size: 16px; }
