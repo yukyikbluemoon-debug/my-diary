@@ -37,6 +37,7 @@
 
   --serif: "Noto Serif Thai", Georgia, "Iowan Old Style", serif;
   --sans: "Noto Sans Thai", -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --display: "Kanit", var(--sans); /* bold rounded display font for finance/stat numbers specifically — keeps var(--serif) for diary headers/titles, which suits the journaling feel better than a chunky dashboard font would */
 
   --radius-s: 6px;
   --radius-m: 12px;
@@ -785,7 +786,7 @@ input[type="range"]::-moz-range-track {
   text-align: center;
 }
 .stats-num {
-  font-family: var(--serif); font-weight: 700; color: var(--amber);
+  font-family: var(--display); font-weight: 700; color: var(--amber);
   font-size: 18px; /* starting size — js (fitStatsNums) shrinks per-card to whatever actually fits, so long full numbers show in full instead of "..." */
   white-space: nowrap;
   overflow: hidden;
@@ -802,7 +803,7 @@ input[type="range"]::-moz-range-track {
   padding: 14px;
 }
 .asset-type-card-label { font-size: 13px; color: var(--paper-dim); margin-bottom: 6px; }
-.asset-type-card-value { font-family: var(--serif); font-weight: 700; font-size: 20px; }
+.asset-type-card-value { font-family: var(--display); font-weight: 700; font-size: 20px; }
 .asset-type-card-gain { font-size: 12px; margin-top: 4px; font-weight: 600; }
 .asset-type-card-gain.positive { color: var(--sage); }
 .asset-type-card-gain.negative { color: var(--danger); }
@@ -840,7 +841,7 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
   align-items: center; justify-content: center; text-align: center; padding: 0 14px;
 }
 .asset-donut-center-label { font-size: 10px; color: var(--paper-dim); margin-bottom: 2px; }
-.asset-donut-center-value { font-family: var(--serif); font-weight: 700; font-size: 14px; line-height: 1.15; }
+.asset-donut-center-value { font-family: var(--display); font-weight: 700; font-size: 14px; line-height: 1.15; }
 .asset-donut-legend { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 8px; }
 .asset-donut-legend-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
 .asset-donut-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
@@ -862,7 +863,7 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
 .asset-log-delete-btn:hover { opacity: 1; }
 
 .asset-detail-price { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
-.asset-detail-price-num { font-family: var(--serif); font-weight: 700; font-size: 22px; }
+.asset-detail-price-num { font-family: var(--display); font-weight: 700; font-size: 22px; }
 .asset-detail-change { font-size: 13px; font-weight: 600; }
 .asset-detail-change.positive { color: var(--sage); }
 .asset-detail-change.negative { color: var(--danger); }
@@ -1048,7 +1049,7 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
   margin: 6px 0;
 }
-.debt-highlight-amounts { font-size: 15px; font-weight: 700; color: var(--paper); }
+.debt-highlight-amounts { font-size: 15px; font-weight: 700; color: var(--paper); font-family: var(--display); }
 .debt-highlight-amounts b { color: var(--amber); font-weight: 700; }
 .debt-highlight-date {
   font-size: 12.5px; font-weight: 700; color: var(--ink-900);
@@ -1076,7 +1077,7 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
 .debt-calc-compare.negative { color: var(--danger); }
 .asset-row-updated { font-size: 11px; color: var(--paper-dim); margin-top: 2px; font-style: italic; }
 .asset-row-value { text-align: right; flex-shrink: 0; }
-.asset-row-total { font-weight: 600; font-size: 14.5px; }
+.asset-row-total { font-weight: 700; font-size: 14.5px; font-family: var(--display); }
 .asset-row-gain { font-size: 12px; margin-top: 2px; }
 .asset-row-gain.positive { color: var(--sage); }
 .asset-row-gain.negative { color: var(--danger); }
