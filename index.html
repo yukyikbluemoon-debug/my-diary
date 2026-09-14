@@ -877,7 +877,20 @@
             <div class="search-wrap">
               <input type="search" id="debtSearchInput" placeholder="ค้นหาหนี้สิน เช่น ชื่อเจ้าหนี้...">
             </div>
+            <button type="button" class="icon-btn" id="debtFieldsBtn" aria-label="เลือกข้อมูลที่แสดง">👁️</button>
           </div>
+
+          <!-- Which extra fields/badges show per debt row — everyone
+               starts minimal (name + remaining amount only), pick more
+               back in if the list feels too sparse rather than too tall -->
+          <div id="debtFieldsPanel" class="debt-fields-panel" hidden>
+            <p class="settings-note">เลือกข้อมูลที่จะแสดงในการ์ดแต่ละใบ — ยอดคงเหลือโชว์เสมอ</p>
+            <label class="switch-row-compact"><input type="checkbox" id="debtFieldOriginal"> ยอดกู้เดิม</label>
+            <label class="switch-row-compact"><input type="checkbox" id="debtFieldAvailable"> วงเงินคงเหลือ</label>
+            <label class="switch-row-compact"><input type="checkbox" id="debtFieldInstallment"> ค่างวด/เดือน</label>
+            <label class="switch-row-compact"><input type="checkbox" id="debtFieldDueDay"> วันที่ชำระ</label>
+          </div>
+
           <button type="button" class="text-btn danger" id="cleanupCorruptedDebtsBtn" hidden style="margin-bottom:8px;"></button>
           <div id="debtList"></div>
           <div class="empty-state" id="debtEmptyState" hidden>

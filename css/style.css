@@ -259,6 +259,13 @@ body.money-masked .money-blur {
   align-items: center;
   margin-bottom: 12px;
 }
+.debt-fields-panel {
+  background: var(--ink-700); border: 1px solid var(--ink-500);
+  border-radius: var(--radius-m); padding: 12px 14px;
+  margin-bottom: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.switch-row-compact { display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; }
 .search-wrap { flex: 1; }
 #searchInput {
   width: 100%;

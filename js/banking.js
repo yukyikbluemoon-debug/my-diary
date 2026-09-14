@@ -432,6 +432,21 @@ const Banking = (() => {
     return daysUntil;
   }
 
+  const DEBT_FIELD_KEYS = ["original", "available", "installment", "dueDay"];
+  function getDebtFieldPrefs() {
+    // Everyone starts fully compact (title + the always-shown remaining
+    // amount only) — these are purely opt-in extras, not a default-on set
+    // trimmed down, per what was asked: the list felt too long/tall.
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem("diary_debt_fields") || "{}"); } catch (e) { saved = {}; }
+    const prefs = {};
+    DEBT_FIELD_KEYS.forEach((k) => { prefs[k] = !!saved[k]; });
+    return prefs;
+  }
+  function saveDebtFieldPrefs(prefs) {
+    localStorage.setItem("diary_debt_fields", JSON.stringify(prefs));
+  }
+
   function renderDebtList() {
     const q = ($("debtSearchInput") && $("debtSearchInput").value || "").trim().toLowerCase();
     const items = q
@@ -481,10 +496,16 @@ const Banking = (() => {
       const threshold = (typeof getDebtReminderDays === "function") ? getDebtReminderDays() : 5;
       const isDueSoon = daysUntilDue !== null && daysUntilDue <= threshold;
       const dueSoonText = daysUntilDue === 0 ? "ครบกำหนดชำระวันนี้!" : `ใกล้ครบกำหนดชำระ (อีก ${daysUntilDue} วัน)`;
+      const fields = getDebtFieldPrefs();
+      const detailParts = [];
+      if (fields.original) detailParts.push(`ยอดกู้ <span class="money-blur">${Finance.formatMoney(original)}</span>`);
+      if (fields.available && original > 0) detailParts.push(`วงเงินคงเหลือ <span class="money-blur">${Finance.formatMoney(available)}</span>`);
+      if (fields.installment) detailParts.push(`ค่างวด <span class="money-blur">${Finance.formatMoney(d.installmentAmount)}</span>/เดือน`);
+      if (fields.dueDay) detailParts.push(d.dueDay ? `📅 ชำระวันที่ ${escapeHTML(d.dueDay)}` : "ไม่มีวันครบกำหนด");
       row.innerHTML = `
         <div class="asset-row-body">
           <div class="asset-row-title">💳 ${escapeHTML(d.debtName)}</div>
-          <div class="asset-row-sub">${original > 0 ? `วงเงินคงเหลือ <span class="money-blur">${Finance.formatMoney(available)}</span> · ` : ""}${d.dueDay ? `📅 ชำระวันที่ ${escapeHTML(d.dueDay)}` : "ไม่มีวันครบกำหนด"}</div>
+          ${detailParts.length ? `<div class="asset-row-sub">${detailParts.join(" · ")}</div>` : ""}
           ${isDueSoon ? `<div class="debt-due-warning">⚠️ ${dueSoonText}</div>` : ""}
           ${d.note ? `<div class="debt-note-badge">📝 ${escapeHTML(d.note)}</div>` : ""}
           ${paidPercent !== null ? `
@@ -863,6 +884,27 @@ const Banking = (() => {
       openEditDebt(row.dataset.id);
     });
     $("debtSearchInput").addEventListener("input", renderDebtList);
+    $("debtFieldsBtn").addEventListener("click", () => {
+      const panel = $("debtFieldsPanel");
+      const opening = panel.hidden;
+      panel.hidden = !panel.hidden;
+      if (opening) {
+        const prefs = getDebtFieldPrefs();
+        $("debtFieldOriginal").checked = prefs.original;
+        $("debtFieldAvailable").checked = prefs.available;
+        $("debtFieldInstallment").checked = prefs.installment;
+        $("debtFieldDueDay").checked = prefs.dueDay;
+      }
+    });
+    $("debtFieldsPanel").addEventListener("change", () => {
+      saveDebtFieldPrefs({
+        original: $("debtFieldOriginal").checked,
+        available: $("debtFieldAvailable").checked,
+        installment: $("debtFieldInstallment").checked,
+        dueDay: $("debtFieldDueDay").checked,
+      });
+      renderDebtList();
+    });
     $("cleanupCorruptedDebtsBtn").addEventListener("click", cleanupCorruptedDebts);
     $("debtCalcCloseBtn").addEventListener("click", closeDebtCalcModal);
     $("debtCalcSlider").addEventListener("input", () => {
