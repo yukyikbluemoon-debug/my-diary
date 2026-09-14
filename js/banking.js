@@ -552,7 +552,7 @@ const Banking = (() => {
     if (installment > 0 && pay !== installment) {
       const currentMonths = Math.ceil(remaining / installment);
       const diff = currentMonths - months;
-      if (diff > 0) compareHtml = `<div class="debt-calc-compare positive">⚡ เร็วขึ้น ${diff} เดือน เทียบกับค่างวดปัจจุบัน (${Finance.formatMoney(installment)})</div>`;
+      if (diff > 0) compareHtml = `<div class="debt-calc-compare positive">⚡ เร็วขึ้น ${diff} เดือน เทียบกับค่างวดปัจจุบัน (<span class="money-blur">${Finance.formatMoney(installment)}</span>)</div>`;
       else if (diff < 0) compareHtml = `<div class="debt-calc-compare negative">🐢 ช้าลง ${Math.abs(diff)} เดือน เทียบกับค่างวดปัจจุบัน</div>`;
     }
     $("debtCalcResult").innerHTML = `

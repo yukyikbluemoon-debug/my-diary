@@ -548,7 +548,7 @@ const Assets = (() => {
       <div class="asset-log-row">
         <div class="asset-log-row-body">
           <div class="asset-log-row-title">${escapeHTML(l.name)} <span class="asset-log-action ${l.action === "BUY" ? "buy" : "sell"}">${l.action === "BUY" ? "ซื้อ" : "ขาย"}</span></div>
-          <div class="asset-log-row-sub">${formatFullThaiDate(l.date)} · จำนวน ${l.quantity}${l.price ? ` · ราคา ${Finance.formatMoney(l.price)}/หน่วย` : ""}</div>
+          <div class="asset-log-row-sub">${formatFullThaiDate(l.date)} · จำนวน ${l.quantity}${l.price ? ` · ราคา <span class="money-blur">${Finance.formatMoney(l.price)}</span>/หน่วย` : ""}</div>
         </div>
         <button type="button" class="asset-log-delete-btn" data-id="${l.id}" aria-label="ลบ">🗑️</button>
       </div>`).join("");
@@ -728,8 +728,8 @@ const Assets = (() => {
 
     el.innerHTML = `
       <div class="asset-detail-price">
-        <span class="asset-detail-price-num">${data.price} ${data.currency}</span>
-        <span class="asset-detail-change ${changeTier}">${changeSign}${data.change.toFixed(2)} (${changeSign}${data.changePct.toFixed(2)}%)</span>
+        <span class="asset-detail-price-num money-blur">${data.price} ${data.currency}</span>
+        <span class="asset-detail-change ${changeTier} money-blur">${changeSign}${data.change.toFixed(2)} (${changeSign}${data.changePct.toFixed(2)}%)</span>
       </div>
       <div class="asset-detail-table">
         ${rows.map(([label, value, tier]) => `

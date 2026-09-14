@@ -693,16 +693,6 @@ input[type="range"]::-moz-range-track {
   box-shadow: 0 0 0 1px var(--amber-dim), 0 4px 12px var(--accent-shadow);
 }
 
-.image-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-.image-thumb { position: relative; width: 72px; height: 72px; border-radius: var(--radius-s); overflow: hidden; }
-.image-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.image-thumb .remove-img {
-  position: absolute; top: 2px; right: 2px;
-  background: rgba(20,24,29,0.8); color: var(--paper);
-  border: none; border-radius: 50%; width: 20px; height: 20px;
-  font-size: 12px; cursor: pointer; line-height: 1;
-}
-
 .private-toggle-field {
   background: linear-gradient(155deg, var(--ink-700), var(--ink-800));
   border: 1px solid var(--plum-dim);
@@ -880,7 +870,6 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
 .asset-detail-val { font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 .asset-detail-val.positive { color: var(--sage); }
 .asset-detail-val.negative { color: var(--danger); }
-.tradingview-widget-container { border-radius: var(--radius-s); overflow: hidden; }
 
 .stat-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
 .stat-bar-label { width: 76px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -977,22 +966,6 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
 }
 .wallet-balance-amount { font-weight: 600; }
 .wallet-balance-amount.negative { color: var(--danger); }
-.wallet-group-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 14px;
-  background: linear-gradient(155deg, var(--ink-600), var(--ink-700));
-  border: 1px solid var(--amber-dim);
-  border-radius: var(--radius-m);
-  margin-bottom: 4px;
-  font-size: 14px;
-  cursor: pointer;
-}
-.wallet-group-title { display: flex; align-items: center; gap: 6px; }
-.wallet-group-toggle { font-size: 11px; color: var(--paper-dim); transition: transform 0.15s; }
-.wallet-group-header.expanded .wallet-group-toggle { transform: rotate(180deg); }
-.wallet-group-members { margin-bottom: 8px; padding-left: 12px; }
-.wallet-group-members.collapsed { display: none; }
-.wallet-sub-row { opacity: 0.85; font-size: 13px; padding: 8px 14px; }
 
 .asset-row {
   position: relative;
@@ -1032,7 +1005,6 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
 .debt-progress-percent.low { color: var(--danger); }
 .debt-progress-percent.mid { color: var(--amber); }
 .debt-progress-percent.high { color: var(--sage); }
-.debt-progress-label { font-size: 11px; color: var(--paper-dim); margin-top: 4px; }
 .debt-due-warning, .debt-paid-off, .debt-note-badge {
   font-size: 13px;
   font-weight: 700;
@@ -1178,19 +1150,6 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
   border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 12.5px;
 }
 .fin-meta-chip button { background: none; border: none; color: var(--paper-dim); font-size: 14px; cursor: pointer; padding: 2px; }
-.fin-meta-chip.batch-selected { border-color: var(--amber); background: var(--ink-600); }
-.fin-meta-batch-toolbar {
-  display: flex; gap: 8px; align-items: center;
-  margin: 8px 0;
-  padding: 8px;
-  background: var(--ink-800);
-  border: 1px solid var(--amber-dim);
-  border-radius: var(--radius-s);
-}
-.fin-meta-batch-toolbar input {
-  flex: 1; background: var(--ink-700); border: 1px solid var(--ink-500);
-  border-radius: var(--radius-s); padding: 8px 10px; font-size: 13px;
-}
 .fin-meta-add { display: flex; gap: 8px; }
 .fin-meta-add input {
   flex: 1; background: var(--ink-800); border: 1px solid var(--ink-500);
@@ -1482,12 +1441,6 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
    Location
    ============================================================ */
 .location-row { display: flex; align-items: center; gap: 10px; }
-.location-chip {
-  font-size: 12.5px; color: var(--sage);
-  border: 1px solid var(--sage);
-  border-radius: 999px;
-  padding: 3px 10px;
-}
 .detail-location { margin-bottom: 14px; }
 .detail-location a { color: var(--sage); font-size: 13.5px; text-decoration: none; }
 .detail-location a:hover { text-decoration: underline; }
