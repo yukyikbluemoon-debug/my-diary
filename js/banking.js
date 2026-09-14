@@ -228,6 +228,7 @@ const Banking = (() => {
           <div class="asset-row-sub">แตะเพื่อดูรายละเอียด</div>
         </div>
         <div class="asset-row-value">
+          <div class="asset-row-label">ยอดคงเหลือ</div>
           <div class="asset-row-total money-blur">${Finance.formatMoney(bal)}</div>
         </div>`;
       list.appendChild(row);
@@ -484,10 +485,7 @@ const Banking = (() => {
         <button type="button" class="bank-send-btn debt-calc-btn" data-id="${d.id}" aria-label="คำนวณแผนผ่อน">📊</button>
         <div class="asset-row-body">
           <div class="asset-row-title">💳 ${escapeHTML(d.debtName)}</div>
-          <div class="debt-highlight-row">
-            <span class="debt-highlight-amounts">คงเหลือ <b class="money-blur">${Finance.formatMoney(remaining)}</b>${original > 0 ? ` · วงเงิน <b class="money-blur">${Finance.formatMoney(available)}</b>` : ""}</span>
-            ${d.dueDay ? `<span class="debt-highlight-date">📅 ${escapeHTML(d.dueDay)}</span>` : ""}
-          </div>
+          <div class="asset-row-sub">${original > 0 ? `วงเงินคงเหลือ <span class="money-blur">${Finance.formatMoney(available)}</span> · ` : ""}${d.dueDay ? `📅 ชำระวันที่ ${escapeHTML(d.dueDay)}` : "ไม่มีวันครบกำหนด"}</div>
           ${isDueSoon ? `<div class="debt-due-warning">⚠️ ${dueSoonText}</div>` : ""}
           ${d.note ? `<div class="debt-note-badge">📝 ${escapeHTML(d.note)}</div>` : ""}
           ${paidPercent !== null ? `
@@ -497,6 +495,10 @@ const Banking = (() => {
             </div>
             <div class="debt-progress-percent ${barTier}">${paidPercent}%${paidPercent >= 100 ? " 🎉" : ""}</div>
           </div>${paidPercent >= 100 ? '<div class="debt-paid-off">🎉 ผ่อนหมดแล้ว!</div>' : ""}` : ""}
+        </div>
+        <div class="asset-row-value">
+          <div class="asset-row-label">คงเหลือ</div>
+          <div class="asset-row-total money-blur debt-amount-num">${Finance.formatMoney(remaining)}</div>
         </div>`;
       list.appendChild(row);
     });
