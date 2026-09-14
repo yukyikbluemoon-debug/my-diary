@@ -997,7 +997,7 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
 .asset-row {
   position: relative;
   display: flex; align-items: center; gap: 12px;
-  padding: 12px 68px 12px 14px;
+  padding: 12px 46px 12px 14px;
   background: linear-gradient(155deg, var(--ink-700), var(--ink-800));
   border: 1px solid var(--ink-600);
   border-radius: var(--radius-m);
@@ -1070,13 +1070,13 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
 .asset-row-gain.positive { color: var(--sage); }
 .asset-row-gain.negative { color: var(--danger); }
 .asset-quick-update-btn {
-  position: absolute; top: 10px; right: 10px;
+  position: absolute; top: 8px; right: 8px;
   background: none; border: none;
   font-size: 15px; opacity: 0.6; cursor: pointer; padding: 4px;
 }
 .asset-quick-update-btn:hover { opacity: 1; }
 .asset-send-btn {
-  position: absolute; top: 10px; right: 38px;
+  position: absolute; top: 34px; right: 8px;
   background: none; border: none;
   font-size: 15px; opacity: 0.6; cursor: pointer; padding: 4px;
 }
@@ -1085,9 +1085,11 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
 /* Banking & Liabilities rows reuse .asset-row but have no quick-update
    button (debts/other have no send button either), so they don't need the
    reserved right-hand padding for two buttons. Bank rows keep space for
-   one send-to-Telegram button. */
+   one send-to-Telegram button. Icon pairs stack vertically (not side by
+   side) so the reserved right-hand padding stays narrow, leaving more
+   width for the title/subtitle text. */
 #debtList .asset-row, #otherList .asset-row { padding-right: 14px; }
-#bankList .asset-row { padding-right: 78px; }
+#bankList .asset-row { padding-right: 46px; }
 #debtList .asset-row { align-items: flex-start; padding-top: 18px; padding-bottom: 18px; margin-bottom: 12px; }
 #debtList .asset-row-title { font-size: 16px; margin-bottom: 2px; }
 #debtList .asset-row-sub { font-size: 13px; line-height: 1.6; }
@@ -1100,13 +1102,13 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
 .asset-row-label { font-size: 11px; color: var(--paper-dim); margin-bottom: 2px; }
 .debt-amount-num { color: var(--amber); font-size: 16px; }
 .bank-send-btn {
-  position: absolute; top: 10px; right: 10px;
+  position: absolute; top: 8px; right: 8px;
   background: none; border: none;
   font-size: 15px; opacity: 0.6; cursor: pointer; padding: 4px;
 }
 .bank-send-btn:hover { opacity: 1; }
 .bank-pin-btn {
-  position: absolute; top: 10px; right: 44px;
+  position: absolute; top: 34px; right: 8px;
   background: none; border: none;
   font-size: 15px; opacity: 0.35; cursor: pointer; padding: 4px;
   transform: rotate(45deg);
