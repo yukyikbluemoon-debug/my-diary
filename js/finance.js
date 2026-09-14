@@ -296,6 +296,7 @@ const Finance = (() => {
     $("txExchangeRate").value = "";
     $("txAmount").value = "";
     $("txNote").value = "";
+    $("txTelegramToggle").checked = false;
     pendingTxAttachments = [];
     removedTxAttachmentIds = [];
     renderTxAttachStrip();
@@ -326,6 +327,7 @@ const Finance = (() => {
       setTxCurrency("THB");
     }
     $("txNote").value = tx.note || "";
+    $("txTelegramToggle").checked = false;
     const txAtts = await DiaryDB.getAttachmentsByEntry(tx.id);
     pendingTxAttachments = [];
     for (const a of txAtts) {
@@ -403,8 +405,8 @@ const Finance = (() => {
       });
     }
 
-    if (!existing && typeof TelegramNotify !== "undefined") {
-      TelegramNotify.sendTransaction(tx); // fire-and-forget, only on create (not edits)
+    if (!existing && $("txTelegramToggle").checked && typeof TelegramNotify !== "undefined") {
+      TelegramNotify.sendTransaction(tx); // fire-and-forget, only on create (not edits), only if this specific item was ticked
     }
 
     closeTxModalVisual();

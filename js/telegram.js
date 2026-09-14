@@ -183,7 +183,12 @@ const TelegramNotify = (() => {
   }
 
   async function sendTransaction(tx) {
-    if (!isConfigured() || !isFinanceForwardingEnabled()) return;
+    // Callers decide whether to send (per-item checkbox on new transactions,
+    // or the "include finance?" choice on the bulk resend-all action) —
+    // this function no longer re-checks isFinanceForwardingEnabled() itself,
+    // since that would silently block an explicit per-item request if the
+    // global setting happened to be off.
+    if (!isConfigured()) return;
     try {
       await sendMessage(buildTxText(tx));
     } catch (err) {

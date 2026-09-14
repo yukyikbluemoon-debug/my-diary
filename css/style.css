@@ -1037,6 +1037,7 @@ html[data-theme="mint"] .stats-num { color: var(--paper); } /* dark/near-black n
 .debt-calc-compare.negative { color: var(--danger); }
 .asset-row-updated { font-size: 11px; color: var(--paper-dim); margin-top: 2px; font-style: italic; }
 .asset-row-value { text-align: right; flex-shrink: 0; }
+.asset-row-chevron { color: var(--paper-dim); font-size: 18px; flex-shrink: 0; margin-left: -2px; }
 .asset-row-total { font-weight: 700; font-size: 14.5px; font-family: var(--display); }
 .asset-row-gain { font-size: 12px; margin-top: 2px; }
 .asset-row-gain.positive { color: var(--sage); }

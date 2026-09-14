@@ -190,7 +190,8 @@ const Assets = (() => {
       <div class="asset-row-value">
         <div class="asset-row-total money-blur">${Finance.formatMoney(value)}</div>
         <div class="asset-row-gain money-blur ${gain >= 0 ? "positive" : "negative"}">${gain >= 0 ? "+" : ""}${Finance.formatMoney(gain)} (${gainPct >= 0 ? "+" : ""}${gainPct.toFixed(1)}%)</div>
-      </div>`;
+      </div>
+      <span class="asset-row-chevron" aria-hidden="true">›</span>`;
   }
 
   function renderAssetList() {

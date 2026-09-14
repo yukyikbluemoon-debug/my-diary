@@ -555,12 +555,13 @@
             <span id="telegramStatusText">ยังไม่ได้ตั้งค่า</span>
           </div>
           <div class="settings-row">
-            <span>ส่งรายการเงินเข้า Telegram ด้วย</span>
+            <span>รวมรายการเงินตอนส่งย้อนหลังทั้งหมดด้วย</span>
             <span class="switch">
               <input type="checkbox" id="telegramSendFinanceToggle">
               <span class="switch-track"></span>
             </span>
           </div>
+          <p class="settings-note">ใช้เฉพาะกับปุ่ม "ส่งย้อนหลัง" ด้านล่าง — การสร้างรายการเงินใหม่แต่ละครั้งต้องติ๊ก "ส่งเข้า Telegram" ในฟอร์มเองเสมอ ไม่ส่งอัตโนมัติ</p>
           <div class="settings-row">
             <span>ส่งบันทึกเก่าย้อนหลังทั้งหมด</span>
             <button class="text-btn" id="telegramResendAllBtn">ส่งย้อนหลัง</button>
@@ -1024,6 +1025,17 @@
           </div>
           <div class="attach-strip" id="txAttachStrip"></div>
         </div>
+
+        <label class="switch-row" for="txTelegramToggle">
+          <span>
+            <span class="switch-label">📨 ส่งเข้า Telegram</span>
+            <span class="switch-sub">ปิดไว้เป็นค่าเริ่มต้น — ติ๊กเฉพาะครั้งที่อยากส่ง</span>
+          </span>
+          <span class="switch">
+            <input type="checkbox" id="txTelegramToggle">
+            <span class="switch-track"></span>
+          </span>
+        </label>
 
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="text-btn danger" id="txDeleteBtn" hidden>ลบ</button>
