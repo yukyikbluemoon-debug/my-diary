@@ -432,7 +432,7 @@ const Banking = (() => {
     return daysUntil;
   }
 
-  const DEBT_FIELD_KEYS = ["original", "available", "installment", "dueDay"];
+  const DEBT_FIELD_KEYS = ["original", "available", "installment", "dueDay", "progress", "calc"];
   function getDebtFieldPrefs() {
     // Everyone starts fully compact (title + the always-shown remaining
     // amount only) — these are purely opt-in extras, not a default-on set
@@ -508,14 +508,14 @@ const Banking = (() => {
           ${detailParts.length ? `<div class="asset-row-sub">${detailParts.join(" · ")}</div>` : ""}
           ${isDueSoon ? `<div class="debt-due-warning">⚠️ ${dueSoonText}</div>` : ""}
           ${d.note ? `<div class="debt-note-badge">📝 ${escapeHTML(d.note)}</div>` : ""}
-          ${paidPercent !== null ? `
+          ${paidPercent !== null && fields.progress ? `
           <div class="debt-progress-row">
             <div class="debt-progress-track">
               <div class="debt-progress-fill ${barTier}" style="width:${paidPercent}%;"></div>
             </div>
             <div class="debt-progress-percent ${barTier}">${paidPercent}%${paidPercent >= 100 ? " 🎉" : ""}</div>
           </div>${paidPercent >= 100 ? '<div class="debt-paid-off">🎉 ผ่อนหมดแล้ว!</div>' : ""}` : ""}
-          <button type="button" class="debt-calc-link debt-calc-btn" data-id="${d.id}">📊 คำนวณแผนผ่อน</button>
+          ${fields.calc ? `<button type="button" class="debt-calc-link debt-calc-btn" data-id="${d.id}">📊 คำนวณแผนผ่อน</button>` : ""}
         </div>
         <div class="asset-row-value">
           <div class="asset-row-label">คงเหลือ</div>
@@ -894,6 +894,8 @@ const Banking = (() => {
         $("debtFieldAvailable").checked = prefs.available;
         $("debtFieldInstallment").checked = prefs.installment;
         $("debtFieldDueDay").checked = prefs.dueDay;
+        $("debtFieldProgress").checked = prefs.progress;
+        $("debtFieldCalc").checked = prefs.calc;
       }
     });
     $("debtFieldsPanel").addEventListener("change", () => {
@@ -902,6 +904,8 @@ const Banking = (() => {
         available: $("debtFieldAvailable").checked,
         installment: $("debtFieldInstallment").checked,
         dueDay: $("debtFieldDueDay").checked,
+        progress: $("debtFieldProgress").checked,
+        calc: $("debtFieldCalc").checked,
       });
       renderDebtList();
     });
